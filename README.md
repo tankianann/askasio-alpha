@@ -1,8 +1,10 @@
 # RAG Server
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestone 1 provides the production-oriented application foundation; administrator authentication, sources, ingestion, retrieval, and chat arrive in later milestones.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1 and 2 provide the application foundation and secure single-administrator interface; sources, ingestion, retrieval, and chat arrive in later milestones.
 
-## Milestone 1 functionality
+## Implemented functionality
+
+### Foundation
 
 - PHP 8.3+ front controller with `/public` as the only web root
 - Immutable environment-backed configuration
@@ -13,6 +15,19 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Rotating Monolog files outside the public root
 - `GET /api/v1/health`, including non-sensitive database availability
 - PHPUnit unit/integration-style tests that make no external requests
+
+### Administrator authentication
+
+- Single administrator stored in MySQL with normalized unique username
+- Interactive `php bin/create-admin.php` command
+- Argon2id password hashing when supported, with secure fallback and automatic rehashing
+- Login and logout with generic authentication failures
+- Strict, cookie-only PHP sessions with idle expiry and periodic ID regeneration
+- Session ID regeneration after successful login and invalidation on logout
+- `HttpOnly`, `SameSite=Lax`, and request-aware `Secure` cookies
+- Session-bound 256-bit CSRF tokens on every state-changing administrator form
+- MySQL-backed login throttling by HMAC-hashed username and IP
+- Protected, responsive server-rendered administrator layout and dashboard
 
 ## Requirements
 
@@ -59,19 +74,40 @@ php -m | grep -E 'json|PDO|pdo_mysql'
    php bin/migrate.php
    ```
 
-5. Start the application with `/public` as the document root:
+5. Create the single administrator. Password input is hidden on an interactive terminal:
+
+   ```bash
+   php bin/create-admin.php
+   ```
+
+   Usernames are normalized to lowercase and must be 3-64 characters. Passwords must contain at least 12 characters. The command refuses to create a second administrator.
+
+6. Start the application with `/public` as the document root:
 
    ```bash
    php -S 127.0.0.1:8080 -t public public/index.php
    ```
 
-6. Check health:
+7. Check health and open the administrator interface:
 
    ```bash
    curl -i http://127.0.0.1:8080/api/v1/health
    ```
 
+   Open `http://127.0.0.1:8080/admin/login` in a browser.
+
 The endpoint returns HTTP 200 when both application and database are healthy, or HTTP 503 with `database: unavailable` when the database cannot be reached. It never returns credentials, hostnames, exception messages, or stack traces.
+
+## Laravel Herd
+
+When the repository is parked in Herd, Herd should serve `public/` as the document root. Configure the local URL to match the secured Herd site:
+
+```dotenv
+APP_URL=https://ragserver.test
+SESSION_SECURE_COOKIE=auto
+```
+
+Then visit `https://ragserver.test`. The root route redirects to the protected administrator dashboard, and unauthenticated visitors are redirected to `/admin/login`. In `auto` mode the session cookie receives the `Secure` attribute whenever the current request uses HTTPS.
 
 ## Optional Docker database
 
@@ -98,6 +134,21 @@ composer validate --strict
 
 Copy `.env.example` to `.env`; `.env` is git-ignored. Provider secrets are present only as empty configuration entries for future milestones and are not loaded into responses or logs.
 
+`APP_SECRET` is mandatory from Milestone 2 onward and must contain at least 32 characters. It keys the HMAC identifiers used by login throttling and must remain stable; rotating it clears the effective relationship with existing throttle records.
+
+Authentication defaults can be changed through:
+
+```dotenv
+SESSION_NAME=rag_admin_session
+SESSION_IDLE_MINUTES=120
+SESSION_REGENERATE_MINUTES=15
+SESSION_SECURE_COOKIE=auto
+LOGIN_MAX_ATTEMPTS=5
+LOGIN_WINDOW_MINUTES=15
+```
+
+Use `SESSION_SECURE_COOKIE=always` when the application must only be accessed over HTTPS. `auto` derives the setting from the direct request. Forwarded proxy headers are intentionally not trusted; a reverse-proxy deployment needs an explicit trusted-proxy policy before secure-cookie detection should use those headers.
+
 Always configure a web server with `public/` as its document root. Serving the repository root could expose application and operational files despite the front-controller design.
 
 Use `APP_DEBUG=false` in production. Unexpected errors always produce a generic response and a request ID; enabling development debugging never exposes stack traces or exception messages to HTTP clients. Details remain in `storage/logs/`, with credential-shaped context recursively redacted. Logs rotate daily and retain 14 files by default. Questions will not be logged unless `LOG_API_QUESTIONS=true` is explicitly configured in a future API milestone.
@@ -110,6 +161,6 @@ Migration filenames are ordered and immutable once deployed. Each file returns a
 
 MySQL and MariaDB may implicitly commit DDL statements. The runner uses transactions when the driver keeps them active, but schema changes cannot be assumed to roll back on every supported server. Write forward-fix migrations for deployed schema changes instead of editing an applied migration.
 
-## Milestone boundaries
+## Current milestone boundary
 
-Milestone 1 intentionally does not include administrator sessions, source tables, upload handling, background jobs, AI providers, API keys, or RAG endpoints. The next milestone will add the administrator table, CLI account creation, secure session authentication, CSRF defenses, login throttling, and the protected server-rendered admin shell.
+Milestone 2 intentionally does not include source tables, uploads, background jobs, AI providers, API keys, or RAG endpoints. The dashboard identifies source management as pending rather than presenting non-functional controls. Milestone 3 will add sources, immutable source versions, URL/file creation flows, source details, history, disablement, and soft deletion.

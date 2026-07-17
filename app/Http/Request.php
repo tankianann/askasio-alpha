@@ -20,6 +20,8 @@ final class Request
         private readonly string $rawBody = '',
         private readonly array $parsedBody = [],
         private readonly array $attributes = [],
+        private readonly string $clientIp = '0.0.0.0',
+        private readonly bool $secure = false,
     ) {
     }
 
@@ -51,6 +53,10 @@ final class Request
             $_GET,
             $rawBody === false ? '' : $rawBody,
             $_POST,
+            [],
+            (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
+            (isset($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+                || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443,
         );
     }
 
@@ -91,6 +97,16 @@ final class Request
         return $this->rawBody;
     }
 
+    public function clientIp(): string
+    {
+        return $this->clientIp;
+    }
+
+    public function isSecure(): bool
+    {
+        return $this->secure;
+    }
+
     public function attribute(string $key, mixed $default = null): mixed
     {
         return $this->attributes[$key] ?? $default;
@@ -109,6 +125,8 @@ final class Request
             $this->rawBody,
             $this->parsedBody,
             $attributes,
+            $this->clientIp,
+            $this->secure,
         );
     }
 

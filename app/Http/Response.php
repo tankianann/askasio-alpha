@@ -33,6 +33,15 @@ final class Response
         return new self($html, $status, ['Content-Type' => 'text/html; charset=utf-8']);
     }
 
+    public static function redirect(string $location, int $status = 302): self
+    {
+        if (!str_starts_with($location, '/') || str_starts_with($location, '//')) {
+            throw new \InvalidArgumentException('Redirect locations must be local absolute paths.');
+        }
+
+        return new self('', $status, ['Location' => $location]);
+    }
+
     public function withHeader(string $name, string $value): self
     {
         if (preg_match('/[\r\n]/', $name . $value) === 1) {

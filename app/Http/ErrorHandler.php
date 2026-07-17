@@ -46,7 +46,12 @@ final class ErrorHandler
             ], $status)->withHeader('X-Request-ID', $requestId));
         }
 
-        $title = $status === 404 ? 'Page not found' : 'Something went wrong';
+        $title = match ($status) {
+            404 => 'Page not found',
+            419 => 'Form session expired',
+            429 => 'Too many requests',
+            default => 'Something went wrong',
+        };
         $message = $safeMessage;
         $view = $status === 404 ? '404.php' : '500.php';
 

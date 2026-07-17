@@ -31,6 +31,7 @@
         "sort-packages": true
     },
     "scripts": {
+        "create-admin": "@php bin/create-admin.php",
         "test": "phpunit",
         "migrate": "@php bin/migrate.php"
     }
