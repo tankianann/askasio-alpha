@@ -10,6 +10,7 @@ use App\Auth\PasswordHasher;
 use App\Controllers\Admin\AuthController;
 use App\Controllers\Admin\DashboardController;
 use App\Controllers\Admin\SourceController;
+use App\Controllers\Admin\JobController;
 use App\Database\Connection;
 use App\Http\ErrorHandler;
 use App\Http\Middleware\AdminAuthenticationMiddleware;
@@ -22,11 +23,13 @@ use App\Logging\LoggerFactory;
 use App\Repositories\PdoAdminRepository;
 use App\Repositories\PdoLoginAttemptRepository;
 use App\Repositories\PdoSourceRepository;
+use App\Repositories\PdoIngestionJobRepository;
 use App\Security\CsrfTokenManager;
 use App\Security\SourceUploadValidator;
 use App\Security\UrlSourceValidator;
 use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
+use App\Services\Ingestion\IngestionQueue;
 use App\Support\Config;
 use App\Support\ViewRenderer;
 use Dotenv\Dotenv;
@@ -54,6 +57,14 @@ $connection = new Connection($config);
 $admins = new PdoAdminRepository($connection);
 $loginAttempts = new PdoLoginAttemptRepository($connection);
 $sources = new PdoSourceRepository($connection);
+$jobRepository = new PdoIngestionJobRepository($connection);
+$queue = new IngestionQueue(
+    $jobRepository,
+    $config->requireInt('queue.max_attempts'),
+    $config->requireInt('queue.retry_base_seconds'),
+    $config->requireInt('queue.retry_maximum_seconds'),
+    $config->requireInt('queue.abandoned_timeout_minutes') * 60,
+);
 $session = new NativeSessionStore(
     $config->requireString('auth.session_name'),
     $config->requireInt('auth.session_idle_minutes') * 60,
@@ -90,6 +101,7 @@ $sourceCreation = new SourceCreationService(
     new UrlSourceValidator(),
     new SourceUploadValidator($config->requireInt('app.max_upload_size_mb') * 1024 * 1024),
     new SourceFileStorage($resolvedStoragePath),
+    $queue,
 );
 $router = new Router();
 $router->middleware(new RequestIdMiddleware());
@@ -109,6 +121,7 @@ $dashboardController = new DashboardController(
     $csrf,
     $config->requireString('app.env'),
     $sources,
+    $queue,
 );
 $sourceController = new SourceController(
     $sources,
@@ -118,6 +131,13 @@ $sourceController = new SourceController(
     $session,
     $config->requireString('app.env'),
     $config->requireInt('app.max_upload_size_mb'),
+    $queue,
+);
+$jobController = new JobController(
+    $queue,
+    $views,
+    $csrf,
+    $config->requireString('app.env'),
 );
 $sessionMiddleware = new SessionStartMiddleware($session);
 $adminAuthenticationMiddleware = new AdminAuthenticationMiddleware($session, $admins);
@@ -137,6 +157,7 @@ $registerRoutes(
     $adminAuthenticationMiddleware,
     $csrfMiddleware,
     $sourceController,
+    $jobController,
 );
 
 return [

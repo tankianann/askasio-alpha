@@ -13,17 +13,21 @@ use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
 use PHPUnit\Framework\TestCase;
 use Tests\Fakes\InMemorySourceRepository;
+use Tests\Fakes\InMemoryIngestionJobRepository;
+use App\Services\Ingestion\IngestionQueue;
 
 final class SourceCreationServiceTest extends TestCase
 {
     public function testItCreatesAUrlSourceAndImmutablePendingVersion(): void
     {
         $repository = new InMemorySourceRepository();
+        $jobs = new InMemoryIngestionJobRepository();
         $service = new SourceCreationService(
             $repository,
             new UrlSourceValidator(),
             new SourceUploadValidator(1024),
             new SourceFileStorage(sys_get_temp_dir()),
+            new IngestionQueue($jobs, 3, 30, 3600, 900),
         );
 
         $source = $service->createUrl('  Refund policy  ', 'https://example.com/refunds');
@@ -36,6 +40,7 @@ final class SourceCreationServiceTest extends TestCase
         self::assertSame('https://example.com/refunds', $versions[0]->originalUrl);
         self::assertSame(ProcessingStatus::Pending, $versions[0]->processingStatus);
         self::assertNull($source->activeVersionId);
+        self::assertSame(1, $jobs->counts()['pending']);
     }
 
     public function testItRejectsInvalidNamesBeforeCreatingRecords(): void
@@ -46,6 +51,7 @@ final class SourceCreationServiceTest extends TestCase
             new UrlSourceValidator(),
             new SourceUploadValidator(1024),
             new SourceFileStorage(sys_get_temp_dir()),
+            new IngestionQueue(new InMemoryIngestionJobRepository(), 3, 30, 3600, 900),
         );
 
         try {

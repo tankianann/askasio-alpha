@@ -6,6 +6,7 @@ use App\Controllers\Api\HealthController;
 use App\Controllers\Admin\AuthController;
 use App\Controllers\Admin\DashboardController;
 use App\Controllers\Admin\SourceController;
+use App\Controllers\Admin\JobController;
 use App\Http\Middleware\AdminAuthenticationMiddleware;
 use App\Http\Middleware\CsrfMiddleware;
 use App\Http\Middleware\SessionStartMiddleware;
@@ -23,6 +24,7 @@ return [
         AdminAuthenticationMiddleware $adminAuthenticationMiddleware,
         CsrfMiddleware $csrfMiddleware,
         SourceController $sourceController,
+        JobController $jobController,
     ): void {
         $router->group('/api/v1', [], static function (Router $router) use ($healthController): void {
             $router->get('/health', $healthController, name: 'api.v1.health');
@@ -35,7 +37,7 @@ return [
         $router->group(
             '/admin',
             [$sessionMiddleware, $adminAuthenticationMiddleware, $csrfMiddleware],
-            static function (Router $router) use ($authController, $dashboardController, $sourceController): void {
+            static function (Router $router) use ($authController, $dashboardController, $sourceController, $jobController): void {
                 $router->get('/', $dashboardController, name: 'admin.dashboard');
                 $router->post('/logout', [$authController, 'logout'], name: 'admin.logout');
                 $router->get('/sources', [$sourceController, 'index'], name: 'admin.sources.index');
@@ -45,6 +47,7 @@ return [
                 $router->post('/sources/{sourceId}/disable', [$sourceController, 'disable'], name: 'admin.sources.disable');
                 $router->post('/sources/{sourceId}/enable', [$sourceController, 'enable'], name: 'admin.sources.enable');
                 $router->post('/sources/{sourceId}/delete', [$sourceController, 'delete'], name: 'admin.sources.delete');
+                $router->get('/jobs', $jobController, name: 'admin.jobs.index');
             },
         );
     },

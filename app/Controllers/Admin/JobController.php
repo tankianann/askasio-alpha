@@ -8,18 +8,16 @@ use App\Domain\Admin\AdminUser;
 use App\Http\Request;
 use App\Http\Response;
 use App\Security\CsrfTokenManager;
-use App\Repositories\SourceRepositoryInterface;
-use App\Support\ViewRenderer;
 use App\Services\Ingestion\IngestionQueue;
+use App\Support\ViewRenderer;
 
-final class DashboardController
+final class JobController
 {
     public function __construct(
+        private readonly IngestionQueue $queue,
         private readonly ViewRenderer $views,
         private readonly CsrfTokenManager $csrf,
         private readonly string $environment,
-        private readonly SourceRepositoryInterface $sources,
-        private readonly IngestionQueue $queue,
     ) {
     }
 
@@ -31,17 +29,15 @@ final class DashboardController
             throw new \LogicException('Authenticated administrator is missing from the request.');
         }
 
-        $queueCounts = $this->queue->counts();
-
-        return Response::html($this->views->render('admin/dashboard', [
-            'title' => 'Dashboard',
+        return Response::html($this->views->render('jobs/index', [
+            'title' => 'Ingestion jobs',
             'admin' => $admin,
             'csrfToken' => $this->csrf->token(),
             'environment' => $this->environment,
-            'currentSection' => 'dashboard',
-            'activeSourceCount' => $this->sources->countEnabled(),
-            'pendingJobCount' => $queueCounts['pending'],
-            'failedJobCount' => $queueCounts['failed'],
+            'currentSection' => 'jobs',
+            'jobs' => $this->queue->recent(100),
+            'counts' => $this->queue->counts(),
+            'pipelineAvailable' => false,
         ], 'layouts/admin'));
     }
 }

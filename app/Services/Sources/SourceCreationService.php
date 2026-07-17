@@ -11,6 +11,7 @@ use App\Http\UploadedFile;
 use App\Repositories\SourceRepositoryInterface;
 use App\Security\SourceUploadValidator;
 use App\Security\UrlSourceValidator;
+use App\Services\Ingestion\IngestionQueue;
 use Throwable;
 
 final class SourceCreationService
@@ -20,6 +21,7 @@ final class SourceCreationService
         private readonly UrlSourceValidator $urls,
         private readonly SourceUploadValidator $uploads,
         private readonly SourceFileStorage $storage,
+        private readonly IngestionQueue $queue,
     ) {
     }
 
@@ -30,7 +32,8 @@ final class SourceCreationService
 
         return $this->sources->transaction(function () use ($name, $url): Source {
             $source = $this->sources->createSource($name, SourceType::Url);
-            $this->sources->createUrlVersion($source->id, $url);
+            $version = $this->sources->createUrlVersion($source->id, $url);
+            $this->queue->enqueue($version->id);
 
             return $source;
         });
@@ -56,7 +59,7 @@ final class SourceCreationService
             ): Source {
                 $source = $this->sources->createSource($name, $type);
                 $storedPath = $this->storage->store($file, $source->id, $type);
-                $this->sources->createFileVersion(
+                $version = $this->sources->createFileVersion(
                     $source->id,
                     $file->originalName(),
                     $storedPath,
@@ -64,6 +67,7 @@ final class SourceCreationService
                     $mimeType,
                     $fileSize,
                 );
+                $this->queue->enqueue($version->id);
 
                 return $source;
             });

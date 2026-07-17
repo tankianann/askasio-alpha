@@ -192,6 +192,12 @@ a:focus-visible {
     background: #edf8f3;
 }
 
+.alert-warning {
+    border: 1px solid #efd39f;
+    color: #714c15;
+    background: #fff7e8;
+}
+
 .admin-body {
     display: block;
     min-width: 20rem;
@@ -645,6 +651,55 @@ code {
     box-shadow: 0 0 0 4px rgb(207 139 50 / 12%);
 }
 
+.status-dot-failed {
+    background: #bd4141;
+    box-shadow: 0 0 0 4px rgb(189 65 65 / 12%);
+}
+
+.dashboard-jobs {
+    margin-top: 1rem;
+}
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.metric-card {
+    display: grid;
+    gap: 0.4rem;
+    padding: 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 0.85rem;
+    background: var(--surface);
+}
+
+.metric-card span,
+.table-subtitle {
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.metric-card strong {
+    font-size: 1.8rem;
+}
+
+.table-subtitle {
+    display: block;
+    margin-top: 0.2rem;
+}
+
+.error-cell {
+    max-width: 24rem;
+    overflow-wrap: anywhere;
+}
+
+.compact-panel {
+    padding: 1.25rem;
+}
+
 @media (max-width: 44rem) {
     .account-name {
         display: none;
@@ -670,7 +725,8 @@ code {
 
     .choice-grid,
     .metadata-panel,
-    .definition-grid {
+    .definition-grid,
+    .metric-grid {
         grid-template-columns: 1fr;
     }
 

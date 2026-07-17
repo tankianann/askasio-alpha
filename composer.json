@@ -33,7 +33,9 @@
     },
     "scripts": {
         "create-admin": "@php bin/create-admin.php",
+        "process-jobs": "@php bin/process-jobs.php --once",
         "test": "phpunit",
-        "migrate": "@php bin/migrate.php"
+        "migrate": "@php bin/migrate.php",
+        "worker": "@php bin/worker.php"
     }
 }

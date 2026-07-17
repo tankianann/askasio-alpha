@@ -1,6 +1,6 @@
 # RAG Server
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–3 provide the application foundation, secure single-administrator interface, and versioned source management; ingestion, retrieval, and chat arrive in later milestones.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–4 provide the application foundation, secure single-administrator interface, versioned source management, and durable ingestion queue; extraction, retrieval, and chat arrive in later milestones.
 
 ## Implemented functionality
 
@@ -41,6 +41,19 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - SHA-256 hashing for uploaded files
 - Cryptographically randomized stored filenames outside `/public`
 - Transactional source/version creation with failed-file cleanup
+
+### Ingestion job queue
+
+- MySQL-backed ingestion jobs created in the same transaction as each source version
+- Migration backfill for existing pending source versions
+- Atomic priority/availability claiming with `FOR UPDATE SKIP LOCKED`
+- Unique worker reservations and ownership checks on completion/failure
+- Configurable maximum attempts and exponential retry delays
+- Permanent failure handling that updates the source-version processing status
+- Recovery of reservations abandoned by crashed workers
+- Long-running and cron-friendly CLI entry points
+- Structured, secret-redacted claim/completion/failure/recovery logs
+- Dashboard queue counts, dedicated Jobs screen, and per-source job history
 
 ## Requirements
 
@@ -123,6 +136,7 @@ SESSION_SECURE_COOKIE=auto
 Then visit `https://ragserver.test`. The root route redirects to the protected administrator dashboard, and unauthenticated visitors are redirected to `/admin/login`. In `auto` mode the session cookie receives the `Secure` attribute whenever the current request uses HTTPS.
 
 After signing in, source management is available at `https://ragserver.test/admin/sources`.
+Queue status is available at `https://ragserver.test/admin/jobs`.
 
 ## Optional Docker database
 
@@ -188,7 +202,47 @@ post_max_size=22M
 
 The application independently checks the actual temporary-file size, reported size, extension, detected MIME type, and format signature/text encoding. Original filenames are stored only as metadata and are never used as filesystem names. Source files are preserved during soft deletion.
 
-URL creation does not perform a network request in Milestone 3. The current policy rejects obvious unsafe destinations. Milestone 5 will additionally resolve and validate every destination IP immediately before connecting and repeat validation after each redirect.
+URL creation does not currently perform a network request. The current policy rejects obvious unsafe destinations. Milestone 5 will additionally resolve and validate every destination IP immediately before connecting and repeat validation after each redirect.
+
+## Ingestion queue and workers
+
+New source versions and their ingestion jobs are committed together. A job moves through:
+
+```text
+pending -> processing -> completed
+                    \-> pending (retry with delay)
+                    \-> failed (permanent or attempts exhausted)
+```
+
+Worker behavior is configured through:
+
+```dotenv
+JOB_MAX_ATTEMPTS=3
+JOB_RETRY_BASE_SECONDS=30
+JOB_RETRY_MAX_SECONDS=3600
+JOB_ABANDONED_TIMEOUT_MINUTES=15
+JOB_POLL_SECONDS=2
+```
+
+The one-shot command is designed for cron:
+
+```bash
+php bin/process-jobs.php --once
+```
+
+The long-running worker is:
+
+```bash
+php bin/worker.php
+```
+
+Milestone 4 intentionally leaves the extraction processor unavailable because extractors arrive in Milestone 5. Both commands currently exit with status `2` and a clear message without claiming or changing pending jobs. Once the Milestone 5 processor is connected, a cron entry can run the one-shot command, for example:
+
+```cron
+* * * * * cd /absolute/path/to/ragserver && /absolute/path/to/php bin/process-jobs.php --once
+```
+
+Unexpected exception messages are written only to the secret-redacted application log. The job table and administrator UI receive a generic reference. Controlled ingestion exceptions may provide a deliberately safe operational message.
 
 ## Migration policy
 
@@ -198,4 +252,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-Milestone 3 intentionally does not fetch URLs, extract document text, create chunks, queue jobs, generate embeddings, or activate versions. Newly created versions remain honestly marked `pending`, and `active_version_id` remains empty until a later ingestion worker succeeds. Milestone 4 will add the MySQL-backed ingestion queue, atomic claiming, retry/failure handling, worker commands, and processing-status operations.
+Milestone 4 intentionally does not fetch URLs, extract document text, create chunks, generate embeddings, or activate versions. Jobs remain pending because the CLI refuses to claim work until a real processor is configured. Milestone 5 will add URL/Markdown/PDF extractors, extracted-document models, semantic chunking, content metadata/hash handling, and the production processor that activates the worker engine.

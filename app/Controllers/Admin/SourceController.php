@@ -16,6 +16,7 @@ use App\Repositories\SourceRepositoryInterface;
 use App\Security\CsrfTokenManager;
 use App\Services\Sources\SourceCreationService;
 use App\Support\ViewRenderer;
+use App\Services\Ingestion\IngestionQueue;
 use ValueError;
 
 final class SourceController
@@ -30,6 +31,7 @@ final class SourceController
         private readonly SessionStoreInterface $session,
         private readonly string $environment,
         private readonly int $maximumUploadMegabytes,
+        private readonly IngestionQueue $queue,
     ) {
     }
 
@@ -97,6 +99,7 @@ final class SourceController
             ...$this->layoutData($request, $source->name),
             'source' => $source,
             'versions' => $this->sources->versionsForSource($source->id),
+            'jobs' => $this->queue->forSource($source->id),
             'success' => $this->session->pull(self::FLASH_SUCCESS),
         ], 'layouts/admin'));
     }

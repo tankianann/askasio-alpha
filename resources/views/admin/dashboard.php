@@ -23,3 +23,21 @@
         </div>
     </article>
 </section>
+
+<section class="status-grid dashboard-jobs" aria-label="Ingestion queue">
+    <article class="status-card">
+        <span class="status-dot <?= $pendingJobCount > 0 ? 'status-dot-pending' : 'status-dot-ready' ?>" aria-hidden="true"></span>
+        <div>
+            <h2>Pending jobs</h2>
+            <p><strong><?= $escape($pendingJobCount) ?></strong> waiting for ingestion.</p>
+            <p><a class="text-link" href="/admin/jobs">View queue</a></p>
+        </div>
+    </article>
+    <article class="status-card">
+        <span class="status-dot <?= $failedJobCount > 0 ? 'status-dot-failed' : 'status-dot-ready' ?>" aria-hidden="true"></span>
+        <div>
+            <h2>Failed jobs</h2>
+            <p><strong><?= $escape($failedJobCount) ?></strong> permanently failed.</p>
+        </div>
+    </article>
+</section>

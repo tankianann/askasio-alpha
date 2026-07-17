@@ -28,6 +28,35 @@
     <?php endif; ?>
 </div>
 
+<section class="section-heading">
+    <div>
+        <h2>Ingestion jobs</h2>
+        <p class="muted">Queue attempts and operational errors for this source.</p>
+    </div>
+</section>
+
+<?php if ($jobs === []): ?>
+    <div class="panel compact-panel muted">No ingestion jobs are associated with this source.</div>
+<?php else: ?>
+    <div class="table-card">
+        <table>
+            <thead><tr><th>Job</th><th>Version</th><th>Status</th><th>Attempts</th><th>Available</th><th>Last error</th></tr></thead>
+            <tbody>
+            <?php foreach ($jobs as $job): ?>
+                <tr>
+                    <td>#<?= $escape($job->id) ?></td>
+                    <td><?= $escape($job->versionNumber) ?></td>
+                    <td><span class="badge badge-<?= $escape($job->status->value) ?>"><?= $escape(ucfirst($job->status->value)) ?></span></td>
+                    <td><?= $escape($job->attempts) ?> / <?= $escape($job->maxAttempts) ?></td>
+                    <td><?= $escape($formatDate($job->availableAt)) ?></td>
+                    <td class="error-cell"><?= $job->lastError === null ? '—' : $escape($job->lastError) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif; ?>
+
 <?php if (is_string($success) && $success !== ''): ?>
     <div class="alert alert-success" role="status"><?= $escape($success) ?></div>
 <?php endif; ?>

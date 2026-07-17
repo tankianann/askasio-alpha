@@ -28,6 +28,7 @@
         <nav>
             <a href="/admin" <?= $currentSection === 'dashboard' ? 'aria-current="page"' : '' ?>>Dashboard</a>
             <a href="/admin/sources" <?= $currentSection === 'sources' ? 'aria-current="page"' : '' ?>>Sources</a>
+            <a href="/admin/jobs" <?= $currentSection === 'jobs' ? 'aria-current="page"' : '' ?>>Jobs</a>
         </nav>
         <div class="environment-badge"><?= $escape($environment) ?></div>
     </aside>
