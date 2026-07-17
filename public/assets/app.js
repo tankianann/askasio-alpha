@@ -27,3 +27,21 @@ if (sourceTypeInputs.length > 0) {
     sourceTypeInputs.forEach((input) => input.addEventListener('change', updateSourceFields));
     updateSourceFields();
 }
+
+document.querySelectorAll('[data-copy-target]').forEach((button) => {
+    button.addEventListener('click', async () => {
+        const targetId = button.getAttribute('data-copy-target');
+        const target = targetId ? document.getElementById(targetId) : null;
+
+        if (!(target instanceof HTMLInputElement)) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(target.value);
+            button.textContent = 'Copied';
+        } catch {
+            target.select();
+        }
+    });
+});

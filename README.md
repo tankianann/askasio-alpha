@@ -1,6 +1,6 @@
 # RAG Server
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–6 provide the application foundation, secure single-administrator interface, versioned source management, durable ingestion queue, extraction/chunking, OpenAI embeddings, and cosine-similarity retrieval. API keys and chat arrive in later milestones.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–7 provide the application foundation, secure single-administrator interface, versioned source management, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, and authenticated application API keys. Grounded chat arrives in Milestone 8.
 
 ## Implemented functionality
 
@@ -80,7 +80,21 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Retrieval restricted to enabled, non-deleted sources and their active, ready versions
 - Optional source ID/type filters, configurable `top_k`, and configurable similarity threshold
 - CLI retrieval debugger with structured source, page, heading, score, and chunk output
-- `POST /api/v1/retrieve` is registered but deliberately returns HTTP 503 until Milestone 7 adds bearer API-key authentication
+- Authenticated `POST /api/v1/retrieve` endpoint for retrieval debugging
+
+### API keys and request controls
+
+- Administrator API-key creation with optional expiry and a one-time plaintext display
+- `rag_live_` keys generated from 256 bits of cryptographically secure randomness
+- Only a safe visible prefix and SHA-256 secret hash stored in MySQL
+- Constant-time `hash_equals()` verification after hash lookup
+- Immediate revocation and permanent key deletion
+- Bearer authentication with generic failures and `WWW-Authenticate` responses
+- MySQL-backed fixed-window limits by API key and HMAC-hashed client IP
+- Request audit records containing request ID, numeric key ID, endpoint, status, duration, error category, and numeric usage
+- No bearer secrets, complete questions, or raw client IP addresses in API request records
+- Configurable request-log retention with opportunistic pruning
+- Administrator API-key and recent API-request screens
 
 ## Requirements
 
@@ -205,6 +219,7 @@ Then visit `https://ragserver.test`. The root route redirects to the protected a
 
 After signing in, source management is available at `https://ragserver.test/admin/sources`.
 Queue status is available at `https://ragserver.test/admin/jobs`.
+API keys are managed at `https://ragserver.test/admin/api-keys`, and recent API activity is available at `https://ragserver.test/admin/api-requests`.
 
 ## Optional Docker database
 
@@ -568,6 +583,10 @@ RAG_RETRIEVAL_MAXIMUM_TOP_K=20
 RAG_RETRIEVAL_MINIMUM_SIMILARITY=0.20
 RAG_RETRIEVAL_MAXIMUM_QUERY_CHARACTERS=4000
 API_MAXIMUM_BODY_BYTES=65536
+API_RATE_LIMIT_WINDOW_SECONDS=60
+API_RATE_LIMIT_PER_KEY=60
+API_RATE_LIMIT_PER_IP=120
+API_REQUEST_LOG_RETENTION_DAYS=30
 ```
 
 Run the embedding backfill after deploying Milestone 6 or whenever legacy active chunks have no embedding:
@@ -596,7 +615,24 @@ php bin/retrieve.php "test query" --top-k=10 --min-similarity=-1
 
 The default `0.20` threshold is intentionally configurable and should be evaluated against representative questions from the deployed corpus. Retrieval compares only vectors produced by the currently configured model with matching dimensions; changing either setting requires clearing and rebuilding prior embeddings.
 
-`POST /api/v1/retrieve` already has its final request validation and response controller, but the public route is gated with a consistent HTTP 503 JSON response. Milestone 7 will replace that gate with bearer API-key authentication, API rate limiting, and request logging. Do not remove the gate to make the endpoint anonymously accessible.
+Create an application API key in the administrator interface, copy it from the one-time display, and call retrieval with:
+
+```bash
+curl -X POST https://ragserver.example.com/api/v1/retrieve \
+    -H 'Authorization: Bearer rag_live_replace_with_your_key' \
+    -H 'Content-Type: application/json' \
+    -d '{"query":"refund conditions","top_k":10}'
+```
+
+Requests without a valid active, unexpired key return HTTP 401. Rate-limited requests return HTTP 429 with `Retry-After`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining` headers. Successful authenticated requests include the rate-limit headers as well.
+
+The health endpoint remains public:
+
+```text
+GET /api/v1/health
+```
+
+API request logs retain the numeric API-key identifier for audit correlation after permanent key deletion, but never retain the complete key. Client IP addresses are HMAC-hashed with `APP_SECRET`. Keep `APP_SECRET` stable or IP hashes produced before and after rotation will not correlate.
 
 ## Migration policy
 
@@ -606,4 +642,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-Milestone 6 stops after embeddings and retrieval. The public retrieval route remains intentionally unavailable until Milestone 7 supplies API-key management, bearer authentication, rate limiting, and request logging. Milestone 8 will add grounded answer generation and `/api/v1/chat`; no chat-model request is made in the current application.
+Milestone 7 stops after API-key management, authenticated retrieval, rate limiting, and request auditing. Milestone 8 will add grounded answer generation and `/api/v1/chat`; the current HTTP API retrieves matching chunks but does not generate a natural-language answer.

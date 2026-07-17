@@ -9,12 +9,17 @@ use App\Auth\LoginRateLimiter;
 use App\Auth\NativeSessionStore;
 use App\Auth\PasswordHasher;
 use App\Controllers\Admin\AuthController;
+use App\Controllers\Admin\ApiKeyController;
+use App\Controllers\Admin\ApiRequestLogController;
 use App\Controllers\Admin\DashboardController;
 use App\Controllers\Admin\SourceController;
 use App\Controllers\Admin\JobController;
 use App\Database\Connection;
 use App\Http\ErrorHandler;
 use App\Http\Middleware\AdminAuthenticationMiddleware;
+use App\Http\Middleware\ApiKeyAuthenticationMiddleware;
+use App\Http\Middleware\ApiRateLimitMiddleware;
+use App\Http\Middleware\ApiRequestLoggingMiddleware;
 use App\Http\Middleware\CsrfMiddleware;
 use App\Http\Middleware\RequestIdMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
@@ -22,6 +27,9 @@ use App\Http\Middleware\SessionStartMiddleware;
 use App\Http\Router;
 use App\Logging\LoggerFactory;
 use App\Repositories\PdoAdminRepository;
+use App\Repositories\PdoApiKeyRepository;
+use App\Repositories\PdoApiRateLimitRepository;
+use App\Repositories\PdoApiRequestLogRepository;
 use App\Repositories\PdoLoginAttemptRepository;
 use App\Repositories\PdoSourceRepository;
 use App\Repositories\PdoIngestionJobRepository;
@@ -35,6 +43,9 @@ use App\Security\UrlSourceValidator;
 use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
 use App\Services\Ingestion\IngestionQueue;
+use App\Services\Api\ApiRateLimiter;
+use App\Services\Api\ApiRequestContext;
+use App\Services\ApiKeys\ApiKeyService;
 use App\Support\Config;
 use App\Support\ViewRenderer;
 use Dotenv\Dotenv;
@@ -63,6 +74,8 @@ $admins = new PdoAdminRepository($connection);
 $loginAttempts = new PdoLoginAttemptRepository($connection);
 $sources = new PdoSourceRepository($connection);
 $jobRepository = new PdoIngestionJobRepository($connection);
+$apiKeys = new PdoApiKeyRepository($connection);
+$apiRequestLogs = new PdoApiRequestLogRepository($connection);
 $queue = new IngestionQueue(
     $jobRepository,
     $config->requireInt('queue.max_attempts'),
@@ -145,6 +158,38 @@ $jobController = new JobController(
     $config->requireString('app.env'),
     true,
 );
+$apiKeyService = new ApiKeyService($apiKeys);
+$apiKeyController = new ApiKeyController(
+    $apiKeys,
+    $apiKeyService,
+    $views,
+    $csrf,
+    $session,
+    $config->requireString('app.env'),
+    $timezone,
+);
+$apiRequestLogController = new ApiRequestLogController(
+    $apiRequestLogs,
+    $views,
+    $csrf,
+    $config->requireString('app.env'),
+);
+$apiRequestContext = new ApiRequestContext();
+$apiRequestLoggingMiddleware = new ApiRequestLoggingMiddleware(
+    $apiRequestLogs,
+    $apiRequestContext,
+    $logger,
+    $appSecret,
+    $config->requireInt('api.request_log_retention_days'),
+);
+$apiKeyAuthenticationMiddleware = new ApiKeyAuthenticationMiddleware($apiKeyService, $apiRequestContext);
+$apiRateLimitMiddleware = new ApiRateLimitMiddleware(new ApiRateLimiter(
+    new PdoApiRateLimitRepository($connection),
+    $appSecret,
+    $config->requireInt('api.rate_limit_window_seconds'),
+    $config->requireInt('api.rate_limit_per_key'),
+    $config->requireInt('api.rate_limit_per_ip'),
+));
 $sessionMiddleware = new SessionStartMiddleware($session);
 $adminAuthenticationMiddleware = new AdminAuthenticationMiddleware($session, $admins);
 $csrfMiddleware = new CsrfMiddleware($csrf);
@@ -183,7 +228,12 @@ $registerRoutes(
     $csrfMiddleware,
     $sourceController,
     $jobController,
+    $apiKeyController,
+    $apiRequestLogController,
     $retrieveHandler,
+    $apiRequestLoggingMiddleware,
+    $apiKeyAuthenticationMiddleware,
+    $apiRateLimitMiddleware,
 );
 
 return [

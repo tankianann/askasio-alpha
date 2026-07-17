@@ -29,6 +29,8 @@
             <a href="/admin" <?= $currentSection === 'dashboard' ? 'aria-current="page"' : '' ?>>Dashboard</a>
             <a href="/admin/sources" <?= $currentSection === 'sources' ? 'aria-current="page"' : '' ?>>Sources</a>
             <a href="/admin/jobs" <?= $currentSection === 'jobs' ? 'aria-current="page"' : '' ?>>Jobs</a>
+            <a href="/admin/api-keys" <?= $currentSection === 'api_keys' ? 'aria-current="page"' : '' ?>>API keys</a>
+            <a href="/admin/api-requests" <?= $currentSection === 'api_requests' ? 'aria-current="page"' : '' ?>>API requests</a>
         </nav>
         <div class="environment-badge"><?= $escape($environment) ?></div>
     </aside>

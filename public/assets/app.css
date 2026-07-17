@@ -458,6 +458,7 @@ tbody tr:last-child td {
 
 .form-group input[type="text"],
 .form-group input[type="url"],
+.form-group input[type="datetime-local"],
 .form-group input[type="file"] {
     width: 100%;
     min-height: 2.9rem;
@@ -466,6 +467,15 @@ tbody tr:last-child td {
     border-radius: 0.6rem;
     color: var(--ink);
     background: #fff;
+}
+
+.key-reveal input[readonly] {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9rem;
+}
+
+.key-reveal {
+    max-width: 64rem;
 }
 
 .field-help {
