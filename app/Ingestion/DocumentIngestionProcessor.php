@@ -6,6 +6,10 @@ namespace App\Ingestion;
 
 use App\Domain\Ingestion\Chunk;
 use App\Domain\Ingestion\IngestionJob;
+use App\Providers\Embeddings\EmbeddingAuthenticationException;
+use App\Providers\Embeddings\EmbeddingConfigurationException;
+use App\Providers\Embeddings\EmbeddingService;
+use App\Providers\Embeddings\MalformedEmbeddingResponseException;
 use App\Repositories\SourceIngestionRepositoryInterface;
 
 final class DocumentIngestionProcessor implements IngestionProcessorInterface
@@ -14,6 +18,7 @@ final class DocumentIngestionProcessor implements IngestionProcessorInterface
         private readonly SourceIngestionRepositoryInterface $sources,
         private readonly ExtractorRegistry $extractors,
         private readonly ChunkerInterface $chunker,
+        private readonly EmbeddingService $embeddings,
     ) {
     }
 
@@ -31,12 +36,23 @@ final class DocumentIngestionProcessor implements IngestionProcessorInterface
         }
 
         $document = $this->extractors->forVersion($version)->extract($version);
+
+        if ($this->sources->storeUnchangedIfActiveMatch($version, $document)) {
+            return;
+        }
+
         $chunks = $this->chunker->chunk($document);
 
         if ($chunks === [] || array_filter($chunks, static fn (mixed $chunk): bool => !$chunk instanceof Chunk) !== []) {
             throw new PermanentIngestionException('The extracted document did not produce valid chunks.');
         }
 
-        $this->sources->storeAndActivate($version, $document, $chunks);
+        try {
+            $embeddedChunks = $this->embeddings->embedChunks($chunks);
+        } catch (EmbeddingConfigurationException|EmbeddingAuthenticationException|MalformedEmbeddingResponseException $exception) {
+            throw new PermanentIngestionException($exception->getMessage(), previous: $exception);
+        }
+
+        $this->sources->storeAndActivate($version, $document, $embeddedChunks);
     }
 }

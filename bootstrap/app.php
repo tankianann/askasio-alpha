@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controllers\Api\HealthController;
+use App\Controllers\Api\RetrieveController;
 use App\Auth\AuthenticationService;
 use App\Auth\LoginRateLimiter;
 use App\Auth\NativeSessionStore;
@@ -24,6 +25,10 @@ use App\Repositories\PdoAdminRepository;
 use App\Repositories\PdoLoginAttemptRepository;
 use App\Repositories\PdoSourceRepository;
 use App\Repositories\PdoIngestionJobRepository;
+use App\Providers\Embeddings\EmbeddingProviderFactory;
+use App\RAG\CosineSimilarity;
+use App\RAG\PdoVectorStore;
+use App\RAG\Retriever;
 use App\Security\CsrfTokenManager;
 use App\Security\SourceUploadValidator;
 use App\Security\UrlSourceValidator;
@@ -149,6 +154,25 @@ if (!$registerRoutes instanceof Closure) {
     throw new RuntimeException('Route configuration is invalid.');
 }
 
+$retrieveHandler = static function (\App\Http\Request $request) use ($config, $connection): \App\Http\Response {
+    $provider = (new EmbeddingProviderFactory($config))->create();
+    $retriever = new Retriever(
+        $provider,
+        new PdoVectorStore($connection, new CosineSimilarity()),
+        $config->requireInt('rag.retrieval_default_top_k'),
+        $config->requireInt('rag.retrieval_maximum_top_k'),
+        (float) $config->get('rag.retrieval_minimum_similarity'),
+    );
+    $controller = new RetrieveController(
+        $retriever,
+        $config->requireInt('rag.retrieval_maximum_top_k'),
+        $config->requireInt('rag.retrieval_maximum_query_characters'),
+        $config->requireInt('rag.api_maximum_body_bytes'),
+    );
+
+    return $controller($request);
+};
+
 $registerRoutes(
     $router,
     $healthController,
@@ -159,6 +183,7 @@ $registerRoutes(
     $csrfMiddleware,
     $sourceController,
     $jobController,
+    $retrieveHandler,
 );
 
 return [

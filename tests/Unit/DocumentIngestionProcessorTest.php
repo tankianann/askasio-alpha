@@ -17,8 +17,11 @@ use App\Ingestion\DocumentIngestionProcessor;
 use App\Ingestion\ExtractorRegistry;
 use App\Ingestion\PermanentIngestionException;
 use App\Ingestion\SourceExtractorInterface;
+use App\Providers\Embeddings\EmbeddingAuthenticationException;
+use App\Providers\Embeddings\EmbeddingService;
 use App\Repositories\SourceIngestionRepositoryInterface;
 use PHPUnit\Framework\TestCase;
+use Tests\Fakes\FakeEmbeddingProvider;
 
 final class DocumentIngestionProcessorTest extends TestCase
 {
@@ -35,6 +38,11 @@ final class DocumentIngestionProcessorTest extends TestCase
             public function findVersion(int $id): ?SourceVersion
             {
                 return $this->version;
+            }
+
+            public function storeUnchangedIfActiveMatch(SourceVersion $version, ExtractedDocument $document): bool
+            {
+                return false;
             }
 
             public function storeAndActivate(SourceVersion $version, ExtractedDocument $document, array $chunks): bool
@@ -65,12 +73,81 @@ final class DocumentIngestionProcessorTest extends TestCase
             $repository,
             new ExtractorRegistry([$extractor]),
             $chunker,
+            new EmbeddingService(new FakeEmbeddingProvider(), 10),
         );
 
         try {
             $processor->process($this->job());
             self::fail('Expected extraction to fail.');
         } catch (PermanentIngestionException) {
+            self::assertFalse($repository->stored);
+        }
+    }
+
+    public function testEmbeddingFailureDoesNotActivateOrPersistChunks(): void
+    {
+        $version = $this->version();
+        $repository = new class ($version) implements SourceIngestionRepositoryInterface {
+            public bool $stored = false;
+
+            public function __construct(private readonly SourceVersion $version)
+            {
+            }
+
+            public function findVersion(int $id): ?SourceVersion
+            {
+                return $this->version;
+            }
+
+            public function storeUnchangedIfActiveMatch(SourceVersion $version, ExtractedDocument $document): bool
+            {
+                return false;
+            }
+
+            public function storeAndActivate(SourceVersion $version, ExtractedDocument $document, array $chunks): bool
+            {
+                $this->stored = true;
+
+                return true;
+            }
+        };
+        $document = new ExtractedDocument('Document', 'Useful source content.', [
+            new ExtractedSection(null, 'Useful source content.', startOffset: 0, endOffset: 22),
+        ]);
+        $extractor = new class ($document) implements SourceExtractorInterface {
+            public function __construct(private readonly ExtractedDocument $document)
+            {
+            }
+
+            public function supports(SourceVersion $version): bool
+            {
+                return true;
+            }
+
+            public function extract(SourceVersion $version): ExtractedDocument
+            {
+                return $this->document;
+            }
+        };
+        $chunker = new class implements ChunkerInterface {
+            public function chunk(ExtractedDocument $document): array
+            {
+                return [new Chunk(1, $document->content, 4, [])];
+            }
+        };
+        $provider = new FakeEmbeddingProvider(failure: new EmbeddingAuthenticationException('Invalid credentials.'));
+        $processor = new DocumentIngestionProcessor(
+            $repository,
+            new ExtractorRegistry([$extractor]),
+            $chunker,
+            new EmbeddingService($provider, 10),
+        );
+
+        $this->expectException(PermanentIngestionException::class);
+
+        try {
+            $processor->process($this->job());
+        } finally {
             self::assertFalse($repository->stored);
         }
     }

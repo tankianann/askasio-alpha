@@ -10,6 +10,7 @@ use App\Controllers\Admin\JobController;
 use App\Http\Middleware\AdminAuthenticationMiddleware;
 use App\Http\Middleware\CsrfMiddleware;
 use App\Http\Middleware\SessionStartMiddleware;
+use App\Http\Middleware\RetrieveApiMilestoneGateMiddleware;
 use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
@@ -25,9 +26,16 @@ return [
         CsrfMiddleware $csrfMiddleware,
         SourceController $sourceController,
         JobController $jobController,
+        Closure $retrieveHandler,
     ): void {
-        $router->group('/api/v1', [], static function (Router $router) use ($healthController): void {
+        $router->group('/api/v1', [], static function (Router $router) use ($healthController, $retrieveHandler): void {
             $router->get('/health', $healthController, name: 'api.v1.health');
+            $router->post(
+                '/retrieve',
+                $retrieveHandler,
+                [new RetrieveApiMilestoneGateMiddleware()],
+                'api.v1.retrieve',
+            );
         });
 
         $router->get('/', static fn (Request $request): Response => Response::redirect('/admin'), name: 'home');

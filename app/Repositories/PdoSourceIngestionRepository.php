@@ -37,6 +37,66 @@ final class PdoSourceIngestionRepository implements SourceIngestionRepositoryInt
         return is_array($row) ? $this->hydrate($row) : null;
     }
 
+    public function storeUnchangedIfActiveMatch(SourceVersion $version, ExtractedDocument $document): bool
+    {
+        $pdo = $this->connection->pdo();
+        $pdo->beginTransaction();
+
+        try {
+            $lock = $pdo->prepare(
+                'SELECT s.active_version_id, active.content_hash AS active_content_hash
+                 FROM sources s
+                 LEFT JOIN source_versions active ON active.id = s.active_version_id
+                 WHERE s.id = :source_id FOR UPDATE',
+            );
+            $lock->execute(['source_id' => $version->sourceId]);
+            $source = $lock->fetch();
+
+            if (!is_array($source)) {
+                throw new RuntimeException('The source no longer exists.');
+            }
+
+            $activeVersionId = isset($source['active_version_id']) ? (int) $source['active_version_id'] : null;
+            $matches = $activeVersionId !== null
+                && $activeVersionId !== $version->id
+                && hash_equals((string) ($source['active_content_hash'] ?? ''), $document->contentHash());
+
+            if (!$matches) {
+                $pdo->commit();
+
+                return false;
+            }
+
+            $delete = $pdo->prepare('DELETE FROM source_chunks WHERE source_version_id = :version_id');
+            $delete->execute(['version_id' => $version->id]);
+            $unchanged = $pdo->prepare(
+                "UPDATE source_versions
+                 SET content_hash = :content_hash, extracted_text = :extracted_text,
+                     metadata_json = :metadata_json, processing_status = 'inactive',
+                     error_message = NULL, processed_at = UTC_TIMESTAMP(6), activated_at = NULL
+                 WHERE id = :id",
+            );
+            $unchanged->execute([
+                'content_hash' => $document->contentHash(),
+                'extracted_text' => $document->content,
+                'metadata_json' => json_encode(
+                    $document->metadata,
+                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                ),
+                'id' => $version->id,
+            ]);
+            $pdo->commit();
+
+            return true;
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            throw $exception;
+        }
+    }
+
     public function storeAndActivate(SourceVersion $version, ExtractedDocument $document, array $chunks): bool
     {
         if ($chunks === []) {
@@ -89,9 +149,11 @@ final class PdoSourceIngestionRepository implements SourceIngestionRepositoryInt
 
             $insert = $pdo->prepare(
                 'INSERT INTO source_chunks (
-                    source_version_id, chunk_number, content, token_count, embedding, metadata_json, created_at
+                    source_version_id, chunk_number, content, token_count, embedding,
+                    embedding_model, embedding_dimensions, embedded_at, metadata_json, created_at
                  ) VALUES (
-                    :source_version_id, :chunk_number, :content, :token_count, NULL, :metadata_json, UTC_TIMESTAMP(6)
+                    :source_version_id, :chunk_number, :content, :token_count, :embedding,
+                    :embedding_model, :embedding_dimensions, UTC_TIMESTAMP(6), :metadata_json, UTC_TIMESTAMP(6)
                  )',
             );
 
@@ -100,11 +162,18 @@ final class PdoSourceIngestionRepository implements SourceIngestionRepositoryInt
                     throw new RuntimeException('The chunker returned an invalid chunk.');
                 }
 
+                if ($chunk->embedding === null || $chunk->embedding === [] || $chunk->embeddingModel === null) {
+                    throw new RuntimeException('A source version cannot be activated before every chunk is embedded.');
+                }
+
                 $insert->execute([
                     'source_version_id' => $version->id,
                     'chunk_number' => $chunk->number,
                     'content' => $chunk->content,
                     'token_count' => $chunk->tokenCount,
+                    'embedding' => json_encode($chunk->embedding, JSON_THROW_ON_ERROR),
+                    'embedding_model' => $chunk->embeddingModel,
+                    'embedding_dimensions' => count($chunk->embedding),
                     'metadata_json' => json_encode(
                         $chunk->metadata,
                         JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,

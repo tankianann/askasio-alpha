@@ -41,7 +41,9 @@
     },
     "scripts": {
         "create-admin": "@php bin/create-admin.php",
+        "embed-chunks": "@php bin/embed-chunks.php",
         "process-jobs": "@php bin/process-jobs.php --once",
+        "retrieve": "@php bin/retrieve.php",
         "test": "phpunit",
         "migrate": "@php bin/migrate.php",
         "worker": "@php bin/worker.php"

@@ -1,6 +1,6 @@
 # RAG Server
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–5 provide the application foundation, secure single-administrator interface, versioned source management, durable ingestion queue, and local extraction/chunking pipeline. Embeddings, retrieval, API keys, and chat arrive in later milestones.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–6 provide the application foundation, secure single-administrator interface, versioned source management, durable ingestion queue, extraction/chunking, OpenAI embeddings, and cosine-similarity retrieval. API keys and chat arrive in later milestones.
 
 ## Implemented functionality
 
@@ -68,12 +68,27 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Unchanged refreshed content retained as an inactive version without replacing the current active version
 - Escaped extracted-text and formatted metadata inspection in source version history
 
+### Embeddings and retrieval
+
+- Provider-independent embedding and vector-store interfaces
+- OpenAI embeddings using the model configured in `.env`; no model name is hardcoded
+- Batched embedding requests with HTTPS verification, bounded timeouts, retry backoff, and explicit configuration/authentication/rate-limit/timeout/malformed-response exceptions
+- Immutable source versions activate only after all newly generated chunks have valid embeddings
+- Existing active chunks can be safely backfilled with `php bin/embed-chunks.php`
+- Embedding model, vector dimensions, and embedding timestamp stored with every embedded chunk
+- Cosine similarity calculated in PHP over MySQL JSON vectors
+- Retrieval restricted to enabled, non-deleted sources and their active, ready versions
+- Optional source ID/type filters, configurable `top_k`, and configurable similarity threshold
+- CLI retrieval debugger with structured source, page, heading, score, and chunk output
+- `POST /api/v1/retrieve` is registered but deliberately returns HTTP 503 until Milestone 7 adds bearer API-key authentication
+
 ## Requirements
 
 - PHP 8.3 or later with `curl`, `dom`, `fileinfo`, `iconv`, `intl`, `json`, `mbstring`, `pdo`, and `pdo_mysql`
 - Composer 2
 - MySQL 8 or MariaDB
 - OCRmyPDF with Tesseract when `PDF_OCR_ENABLED=true`
+- An OpenAI API project, API billing, and an API key for embedding ingestion and retrieval
 
 Confirm extensions with:
 
@@ -142,6 +157,16 @@ Homebrew's OCRmyPDF package includes English. Additional languages require their
    ```bash
    php bin/migrate.php
    ```
+
+   Configure the embedding provider before running the ingestion worker:
+
+   ```dotenv
+   EMBEDDING_PROVIDER=openai
+   OPENAI_API_KEY=replace-with-a-project-api-key
+   OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+   ```
+
+   `OPENAI_EMBEDDING_DIMENSIONS` is optional. Leave it empty to use the model's default dimensions. Changing the embedding model or dimensions later requires re-embedding the stored chunks.
 
 5. Create the single administrator. Password input is hidden on an interactive terminal:
 
@@ -243,6 +268,10 @@ LOG_LEVEL=info
 PDF_OCR_ENABLED=true
 PDF_OCR_BINARY=/usr/bin/ocrmypdf
 PDF_OCR_LANGUAGES=eng
+
+EMBEDDING_PROVIDER=openai
+OPENAI_API_KEY=replace-with-a-project-api-key
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
 Generate `APP_SECRET` once and preserve it across releases. The macOS Homebrew path `/opt/homebrew/bin/ocrmypdf` must normally be changed to `/usr/bin/ocrmypdf` on Linux.
@@ -253,6 +282,7 @@ Install production dependencies, migrate, and create the administrator:
 composer install --no-dev --optimize-autoloader
 php bin/migrate.php
 php bin/create-admin.php
+php bin/embed-chunks.php
 ```
 
 Run `create-admin.php` only during initial setup. Run migrations after deploying every release; the migration runner safely skips migrations that were already applied.
@@ -356,7 +386,7 @@ sudo systemctl status ragserver-worker
 sudo journalctl -u ragserver-worker -f
 ```
 
-Begin with one worker because PDF OCR can be CPU- and memory-intensive. The queue supports multiple atomic workers, but additional workers should be added only after observing production resource use.
+Begin with one worker because PDF OCR can be CPU- and memory-intensive. The worker also requires outbound HTTPS access to `api.openai.com` for embeddings. The queue supports multiple atomic workers, but additional workers should be added only after observing production resource use and provider rate limits.
 
 For a very low-volume installation, cron may be used instead of systemd:
 
@@ -383,6 +413,7 @@ For subsequent releases:
 ```bash
 composer install --no-dev --optimize-autoloader
 php bin/migrate.php
+php bin/embed-chunks.php
 sudo systemctl restart ragserver-worker
 sudo systemctl reload php8.3-fpm
 ```
@@ -403,7 +434,7 @@ composer validate --strict
 
 ## Configuration and security
 
-Copy `.env.example` to `.env`; `.env` is git-ignored. Provider secrets are present only as empty configuration entries for future milestones and are not loaded into responses or logs.
+Copy `.env.example` to `.env`; `.env` is git-ignored. Provider secrets are never loaded into responses or logs. Provider configuration errors use safe messages that do not contain keys, request headers, or embedding input text.
 
 `APP_SECRET` is mandatory from Milestone 2 onward and must contain at least 32 characters. It keys the HMAC identifiers used by login throttling and must remain stable; rotating it clears the effective relationship with existing throttle records.
 
@@ -507,7 +538,7 @@ The long-running worker is:
 php bin/worker.php
 ```
 
-The worker now extracts, chunks, stores, and activates source versions. A cron entry can run the one-shot command for low-volume deployments, for example:
+The worker now extracts, chunks, embeds, stores, and activates source versions. Extraction and embedding must both succeed before a new version can replace the current active version. A cron entry can run the one-shot command for low-volume deployments, for example:
 
 ```cron
 * * * * * cd /absolute/path/to/ragserver && /usr/bin/flock -n storage/cache/worker.lock /absolute/path/to/php bin/process-jobs.php --once >/dev/null
@@ -517,6 +548,56 @@ For production, prefer the systemd service documented in the production deployme
 
 Unexpected exception messages are written only to the secret-redacted application log. The job table and administrator UI receive a generic reference. Controlled ingestion exceptions may provide a deliberately safe operational message. A transient OCR engine failure follows normal job retry rules; a successful OCR run that recognizes no readable text fails permanently with an actionable message.
 
+## Embeddings and retrieval
+
+Embedding and retrieval behavior is configured through:
+
+```dotenv
+EMBEDDING_PROVIDER=openai
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://api.openai.com
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_DIMENSIONS=
+OPENAI_CONNECT_TIMEOUT_SECONDS=10
+OPENAI_REQUEST_TIMEOUT_SECONDS=60
+OPENAI_MAXIMUM_RETRIES=3
+
+RAG_EMBEDDING_BATCH_SIZE=64
+RAG_RETRIEVAL_DEFAULT_TOP_K=8
+RAG_RETRIEVAL_MAXIMUM_TOP_K=20
+RAG_RETRIEVAL_MINIMUM_SIMILARITY=0.20
+RAG_RETRIEVAL_MAXIMUM_QUERY_CHARACTERS=4000
+API_MAXIMUM_BODY_BYTES=65536
+```
+
+Run the embedding backfill after deploying Milestone 6 or whenever legacy active chunks have no embedding:
+
+```bash
+php bin/embed-chunks.php
+```
+
+The command is idempotent: it selects only active chunks whose embedding is missing or belongs to a different configured model, batches provider requests, and transactionally stores each completed batch. Use `--once` to process at most one configured batch. If dimensions change while retaining the same model name, explicitly rebuild all active embeddings:
+
+```bash
+php bin/embed-chunks.php --rebuild
+```
+
+Test retrieval without exposing an HTTP endpoint:
+
+```bash
+php bin/retrieve.php "What should I know about the refund policy?" --top-k=8
+```
+
+For score calibration only, the CLI accepts a threshold override:
+
+```bash
+php bin/retrieve.php "test query" --top-k=10 --min-similarity=-1
+```
+
+The default `0.20` threshold is intentionally configurable and should be evaluated against representative questions from the deployed corpus. Retrieval compares only vectors produced by the currently configured model with matching dimensions; changing either setting requires clearing and rebuilding prior embeddings.
+
+`POST /api/v1/retrieve` already has its final request validation and response controller, but the public route is gated with a consistent HTTP 503 JSON response. Milestone 7 will replace that gate with bearer API-key authentication, API rate limiting, and request logging. Do not remove the gate to make the endpoint anonymously accessible.
+
 ## Migration policy
 
 Migration filenames are ordered and immutable once deployed. Each file returns an object implementing `App\Database\Migration`. The runner records successful migrations in `schema_migrations` and safely skips them on subsequent runs.
@@ -525,4 +606,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-Milestone 5 stops after local extraction (including OCR), chunk persistence, and atomic source-version activation. `source_chunks.embedding` remains `NULL`; no paid AI provider is contacted and no API key is needed. Milestone 6 will add the OpenAI embedding provider, cosine-similarity retrieval, active/enabled source filters, and `/api/v1/retrieve` behind the vector-store boundary.
+Milestone 6 stops after embeddings and retrieval. The public retrieval route remains intentionally unavailable until Milestone 7 supplies API-key management, bearer authentication, rate limiting, and request logging. Milestone 8 will add grounded answer generation and `/api/v1/chat`; no chat-model request is made in the current application.

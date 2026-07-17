@@ -16,6 +16,8 @@ use App\Ingestion\Ocr\OcrmyPdfEngine;
 use App\Logging\LoggerFactory;
 use App\Networking\SafeUrlFetcher;
 use App\Networking\UrlNetworkGuard;
+use App\Providers\Embeddings\EmbeddingProviderFactory;
+use App\Providers\Embeddings\EmbeddingService;
 use App\Repositories\PdoIngestionJobRepository;
 use App\Repositories\PdoSourceIngestionRepository;
 use App\Security\UrlSourceValidator;
@@ -110,6 +112,10 @@ $processor = new DocumentIngestionProcessor(
         $config->requireInt('ingestion.chunk_size_tokens'),
         $config->requireInt('ingestion.chunk_overlap_tokens'),
         $config->requireInt('ingestion.minimum_chunk_tokens'),
+    ),
+    new EmbeddingService(
+        (new EmbeddingProviderFactory($config))->create(),
+        $config->requireInt('rag.embedding_batch_size'),
     ),
 );
 $worker = new IngestionWorker(
