@@ -6,6 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <title><?= $escape($title) ?> · RAG Server</title>
     <link rel="stylesheet" href="/assets/app.css">
+    <script src="/assets/app.js" defer></script>
 </head>
 <body class="admin-body">
 <header class="topbar">
@@ -25,7 +26,8 @@
 <div class="admin-shell">
     <aside class="sidebar" aria-label="Administration">
         <nav>
-            <a href="/admin" aria-current="page">Dashboard</a>
+            <a href="/admin" <?= $currentSection === 'dashboard' ? 'aria-current="page"' : '' ?>>Dashboard</a>
+            <a href="/admin/sources" <?= $currentSection === 'sources' ? 'aria-current="page"' : '' ?>>Sources</a>
         </nav>
         <div class="environment-badge"><?= $escape($environment) ?></div>
     </aside>

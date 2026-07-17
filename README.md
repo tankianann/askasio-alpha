@@ -1,6 +1,6 @@
 # RAG Server
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1 and 2 provide the application foundation and secure single-administrator interface; sources, ingestion, retrieval, and chat arrive in later milestones.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–3 provide the application foundation, secure single-administrator interface, and versioned source management; ingestion, retrieval, and chat arrive in later milestones.
 
 ## Implemented functionality
 
@@ -29,16 +29,29 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - MySQL-backed login throttling by HMAC-hashed username and IP
 - Protected, responsive server-rendered administrator layout and dashboard
 
+### Knowledge source management
+
+- Versioned URL, Markdown, and PDF source records
+- Immutable source-version origins with pending ingestion lifecycle state
+- Source list, details, metadata, and complete version history
+- Enable, disable, and soft-delete actions protected by CSRF
+- Public URL policy that rejects non-HTTP protocols, credentials, localhost, literal private/reserved addresses, and metadata hosts
+- Markdown MIME, extension, UTF-8, binary-content, and size validation
+- PDF MIME, extension, `%PDF-` signature, and size validation
+- SHA-256 hashing for uploaded files
+- Cryptographically randomized stored filenames outside `/public`
+- Transactional source/version creation with failed-file cleanup
+
 ## Requirements
 
-- PHP 8.3 or later with `json`, `pdo`, and `pdo_mysql`
+- PHP 8.3 or later with `fileinfo`, `json`, `pdo`, and `pdo_mysql`
 - Composer 2
 - MySQL 8 or MariaDB
 
 Confirm extensions with:
 
 ```bash
-php -m | grep -E 'json|PDO|pdo_mysql'
+php -m | grep -E 'fileinfo|json|PDO|pdo_mysql'
 ```
 
 ## Local setup without Docker
@@ -109,6 +122,8 @@ SESSION_SECURE_COOKIE=auto
 
 Then visit `https://ragserver.test`. The root route redirects to the protected administrator dashboard, and unauthenticated visitors are redirected to `/admin/login`. In `auto` mode the session cookie receives the `Secure` attribute whenever the current request uses HTTPS.
 
+After signing in, source management is available at `https://ragserver.test/admin/sources`.
+
 ## Optional Docker database
 
 The Compose file runs only MySQL so the PHP application can continue using the local PHP/Composer toolchain:
@@ -155,6 +170,26 @@ Use `APP_DEBUG=false` in production. Unexpected errors always produce a generic 
 
 The database connection sets its session timezone to UTC. Application timestamps exposed by health use UTC; `APP_TIMEZONE` is retained for future display-layer localization.
 
+## Source uploads and storage
+
+`FILESYSTEM_PATH` must resolve outside `public/`; the application refuses to start if it points into the web root. The default is:
+
+```dotenv
+FILESYSTEM_PATH=storage/sources
+MAX_UPLOAD_SIZE_MB=20
+```
+
+PHP and the web server must permit a request at least as large as this application limit. For a 20 MB source limit, suitable development values are:
+
+```ini
+upload_max_filesize=20M
+post_max_size=22M
+```
+
+The application independently checks the actual temporary-file size, reported size, extension, detected MIME type, and format signature/text encoding. Original filenames are stored only as metadata and are never used as filesystem names. Source files are preserved during soft deletion.
+
+URL creation does not perform a network request in Milestone 3. The current policy rejects obvious unsafe destinations. Milestone 5 will additionally resolve and validate every destination IP immediately before connecting and repeat validation after each redirect.
+
 ## Migration policy
 
 Migration filenames are ordered and immutable once deployed. Each file returns an object implementing `App\Database\Migration`. The runner records successful migrations in `schema_migrations` and safely skips them on subsequent runs.
@@ -163,4 +198,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-Milestone 2 intentionally does not include source tables, uploads, background jobs, AI providers, API keys, or RAG endpoints. The dashboard identifies source management as pending rather than presenting non-functional controls. Milestone 3 will add sources, immutable source versions, URL/file creation flows, source details, history, disablement, and soft deletion.
+Milestone 3 intentionally does not fetch URLs, extract document text, create chunks, queue jobs, generate embeddings, or activate versions. Newly created versions remain honestly marked `pending`, and `active_version_id` remains empty until a later ingestion worker succeeds. Milestone 4 will add the MySQL-backed ingestion queue, atomic claiming, retry/failure handling, worker commands, and processing-status operations.

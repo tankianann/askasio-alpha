@@ -2,7 +2,7 @@
     <div>
         <p class="eyebrow">Administration</p>
         <h1>Dashboard</h1>
-        <p class="muted">The secure administrator area is ready.</p>
+        <p class="muted">Manage the knowledge sources used by your RAG application.</p>
     </div>
 </div>
 
@@ -15,10 +15,11 @@
         </div>
     </article>
     <article class="status-card">
-        <span class="status-dot status-dot-pending" aria-hidden="true"></span>
+        <span class="status-dot <?= $activeSourceCount > 0 ? 'status-dot-ready' : 'status-dot-pending' ?>" aria-hidden="true"></span>
         <div>
             <h2>Knowledge sources</h2>
-            <p>Source management will be added in Milestone 3.</p>
+            <p><strong><?= $escape($activeSourceCount) ?></strong> enabled source<?= $activeSourceCount === 1 ? '' : 's' ?>.</p>
+            <p><a class="text-link" href="/admin/sources">Manage sources</a></p>
         </div>
     </article>
 </section>

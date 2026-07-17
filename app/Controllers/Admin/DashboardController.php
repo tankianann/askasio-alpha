@@ -8,6 +8,7 @@ use App\Domain\Admin\AdminUser;
 use App\Http\Request;
 use App\Http\Response;
 use App\Security\CsrfTokenManager;
+use App\Repositories\SourceRepositoryInterface;
 use App\Support\ViewRenderer;
 
 final class DashboardController
@@ -16,6 +17,7 @@ final class DashboardController
         private readonly ViewRenderer $views,
         private readonly CsrfTokenManager $csrf,
         private readonly string $environment,
+        private readonly SourceRepositoryInterface $sources,
     ) {
     }
 
@@ -32,6 +34,8 @@ final class DashboardController
             'admin' => $admin,
             'csrfToken' => $this->csrf->token(),
             'environment' => $this->environment,
+            'currentSection' => 'dashboard',
+            'activeSourceCount' => $this->sources->countEnabled(),
         ], 'layouts/admin'));
     }
 }

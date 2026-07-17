@@ -1,0 +1,180 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Fakes;
+
+use App\Domain\Sources\ProcessingStatus;
+use App\Domain\Sources\Source;
+use App\Domain\Sources\SourceStatus;
+use App\Domain\Sources\SourceType;
+use App\Domain\Sources\SourceVersion;
+use App\Repositories\SourceRepositoryInterface;
+use Closure;
+
+final class InMemorySourceRepository implements SourceRepositoryInterface
+{
+    /** @var array<int, Source> */
+    private array $sources = [];
+
+    /** @var array<int, list<SourceVersion>> */
+    private array $versions = [];
+
+    public function all(): array
+    {
+        return array_values($this->sources);
+    }
+
+    public function findById(int $id): ?Source
+    {
+        return $this->sources[$id] ?? null;
+    }
+
+    public function versionsForSource(int $sourceId): array
+    {
+        return array_reverse($this->versions[$sourceId] ?? []);
+    }
+
+    public function countEnabled(): int
+    {
+        return count(array_filter(
+            $this->sources,
+            static fn (Source $source): bool => $source->status === SourceStatus::Enabled && !$source->isDeleted(),
+        ));
+    }
+
+    public function createSource(string $name, SourceType $type): Source
+    {
+        $id = count($this->sources) + 1;
+        $source = new Source(
+            $id,
+            $name,
+            $type,
+            SourceStatus::Enabled,
+            null,
+            '2026-07-17 00:00:00.000000',
+            '2026-07-17 00:00:00.000000',
+            null,
+        );
+        $this->sources[$id] = $source;
+
+        return $source;
+    }
+
+    public function createUrlVersion(int $sourceId, string $url): SourceVersion
+    {
+        return $this->addVersion($sourceId, null, $url, null, null, null, null);
+    }
+
+    public function createFileVersion(
+        int $sourceId,
+        string $originalFilename,
+        string $storedFilePath,
+        string $contentHash,
+        string $mimeType,
+        int $fileSize,
+    ): SourceVersion {
+        return $this->addVersion(
+            $sourceId,
+            $originalFilename,
+            null,
+            $storedFilePath,
+            $contentHash,
+            $mimeType,
+            $fileSize,
+        );
+    }
+
+    public function disable(int $id): void
+    {
+        $this->replaceStatus($id, SourceStatus::Disabled);
+    }
+
+    public function enable(int $id): void
+    {
+        $this->replaceStatus($id, SourceStatus::Enabled);
+    }
+
+    public function softDelete(int $id): void
+    {
+        $source = $this->sources[$id];
+        $this->sources[$id] = new Source(
+            $source->id,
+            $source->name,
+            $source->type,
+            SourceStatus::Disabled,
+            $source->activeVersionId,
+            $source->createdAt,
+            $source->updatedAt,
+            '2026-07-17 00:00:00.000000',
+            $source->versionCount,
+            $source->latestProcessingStatus,
+        );
+    }
+
+    public function transaction(Closure $operation): mixed
+    {
+        return $operation();
+    }
+
+    private function addVersion(
+        int $sourceId,
+        ?string $filename,
+        ?string $url,
+        ?string $path,
+        ?string $hash,
+        ?string $mime,
+        ?int $size,
+    ): SourceVersion {
+        $number = count($this->versions[$sourceId] ?? []) + 1;
+        $version = new SourceVersion(
+            array_sum(array_map('count', $this->versions)) + 1,
+            $sourceId,
+            $number,
+            $filename,
+            $url,
+            $path,
+            $hash,
+            $mime,
+            $size,
+            ProcessingStatus::Pending,
+            null,
+            '2026-07-17 00:00:00.000000',
+            null,
+            null,
+        );
+        $this->versions[$sourceId][] = $version;
+        $source = $this->sources[$sourceId];
+        $this->sources[$sourceId] = new Source(
+            $source->id,
+            $source->name,
+            $source->type,
+            $source->status,
+            null,
+            $source->createdAt,
+            $source->updatedAt,
+            null,
+            $number,
+            ProcessingStatus::Pending,
+        );
+
+        return $version;
+    }
+
+    private function replaceStatus(int $id, SourceStatus $status): void
+    {
+        $source = $this->sources[$id];
+        $this->sources[$id] = new Source(
+            $source->id,
+            $source->name,
+            $source->type,
+            $status,
+            $source->activeVersionId,
+            $source->createdAt,
+            $source->updatedAt,
+            $source->deletedAt,
+            $source->versionCount,
+            $source->latestProcessingStatus,
+        );
+    }
+}

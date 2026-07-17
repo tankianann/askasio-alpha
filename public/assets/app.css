@@ -159,6 +159,15 @@ a:focus-visible {
     background: var(--accent-dark);
 }
 
+.button-danger {
+    color: #fff;
+    background: var(--danger);
+}
+
+.button-danger:hover {
+    background: #842828;
+}
+
 .button-quiet {
     color: var(--ink);
     background: #edf1f3;
@@ -175,6 +184,12 @@ a:focus-visible {
     border: 1px solid #efcccc;
     color: #7e2929;
     background: #fff2f2;
+}
+
+.alert-success {
+    border: 1px solid #b9dfd0;
+    color: #205b47;
+    background: #edf8f3;
 }
 
 .admin-body {
@@ -269,6 +284,323 @@ a:focus-visible {
     margin-bottom: 2rem;
 }
 
+.page-heading-compact {
+    align-items: center;
+}
+
+.page-heading .button-primary,
+.form-actions .button-primary {
+    margin-top: 0;
+    text-decoration: none;
+}
+
+.breadcrumbs {
+    margin: 0 0 0.75rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.breadcrumbs a,
+.text-link {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: rgb(39 102 83 / 35%);
+    text-underline-offset: 0.2em;
+}
+
+.breadcrumbs span {
+    padding: 0 0.35rem;
+}
+
+.panel,
+.table-card {
+    border: 1px solid var(--line);
+    border-radius: 0.85rem;
+    background: var(--surface);
+}
+
+.table-card {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+th,
+td {
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid #e7ecef;
+    vertical-align: middle;
+}
+
+th {
+    color: var(--muted);
+    background: #fafbfc;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.table-link {
+    color: var(--ink);
+    font-weight: 750;
+    text-decoration: none;
+}
+
+.table-link:hover {
+    color: var(--accent);
+}
+
+.row-muted {
+    opacity: 0.68;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    margin: 0.1rem 0.15rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+    color: #465361;
+    background: #edf1f3;
+    font-size: 0.75rem;
+    font-weight: 750;
+}
+
+.badge-enabled,
+.badge-ready {
+    color: #246049;
+    background: #e4f3ed;
+}
+
+.badge-disabled,
+.badge-inactive,
+.badge-deleted {
+    color: #5f6972;
+    background: #e7ebee;
+}
+
+.badge-pending,
+.badge-processing {
+    color: #805416;
+    background: #fff0d7;
+}
+
+.badge-failed {
+    color: #872c2c;
+    background: #fde7e7;
+}
+
+.empty-state {
+    padding: clamp(3rem, 8vw, 6rem) 2rem;
+    border: 1px dashed #c8d1d8;
+    border-radius: 1rem;
+    text-align: center;
+    background: rgb(255 255 255 / 62%);
+}
+
+.empty-state h2 {
+    margin: 1rem 0 0.5rem;
+}
+
+.empty-state p {
+    margin: 0 auto 1.5rem;
+    color: var(--muted);
+}
+
+.empty-state .button-primary {
+    display: inline-flex;
+    margin-top: 0;
+    text-decoration: none;
+}
+
+.empty-icon {
+    display: inline-grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--accent);
+    background: #e5f1ed;
+    font-size: 1.5rem;
+}
+
+.form-panel {
+    max-width: 48rem;
+    padding: clamp(1.5rem, 5vw, 2.5rem);
+}
+
+.form-group {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0 0 1.75rem;
+    padding: 0;
+    border: 0;
+}
+
+.form-group > label,
+.form-group legend {
+    font-weight: 750;
+}
+
+.form-group input[type="text"],
+.form-group input[type="url"],
+.form-group input[type="file"] {
+    width: 100%;
+    min-height: 2.9rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid #c8d1d8;
+    border-radius: 0.6rem;
+    color: var(--ink);
+    background: #fff;
+}
+
+.field-help {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.choice-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.choice-card {
+    display: flex;
+    min-height: 3.2rem;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.8rem;
+    border: 1px solid #c8d1d8;
+    border-radius: 0.65rem;
+    cursor: pointer;
+}
+
+.choice-card:has(input:checked) {
+    border-color: var(--accent);
+    background: #edf7f3;
+}
+
+.form-actions,
+.action-row,
+.title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.form-actions {
+    justify-content: flex-end;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+}
+
+.form-actions .button-quiet {
+    text-decoration: none;
+}
+
+.metadata-panel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    overflow: hidden;
+}
+
+.metadata-panel > div {
+    display: grid;
+    gap: 0.35rem;
+    padding: 1.25rem;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.metadata-panel span,
+.definition-grid dt {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.section-heading {
+    margin: 2.5rem 0 1rem;
+}
+
+.section-heading h2 {
+    margin: 0;
+}
+
+.section-heading p {
+    margin: 0.4rem 0 0;
+}
+
+.version-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.version-card {
+    padding: 1.5rem;
+}
+
+.version-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.version-heading h3,
+.version-heading p {
+    margin: 0;
+}
+
+.version-heading p {
+    margin-top: 0.25rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.definition-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin: 0;
+}
+
+.definition-grid div {
+    min-width: 0;
+}
+
+.definition-grid dt {
+    margin-bottom: 0.35rem;
+}
+
+.definition-grid dd {
+    margin: 0;
+}
+
+.definition-wide {
+    grid-column: 1 / -1;
+}
+
+.break-text,
+code {
+    overflow-wrap: anywhere;
+}
+
 .status-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -328,5 +660,21 @@ a:focus-visible {
 
     .status-grid {
         grid-template-columns: 1fr;
+    }
+
+    .page-heading {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .choice-grid,
+    .metadata-panel,
+    .definition-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .action-row {
+        flex-wrap: wrap;
     }
 }

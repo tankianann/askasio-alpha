@@ -20,6 +20,30 @@ final class ViewRenderer
             ENT_QUOTES | ENT_SUBSTITUTE,
             'UTF-8',
         );
+        $formatDate = static function (?string $value): string {
+            if ($value === null || $value === '') {
+                return '—';
+            }
+
+            $date = new \DateTimeImmutable($value, new \DateTimeZone('UTC'));
+
+            return $date->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('j M Y, g:i a');
+        };
+        $formatBytes = static function (?int $bytes): string {
+            if ($bytes === null) {
+                return '—';
+            }
+
+            if ($bytes < 1024) {
+                return $bytes . ' B';
+            }
+
+            if ($bytes < 1024 * 1024) {
+                return number_format($bytes / 1024, 1) . ' KB';
+            }
+
+            return number_format($bytes / (1024 * 1024), 1) . ' MB';
+        };
         $viewFile = $this->resolve($view);
         extract($data, EXTR_SKIP);
 

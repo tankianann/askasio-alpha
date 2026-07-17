@@ -11,6 +11,7 @@ final class Request
      * @param array<string, mixed> $query
      * @param array<string, mixed> $parsedBody
      * @param array<string, mixed> $attributes
+     * @param array<string, UploadedFile> $files
      */
     public function __construct(
         private readonly string $method,
@@ -22,6 +23,7 @@ final class Request
         private readonly array $attributes = [],
         private readonly string $clientIp = '0.0.0.0',
         private readonly bool $secure = false,
+        private readonly array $files = [],
     ) {
     }
 
@@ -57,6 +59,7 @@ final class Request
             (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
             (isset($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
                 || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443,
+            UploadedFile::fromGlobals($_FILES),
         );
     }
 
@@ -107,6 +110,11 @@ final class Request
         return $this->secure;
     }
 
+    public function file(string $name): ?UploadedFile
+    {
+        return $this->files[$name] ?? null;
+    }
+
     public function attribute(string $key, mixed $default = null): mixed
     {
         return $this->attributes[$key] ?? $default;
@@ -127,6 +135,7 @@ final class Request
             $attributes,
             $this->clientIp,
             $this->secure,
+            $this->files,
         );
     }
 
