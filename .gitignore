@@ -1,0 +1,10 @@
+/.env
+/.phpunit.cache/
+/vendor/
+/storage/cache/*
+!/storage/cache/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
+/storage/sources/*
+!/storage/sources/.gitignore
+.DS_Store
