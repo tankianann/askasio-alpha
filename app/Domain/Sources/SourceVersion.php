@@ -21,6 +21,12 @@ final class SourceVersion
         public readonly string $createdAt,
         public readonly ?string $processedAt,
         public readonly ?string $activatedAt,
+        public readonly ?string $fileHash = null,
+        public readonly ?SourceType $sourceType = null,
+        public readonly int $chunkCount = 0,
+        public readonly ?string $extractedText = null,
+        /** @var array<string, mixed> */
+        public readonly array $metadata = [],
     ) {
     }
 }

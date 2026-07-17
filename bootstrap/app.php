@@ -138,6 +138,7 @@ $jobController = new JobController(
     $views,
     $csrf,
     $config->requireString('app.env'),
+    true,
 );
 $sessionMiddleware = new SessionStartMiddleware($session);
 $adminAuthenticationMiddleware = new AdminAuthenticationMiddleware($session, $admins);

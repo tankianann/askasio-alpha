@@ -18,6 +18,7 @@ final class JobController
         private readonly ViewRenderer $views,
         private readonly CsrfTokenManager $csrf,
         private readonly string $environment,
+        private readonly bool $pipelineAvailable,
     ) {
     }
 
@@ -37,7 +38,7 @@ final class JobController
             'currentSection' => 'jobs',
             'jobs' => $this->queue->recent(100),
             'counts' => $this->queue->counts(),
-            'pipelineAvailable' => false,
+            'pipelineAvailable' => $this->pipelineAvailable,
         ], 'layouts/admin'));
     }
 }

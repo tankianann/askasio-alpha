@@ -73,7 +73,7 @@
 <section class="section-heading">
     <div>
         <h2>Version history</h2>
-        <p class="muted">Versions are immutable. Processing and activation will be handled by the ingestion worker.</p>
+        <p class="muted">Versions are immutable. A version becomes active only after extraction and chunking succeed.</p>
     </div>
 </section>
 
@@ -96,13 +96,29 @@
                     <div><dt>MIME type</dt><dd><?= $escape($version->mimeType) ?></dd></div>
                     <div><dt>File size</dt><dd><?= $escape($formatBytes($version->fileSize)) ?></dd></div>
                     <div><dt>Stored path</dt><dd><code><?= $escape($version->storedFilePath) ?></code></dd></div>
-                    <div class="definition-wide"><dt>SHA-256</dt><dd><code class="break-text"><?= $escape($version->contentHash) ?></code></dd></div>
+                    <div class="definition-wide"><dt>File SHA-256</dt><dd><code class="break-text"><?= $escape($version->fileHash) ?></code></dd></div>
+                <?php endif; ?>
+                <div><dt>Chunks</dt><dd><?= $escape($version->chunkCount) ?></dd></div>
+                <?php if ($version->contentHash !== null): ?>
+                    <div class="definition-wide"><dt>Extracted content SHA-256</dt><dd><code class="break-text"><?= $escape($version->contentHash) ?></code></dd></div>
                 <?php endif; ?>
                 <div><dt>Processed</dt><dd><?= $escape($formatDate($version->processedAt)) ?></dd></div>
                 <div><dt>Activated</dt><dd><?= $escape($formatDate($version->activatedAt)) ?></dd></div>
             </dl>
             <?php if ($version->errorMessage !== null): ?>
                 <div class="alert alert-error"><?= $escape($version->errorMessage) ?></div>
+            <?php endif; ?>
+            <?php if ($version->extractedText !== null): ?>
+                <details class="extraction-details">
+                    <summary>View extracted text</summary>
+                    <pre><?= $escape($version->extractedText) ?></pre>
+                </details>
+            <?php endif; ?>
+            <?php if ($version->metadata !== []): ?>
+                <details class="extraction-details">
+                    <summary>View extracted metadata</summary>
+                    <pre><?= $escape($formatJson($version->metadata)) ?></pre>
+                </details>
             <?php endif; ?>
         </article>
     <?php endforeach; ?>

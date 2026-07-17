@@ -40,10 +40,7 @@ final class PdoSourceRepository implements SourceRepositoryInterface
     public function versionsForSource(int $sourceId): array
     {
         $statement = $this->connection->pdo()->prepare(
-            'SELECT id, source_id, version_number, original_filename, original_url, stored_file_path,
-                    content_hash, mime_type, file_size, processing_status, error_message,
-                    created_at, processed_at, activated_at
-             FROM source_versions WHERE source_id = :source_id ORDER BY version_number DESC',
+            $this->versionSelect() . ' WHERE sv.source_id = :source_id ORDER BY sv.version_number DESC',
         );
         $statement->execute(['source_id' => $sourceId]);
 
@@ -82,6 +79,7 @@ final class PdoSourceRepository implements SourceRepositoryInterface
             'original_url' => $url,
             'stored_file_path' => null,
             'content_hash' => null,
+            'file_hash' => null,
             'mime_type' => null,
             'file_size' => null,
         ]);
@@ -99,7 +97,8 @@ final class PdoSourceRepository implements SourceRepositoryInterface
             'original_filename' => $originalFilename,
             'original_url' => null,
             'stored_file_path' => $storedFilePath,
-            'content_hash' => $contentHash,
+            'content_hash' => null,
+            'file_hash' => $contentHash,
             'mime_type' => $mimeType,
             'file_size' => $fileSize,
         ]);
@@ -162,10 +161,10 @@ final class PdoSourceRepository implements SourceRepositoryInterface
         $statement = $pdo->prepare(
             "INSERT INTO source_versions (
                 source_id, version_number, original_filename, original_url, stored_file_path,
-                content_hash, mime_type, file_size, processing_status, created_at
+                content_hash, file_hash, mime_type, file_size, processing_status, created_at
              ) VALUES (
                 :source_id, :version_number, :original_filename, :original_url, :stored_file_path,
-                :content_hash, :mime_type, :file_size, 'pending', UTC_TIMESTAMP(6)
+                :content_hash, :file_hash, :mime_type, :file_size, 'pending', UTC_TIMESTAMP(6)
              )",
         );
         $statement->execute([
@@ -185,10 +184,7 @@ final class PdoSourceRepository implements SourceRepositoryInterface
     private function findVersionById(int $id): ?SourceVersion
     {
         $statement = $this->connection->pdo()->prepare(
-            'SELECT id, source_id, version_number, original_filename, original_url, stored_file_path,
-                    content_hash, mime_type, file_size, processing_status, error_message,
-                    created_at, processed_at, activated_at
-             FROM source_versions WHERE id = :id LIMIT 1',
+            $this->versionSelect() . ' WHERE sv.id = :id LIMIT 1',
         );
         $statement->execute(['id' => $id]);
         $row = $statement->fetch();
@@ -214,6 +210,20 @@ final class PdoSourceRepository implements SourceRepositoryInterface
                    (SELECT sv2.processing_status FROM source_versions sv2
                     WHERE sv2.source_id = s.id ORDER BY sv2.version_number DESC LIMIT 1) AS latest_processing_status
             FROM sources s
+            SQL;
+    }
+
+    private function versionSelect(): string
+    {
+        return <<<'SQL'
+            SELECT sv.id, sv.source_id, sv.version_number, sv.original_filename, sv.original_url,
+                   sv.stored_file_path, sv.content_hash, sv.file_hash, sv.mime_type, sv.file_size,
+                   sv.processing_status, sv.error_message, sv.extracted_text, sv.metadata_json,
+                   sv.created_at, sv.processed_at,
+                   sv.activated_at, s.source_type,
+                   (SELECT COUNT(*) FROM source_chunks sc WHERE sc.source_version_id = sv.id) AS chunk_count
+            FROM source_versions sv
+            INNER JOIN sources s ON s.id = sv.source_id
             SQL;
     }
 
@@ -254,6 +264,13 @@ final class PdoSourceRepository implements SourceRepositoryInterface
             (string) $row['created_at'],
             isset($row['processed_at']) ? (string) $row['processed_at'] : null,
             isset($row['activated_at']) ? (string) $row['activated_at'] : null,
+            isset($row['file_hash']) ? (string) $row['file_hash'] : null,
+            isset($row['source_type']) ? SourceType::from((string) $row['source_type']) : null,
+            isset($row['chunk_count']) ? (int) $row['chunk_count'] : 0,
+            isset($row['extracted_text']) ? (string) $row['extracted_text'] : null,
+            isset($row['metadata_json'])
+                ? (json_decode((string) $row['metadata_json'], true, flags: JSON_THROW_ON_ERROR) ?: [])
+                : [],
         );
     }
 }

@@ -78,4 +78,15 @@ final class Config
 
         return $value;
     }
+
+    public function requireBool(string $key): bool
+    {
+        $value = $this->get($key);
+
+        if (!is_bool($value)) {
+            throw new ConfigurationException(sprintf('Configuration value %s must be a boolean.', $key));
+        }
+
+        return $value;
+    }
 }

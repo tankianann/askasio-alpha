@@ -10,7 +10,7 @@ try {
     $worker = $application['worker'];
 
     if (!$worker->isAvailable()) {
-        fwrite(STDERR, "Worker not started: the extraction processor is introduced in Milestone 5. Queued jobs were not claimed.\n");
+        fwrite(STDERR, "Worker not started because the extraction pipeline is unavailable. Queued jobs were not claimed.\n");
         exit(2);
     }
 

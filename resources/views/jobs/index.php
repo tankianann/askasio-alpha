@@ -8,7 +8,7 @@
 
 <?php if (!$pipelineAvailable): ?>
     <div class="alert alert-warning" role="status">
-        Jobs are safely queued. The extraction processor arrives in Milestone 5, so workers will not claim them yet.
+        The extraction pipeline is unavailable. Workers will leave jobs pending until configuration is repaired.
     </div>
 <?php endif; ?>
 

@@ -1,6 +1,6 @@
 # RAG Server
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–4 provide the application foundation, secure single-administrator interface, versioned source management, and durable ingestion queue; extraction, retrieval, and chat arrive in later milestones.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–5 provide the application foundation, secure single-administrator interface, versioned source management, durable ingestion queue, and local extraction/chunking pipeline. Embeddings, retrieval, API keys, and chat arrive in later milestones.
 
 ## Implemented functionality
 
@@ -55,17 +55,60 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Structured, secret-redacted claim/completion/failure/recovery logs
 - Dashboard queue counts, dedicated Jobs screen, and per-source job history
 
+### Extraction and chunking
+
+- Replaceable extractor and chunker interfaces connected to the production worker
+- SSRF-resistant URL fetching with HTTP(S)-only policy, DNS/IP validation, pinned connections, proxy bypass, manual redirect revalidation, TLS verification, timeouts, byte limits, and HTML content-type checks
+- Readable HTML extraction that removes scripts, styles, navigation, and other common page noise while preserving title, canonical URL, headings, and section hierarchy
+- CommonMark-based Markdown parsing with raw HTML stripped before readable-text extraction
+- Page-aware PDF text extraction with automatic OCRmyPDF/Tesseract fallback for scanned or image-only documents
+- UTF-8 normalization, deterministic SHA-256 hashes of normalized extracted content, and separate uploaded-file hashes
+- Configurable paragraph/sentence-aware chunks with overlap, token estimates, ordering, section/page metadata, and character offsets
+- Transactional chunk persistence and source-version activation; the former active version changes only after a replacement succeeds
+- Unchanged refreshed content retained as an inactive version without replacing the current active version
+- Escaped extracted-text and formatted metadata inspection in source version history
+
 ## Requirements
 
-- PHP 8.3 or later with `fileinfo`, `json`, `pdo`, and `pdo_mysql`
+- PHP 8.3 or later with `curl`, `dom`, `fileinfo`, `iconv`, `intl`, `json`, `mbstring`, `pdo`, and `pdo_mysql`
 - Composer 2
 - MySQL 8 or MariaDB
+- OCRmyPDF with Tesseract when `PDF_OCR_ENABLED=true`
 
 Confirm extensions with:
 
 ```bash
-php -m | grep -E 'fileinfo|json|PDO|pdo_mysql'
+php -m | grep -E 'curl|dom|fileinfo|iconv|intl|json|mbstring|PDO|pdo_mysql'
 ```
+
+Install the local OCR engine on macOS with Homebrew:
+
+```bash
+brew install ocrmypdf
+```
+
+Poppler is optional for manual PDF rendering and visual diagnostics:
+
+```bash
+brew install poppler
+```
+
+On Debian or Ubuntu, use:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ocrmypdf poppler-utils
+```
+
+Confirm the engine and installed Tesseract languages:
+
+```bash
+ocrmypdf --version
+tesseract --version
+tesseract --list-langs
+```
+
+Homebrew's OCRmyPDF package includes English. Additional languages require their corresponding Tesseract trained-data packages. See the [OCRmyPDF installation guide](https://ocrmypdf.readthedocs.io/en/latest/installation.html) and [Tesseract language data](https://tesseract-ocr.github.io/tessdoc/Data-Files.html).
 
 ## Local setup without Docker
 
@@ -149,6 +192,205 @@ cp .env.example .env
 
 Set `DB_PASSWORD=rag_password` in `.env`, wait for the container health check, then run the migration and server commands above. The Docker credentials are development-only and must not be reused in production.
 
+## Production deployment on Apache
+
+This section is the current deployment baseline and should be updated as later milestones introduce embeddings, API authentication, chat providers, scheduled source refreshes, and additional operational maintenance.
+
+### Server packages
+
+On Ubuntu or Debian, install Apache, PHP-FPM, the required PHP extensions, and the local OCR engine. Package names can vary by distribution:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+    apache2 \
+    php8.3-fpm \
+    php8.3-cli \
+    php8.3-mysql \
+    php8.3-curl \
+    php8.3-mbstring \
+    php8.3-intl \
+    php8.3-xml \
+    php8.3-zip \
+    unzip \
+    ocrmypdf
+```
+
+Confirm that the web and CLI environments meet the application requirements. `proc_open()` must remain enabled for local OCR:
+
+```bash
+php -v
+php -m | grep -E 'curl|dom|fileinfo|iconv|intl|json|mbstring|PDO|pdo_mysql'
+php -r 'var_dump(function_exists("proc_open"));'
+ocrmypdf --version
+tesseract --list-langs
+```
+
+### Production environment
+
+Create `.env` from `.env.example` and use production-specific values:
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://ragserver.example.com
+APP_SECRET=replace-with-a-stable-random-secret
+SESSION_SECURE_COOKIE=always
+
+FILESYSTEM_PATH=/var/lib/ragserver/sources
+LOG_LEVEL=info
+
+PDF_OCR_ENABLED=true
+PDF_OCR_BINARY=/usr/bin/ocrmypdf
+PDF_OCR_LANGUAGES=eng
+```
+
+Generate `APP_SECRET` once and preserve it across releases. The macOS Homebrew path `/opt/homebrew/bin/ocrmypdf` must normally be changed to `/usr/bin/ocrmypdf` on Linux.
+
+Install production dependencies, migrate, and create the administrator:
+
+```bash
+composer install --no-dev --optimize-autoloader
+php bin/migrate.php
+php bin/create-admin.php
+```
+
+Run `create-admin.php` only during initial setup. Run migrations after deploying every release; the migration runner safely skips migrations that were already applied.
+
+### Apache virtual host
+
+The document root must be the application's `public/` directory. The repository does not rely on `.htaccess`, so configure the front controller in the virtual host:
+
+```apache
+<VirtualHost *:80>
+    ServerName ragserver.example.com
+    DocumentRoot /var/www/ragserver/public
+
+    <Directory /var/www/ragserver/public>
+        Options -Indexes
+        AllowOverride None
+        Require all granted
+        DirectoryIndex index.php
+        FallbackResource /index.php
+    </Directory>
+
+    <FilesMatch "\.php$">
+        SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost/"
+    </FilesMatch>
+
+    ErrorLog ${APACHE_LOG_DIR}/ragserver-error.log
+    CustomLog ${APACHE_LOG_DIR}/ragserver-access.log combined
+</VirtualHost>
+```
+
+`FallbackResource` routes non-file requests through `public/index.php` while allowing existing assets to be served normally. See the [Apache front-controller documentation](https://httpd.apache.org/docs/current/en/mod/mod_dir.html#fallbackresource).
+
+Enable the required Apache configuration and validate it before reloading:
+
+```bash
+sudo a2enmod proxy_fcgi setenvif
+sudo a2enconf php8.3-fpm
+sudo a2ensite ragserver.conf
+sudo apachectl configtest
+sudo systemctl reload apache2
+```
+
+Add HTTPS using the hosting provider or an ACME client such as Certbot. Redirect HTTP to HTTPS and retain `SESSION_SECURE_COOKIE=always` in production.
+
+### Filesystem permissions and PHP limits
+
+The web process and ingestion worker must be able to write source storage, logs, and cache. Application code and `.env` should not be generally writable:
+
+```bash
+sudo mkdir -p /var/lib/ragserver/sources
+sudo chown -R www-data:www-data /var/lib/ragserver/sources
+sudo chown -R www-data:www-data \
+    /var/www/ragserver/storage/logs \
+    /var/www/ragserver/storage/cache
+sudo chgrp www-data /var/www/ragserver/.env
+sudo chmod 640 /var/www/ragserver/.env
+```
+
+Configure PHP-FPM so its request limits exceed the application upload limit:
+
+```ini
+upload_max_filesize = 20M
+post_max_size = 22M
+display_errors = Off
+expose_php = Off
+```
+
+### Ingestion worker service
+
+A persistent systemd worker is recommended. It processes uploads immediately, survives reboots, and restarts after unexpected failures. Create `/etc/systemd/system/ragserver-worker.service`:
+
+```ini
+[Unit]
+Description=RAG Server ingestion worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/ragserver
+ExecStart=/usr/bin/php /var/www/ragserver/bin/worker.php
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+PrivateTmp=true
+NoNewPrivileges=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and inspect the worker:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now ragserver-worker
+sudo systemctl status ragserver-worker
+sudo journalctl -u ragserver-worker -f
+```
+
+Begin with one worker because PDF OCR can be CPU- and memory-intensive. The queue supports multiple atomic workers, but additional workers should be added only after observing production resource use.
+
+For a very low-volume installation, cron may be used instead of systemd:
+
+```cron
+* * * * * www-data cd /var/www/ragserver && /usr/bin/flock -n storage/cache/worker.lock /usr/bin/php bin/process-jobs.php --once >/dev/null
+```
+
+The one-shot command processes at most one available job. `flock` prevents overlapping cron invocations. Do not configure both cron and the persistent service for the initial deployment.
+
+### Backups, monitoring, and releases
+
+A complete backup includes both the MySQL database and `FILESYSTEM_PATH`; the database does not contain the immutable uploaded files. The `.env` file should be backed up separately and securely. Logs are optional operational data.
+
+Useful health checks are:
+
+```bash
+curl -fsS https://ragserver.example.com/api/v1/health
+sudo systemctl is-active ragserver-worker
+sudo journalctl -u ragserver-worker --since today
+```
+
+For subsequent releases:
+
+```bash
+composer install --no-dev --optimize-autoloader
+php bin/migrate.php
+sudo systemctl restart ragserver-worker
+sudo systemctl reload php8.3-fpm
+```
+
+Run the PHPUnit suite in CI or before packaging the release, since production installs intentionally omit Composer development dependencies.
+
+Keep MySQL bound to localhost or a private network, expose only required firewall ports, monitor disk usage for source uploads, and test database/source-file restoration periodically. There are currently no other application scheduler commands; URL refresh scheduling and data-retention maintenance will be documented when those features are implemented.
+
 ## Tests and checks
 
 Tests do not contact a database or paid provider by default:
@@ -202,7 +444,9 @@ post_max_size=22M
 
 The application independently checks the actual temporary-file size, reported size, extension, detected MIME type, and format signature/text encoding. Original filenames are stored only as metadata and are never used as filesystem names. Source files are preserved during soft deletion.
 
-URL creation does not currently perform a network request. The current policy rejects obvious unsafe destinations. Milestone 5 will additionally resolve and validate every destination IP immediately before connecting and repeat validation after each redirect.
+URL creation does not perform a network request in the administrator request. The worker validates the URL structure, resolves every destination immediately before connecting, rejects the entire result if any address is private/reserved, pins cURL to a validated public address, disables environment proxies, and repeats the checks after each manually handled redirect. Only HTML/XHTML responses within the configured limits are accepted.
+
+Uploaded-file SHA-256 and normalized extracted-content SHA-256 are stored separately. The latter detects unchanged readable content without conflating it with raw file bytes.
 
 ## Ingestion queue and workers
 
@@ -224,6 +468,33 @@ JOB_ABANDONED_TIMEOUT_MINUTES=15
 JOB_POLL_SECONDS=2
 ```
 
+Extraction and chunking defaults can be tuned through:
+
+```dotenv
+RAG_CHUNK_SIZE_TOKENS=500
+RAG_CHUNK_OVERLAP_TOKENS=75
+RAG_MINIMUM_CHUNK_TOKENS=20
+URL_CONNECT_TIMEOUT_SECONDS=5
+URL_REQUEST_TIMEOUT_SECONDS=20
+URL_MAXIMUM_REDIRECTS=5
+URL_MAXIMUM_RESPONSE_BYTES=5242880
+URL_USER_AGENT=RAGServer/1.0
+
+PDF_OCR_ENABLED=true
+PDF_OCR_BINARY=ocrmypdf
+PDF_OCR_LANGUAGES=eng
+PDF_OCR_PROCESS_TIMEOUT_SECONDS=900
+PDF_OCR_PAGE_TIMEOUT_SECONDS=120
+PDF_OCR_JOBS=1
+PDF_OCR_MAX_OUTPUT_SIZE_MB=100
+PDF_OCR_ROTATE_PAGES=true
+PDF_OCR_DESKEW=true
+```
+
+The worker first attempts native PDF text extraction. OCR starts only when the document contains no extractable text. OCRmyPDF runs as a shell-free argument-array subprocess with one worker by default, bounded per-page and whole-process timeouts, a maximum output size, and private temporary output that is removed after extraction. The searchable OCR copy is transient; the immutable original upload remains unchanged. Digital signatures may be invalidated only on that disposable OCR copy. OCR metadata is stored with the extracted source version.
+
+Set `PDF_OCR_BINARY` to an absolute path for cron or service environments whose `PATH` is restricted. Apple Silicon Homebrew normally uses `/opt/homebrew/bin/ocrmypdf`; Intel Homebrew normally uses `/usr/local/bin/ocrmypdf`.
+
 The one-shot command is designed for cron:
 
 ```bash
@@ -236,13 +507,15 @@ The long-running worker is:
 php bin/worker.php
 ```
 
-Milestone 4 intentionally leaves the extraction processor unavailable because extractors arrive in Milestone 5. Both commands currently exit with status `2` and a clear message without claiming or changing pending jobs. Once the Milestone 5 processor is connected, a cron entry can run the one-shot command, for example:
+The worker now extracts, chunks, stores, and activates source versions. A cron entry can run the one-shot command for low-volume deployments, for example:
 
 ```cron
-* * * * * cd /absolute/path/to/ragserver && /absolute/path/to/php bin/process-jobs.php --once
+* * * * * cd /absolute/path/to/ragserver && /usr/bin/flock -n storage/cache/worker.lock /absolute/path/to/php bin/process-jobs.php --once >/dev/null
 ```
 
-Unexpected exception messages are written only to the secret-redacted application log. The job table and administrator UI receive a generic reference. Controlled ingestion exceptions may provide a deliberately safe operational message.
+For production, prefer the systemd service documented in the production deployment section. Use either systemd or cron, not both initially.
+
+Unexpected exception messages are written only to the secret-redacted application log. The job table and administrator UI receive a generic reference. Controlled ingestion exceptions may provide a deliberately safe operational message. A transient OCR engine failure follows normal job retry rules; a successful OCR run that recognizes no readable text fails permanently with an actionable message.
 
 ## Migration policy
 
@@ -252,4 +525,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-Milestone 4 intentionally does not fetch URLs, extract document text, create chunks, generate embeddings, or activate versions. Jobs remain pending because the CLI refuses to claim work until a real processor is configured. Milestone 5 will add URL/Markdown/PDF extractors, extracted-document models, semantic chunking, content metadata/hash handling, and the production processor that activates the worker engine.
+Milestone 5 stops after local extraction (including OCR), chunk persistence, and atomic source-version activation. `source_chunks.embedding` remains `NULL`; no paid AI provider is contacted and no API key is needed. Milestone 6 will add the OpenAI embedding provider, cosine-similarity retrieval, active/enabled source filters, and `/api/v1/retrieve` behind the vector-store boundary.

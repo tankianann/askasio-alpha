@@ -44,6 +44,10 @@ final class ViewRenderer
 
             return number_format($bytes / (1024 * 1024), 1) . ' MB';
         };
+        $formatJson = static fn (array $value): string => json_encode(
+            $value,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+        );
         $viewFile = $this->resolve($view);
         extract($data, EXTR_SKIP);
 

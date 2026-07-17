@@ -10,7 +10,7 @@ try {
     $worker = $application['worker'];
 
     if (!$worker->isAvailable()) {
-        fwrite(STDERR, "Ingestion jobs remain pending: the extraction processor is introduced in Milestone 5.\n");
+        fwrite(STDERR, "Ingestion jobs remain pending because the extraction pipeline is unavailable.\n");
         exit(2);
     }
 

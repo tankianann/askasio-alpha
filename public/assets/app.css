@@ -602,6 +602,30 @@ tbody tr:last-child td {
     grid-column: 1 / -1;
 }
 
+.extraction-details {
+    margin-top: 1rem;
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+}
+
+.extraction-details summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.extraction-details pre {
+    max-height: 28rem;
+    margin: 1rem 0 0;
+    overflow: auto;
+    border-radius: 0.65rem;
+    background: var(--surface-soft);
+    padding: 1rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font: 0.82rem/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 .break-text,
 code {
     overflow-wrap: anywhere;
