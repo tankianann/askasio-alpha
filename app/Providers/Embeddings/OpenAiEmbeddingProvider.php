@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers\Embeddings;
 
+use App\Providers\OpenAI\OpenAiAuthenticationException;
 use App\Providers\OpenAI\OpenAiClientInterface;
+use App\Providers\OpenAI\OpenAiInvalidRequestException;
+use App\Providers\OpenAI\OpenAiClientException;
+use App\Providers\OpenAI\OpenAiMalformedResponseException;
+use App\Providers\OpenAI\OpenAiRateLimitException;
+use App\Providers\OpenAI\OpenAiTimeoutException;
 
 final class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
 {
@@ -49,7 +55,21 @@ final class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
             $payload['dimensions'] = $this->dimensions;
         }
 
-        $response = $this->client->postJson('/v1/embeddings', $payload);
+        try {
+            $response = $this->client->postJson('/v1/embeddings', $payload);
+        } catch (OpenAiAuthenticationException $exception) {
+            throw new EmbeddingAuthenticationException($exception->getMessage(), previous: $exception);
+        } catch (OpenAiInvalidRequestException $exception) {
+            throw new EmbeddingConfigurationException($exception->getMessage(), previous: $exception);
+        } catch (OpenAiRateLimitException $exception) {
+            throw new EmbeddingRateLimitException($exception->getMessage(), previous: $exception);
+        } catch (OpenAiTimeoutException $exception) {
+            throw new EmbeddingTimeoutException($exception->getMessage(), previous: $exception);
+        } catch (OpenAiMalformedResponseException $exception) {
+            throw new MalformedEmbeddingResponseException($exception->getMessage(), previous: $exception);
+        } catch (OpenAiClientException $exception) {
+            throw new EmbeddingProviderException($exception->getMessage(), previous: $exception);
+        }
         $data = $response['data'] ?? null;
 
         if (!is_array($data) || count($data) !== count($texts)) {

@@ -33,16 +33,20 @@ return [
         ApiKeyController $apiKeyController,
         ApiRequestLogController $apiRequestLogController,
         Closure $retrieveHandler,
+        Closure $chatHandler,
         ApiRequestLoggingMiddleware $apiRequestLoggingMiddleware,
         ApiKeyAuthenticationMiddleware $apiKeyAuthenticationMiddleware,
         ApiRateLimitMiddleware $apiRateLimitMiddleware,
+        ApiRateLimitMiddleware $chatRateLimitMiddleware,
     ): void {
         $router->group('/api/v1', [], static function (Router $router) use (
             $healthController,
             $retrieveHandler,
+            $chatHandler,
             $apiRequestLoggingMiddleware,
             $apiKeyAuthenticationMiddleware,
             $apiRateLimitMiddleware,
+            $chatRateLimitMiddleware,
         ): void {
             $router->get('/health', $healthController, name: 'api.v1.health');
             $router->post(
@@ -50,6 +54,12 @@ return [
                 $retrieveHandler,
                 [$apiRequestLoggingMiddleware, $apiKeyAuthenticationMiddleware, $apiRateLimitMiddleware],
                 'api.v1.retrieve',
+            );
+            $router->post(
+                '/chat',
+                $chatHandler,
+                [$apiRequestLoggingMiddleware, $apiKeyAuthenticationMiddleware, $chatRateLimitMiddleware],
+                'api.v1.chat',
             );
         });
 

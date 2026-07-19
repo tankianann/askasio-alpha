@@ -44,6 +44,19 @@ final class ApiRateLimiterTest extends TestCase
         self::assertTrue($limiter->consume($key, '203.0.113.10', 120)->allowed);
     }
 
+    public function testNamespacesKeepChatAndGeneralApiBucketsIndependent(): void
+    {
+        $repository = new InMemoryApiRateLimitRepository();
+        $general = new ApiRateLimiter($repository, str_repeat('s', 32), 60, 1, 10, 'api');
+        $chat = new ApiRateLimiter($repository, str_repeat('s', 32), 60, 1, 10, 'chat');
+        $key = $this->key();
+
+        self::assertTrue($general->consume($key, '203.0.113.10', 120)->allowed);
+        self::assertTrue($chat->consume($key, '203.0.113.10', 120)->allowed);
+        self::assertFalse($general->consume($key, '203.0.113.10', 121)->allowed);
+        self::assertFalse($chat->consume($key, '203.0.113.10', 121)->allowed);
+    }
+
     private function key(): ApiKey
     {
         return new ApiKey(

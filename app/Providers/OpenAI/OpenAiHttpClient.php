@@ -4,12 +4,6 @@ declare(strict_types=1);
 
 namespace App\Providers\OpenAI;
 
-use App\Providers\Embeddings\EmbeddingAuthenticationException;
-use App\Providers\Embeddings\EmbeddingConfigurationException;
-use App\Providers\Embeddings\EmbeddingProviderException;
-use App\Providers\Embeddings\EmbeddingRateLimitException;
-use App\Providers\Embeddings\EmbeddingTimeoutException;
-use App\Providers\Embeddings\MalformedEmbeddingResponseException;
 use CurlHandle;
 use JsonException;
 
@@ -23,20 +17,20 @@ final class OpenAiHttpClient implements OpenAiClientInterface
         private readonly int $maximumRetries,
     ) {
         if (trim($this->apiKey) === '') {
-            throw new EmbeddingConfigurationException('OPENAI_API_KEY is not configured.');
+            throw new OpenAiConfigurationException('OPENAI_API_KEY is not configured.');
         }
 
         if (filter_var($this->baseUrl, FILTER_VALIDATE_URL) === false
             || parse_url($this->baseUrl, PHP_URL_SCHEME) !== 'https') {
-            throw new EmbeddingConfigurationException('OPENAI_BASE_URL must be a valid HTTPS URL.');
+            throw new OpenAiConfigurationException('OPENAI_BASE_URL must be a valid HTTPS URL.');
         }
 
         if ($this->connectTimeoutSeconds < 1 || $this->requestTimeoutSeconds < 1) {
-            throw new EmbeddingConfigurationException('OpenAI timeouts must be positive integers.');
+            throw new OpenAiConfigurationException('OpenAI timeouts must be positive integers.');
         }
 
         if ($this->maximumRetries < 0 || $this->maximumRetries > 10) {
-            throw new EmbeddingConfigurationException('OpenAI maximum retries must be between 0 and 10.');
+            throw new OpenAiConfigurationException('OpenAI maximum retries must be between 0 and 10.');
         }
     }
 
@@ -57,28 +51,32 @@ final class OpenAiHttpClient implements OpenAiClientInterface
                         continue;
                     }
 
-                    throw new EmbeddingTimeoutException('The OpenAI request timed out.');
+                    throw new OpenAiTimeoutException('The OpenAI request timed out.');
                 }
 
-                throw new EmbeddingProviderException('The OpenAI request could not be completed.');
+                throw new OpenAiClientException('The OpenAI request could not be completed.');
             }
 
             if ($status >= 200 && $status < 300) {
                 try {
                     $decoded = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
                 } catch (JsonException $exception) {
-                    throw new MalformedEmbeddingResponseException('OpenAI returned malformed JSON.', previous: $exception);
+                    throw new OpenAiMalformedResponseException('OpenAI returned malformed JSON.', previous: $exception);
                 }
 
                 if (!is_array($decoded)) {
-                    throw new MalformedEmbeddingResponseException('OpenAI returned an unexpected response.');
+                    throw new OpenAiMalformedResponseException('OpenAI returned an unexpected response.');
                 }
 
                 return $decoded;
             }
 
             if ($status === 401 || $status === 403) {
-                throw new EmbeddingAuthenticationException('OpenAI rejected the configured credentials.');
+                throw new OpenAiAuthenticationException('OpenAI rejected the configured credentials.');
+            }
+
+            if ($status === 400 || $status === 404) {
+                throw new OpenAiInvalidRequestException('OpenAI rejected the configured request or model.');
             }
 
             if ($status === 429) {
@@ -87,7 +85,7 @@ final class OpenAiHttpClient implements OpenAiClientInterface
                     continue;
                 }
 
-                throw new EmbeddingRateLimitException('OpenAI rate-limited the embedding request.');
+                throw new OpenAiRateLimitException('OpenAI rate-limited the request.');
             }
 
             if ($status >= 500 && $status <= 599 && $attempt <= $this->maximumRetries) {
@@ -95,7 +93,7 @@ final class OpenAiHttpClient implements OpenAiClientInterface
                 continue;
             }
 
-            throw new EmbeddingProviderException(sprintf('OpenAI returned HTTP %d.', $status));
+            throw new OpenAiClientException(sprintf('OpenAI returned HTTP %d.', $status));
         }
     }
 
@@ -105,7 +103,7 @@ final class OpenAiHttpClient implements OpenAiClientInterface
         $handle = curl_init($url);
 
         if (!$handle instanceof CurlHandle) {
-            throw new EmbeddingProviderException('The OpenAI HTTP client could not be initialized.');
+            throw new OpenAiClientException('The OpenAI HTTP client could not be initialized.');
         }
 
         curl_setopt_array($handle, [

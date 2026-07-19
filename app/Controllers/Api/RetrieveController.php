@@ -6,10 +6,10 @@ namespace App\Controllers\Api;
 
 use App\Domain\RAG\RetrievedChunk;
 use App\Exceptions\HttpException;
+use App\Http\JsonRequestParser;
 use App\Http\Request;
 use App\Http\Response;
 use App\RAG\Retriever;
-use JsonException;
 
 final class RetrieveController
 {
@@ -17,31 +17,13 @@ final class RetrieveController
         private readonly Retriever $retriever,
         private readonly int $maximumTopK,
         private readonly int $maximumQueryCharacters,
-        private readonly int $maximumBodyBytes,
+        private readonly JsonRequestParser $json,
     ) {
     }
 
     public function __invoke(Request $request): Response
     {
-        $contentType = strtolower(trim(explode(';', (string) $request->header('content-type', ''))[0]));
-
-        if ($contentType !== 'application/json') {
-            throw new HttpException(415, 'Content-Type must be application/json.', 'unsupported_media_type');
-        }
-
-        if (strlen($request->rawBody()) > $this->maximumBodyBytes) {
-            throw new HttpException(413, 'The request body is too large.', 'request_too_large');
-        }
-
-        try {
-            $payload = json_decode($request->rawBody(), true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new HttpException(400, 'The request body contains invalid JSON.', 'invalid_json');
-        }
-
-        if (!is_array($payload) || array_is_list($payload)) {
-            throw new HttpException(400, 'The request body must be a JSON object.', 'invalid_request');
-        }
+        $payload = $this->json->object($request);
 
         $query = $payload['query'] ?? null;
 

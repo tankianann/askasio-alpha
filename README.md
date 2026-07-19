@@ -1,6 +1,6 @@
 # RAG Server
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–7 provide the application foundation, secure single-administrator interface, versioned source management, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, and authenticated application API keys. Grounded chat arrives in Milestone 8.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–8 provide the application foundation, secure single-administrator interface, versioned source management, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, and grounded chat with citations.
 
 ## Implemented functionality
 
@@ -96,13 +96,27 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Configurable request-log retention with opportunistic pruning
 - Administrator API-key and recent API-request screens
 
+### Grounded RAG chat
+
+- Authenticated `POST /api/v1/chat` endpoint using the OpenAI Responses API
+- Provider-independent chat boundary with a replaceable OpenAI implementation
+- Code-managed grounded prompt that treats questions and source excerpts as untrusted data
+- Answers restricted to retrieved context with stable inline references such as `[S1]`
+- Structured citations containing source, version, chunk, URL, page, heading, and excerpt data
+- Configurable retrieval count, similarity threshold, context-token estimate, output-token ceiling, reasoning effort, and model
+- No paid chat-generation request when retrieval returns no qualifying context
+- Safe provider configuration, authentication, rate-limit, timeout, malformed-response, and general failure responses
+- Input, cached-input, output, reasoning, total, context, and retrieved-chunk usage reporting
+- A stricter, independent chat rate-limit namespace by API key and client IP
+- Provider-side response storage disabled for chat requests
+
 ## Requirements
 
 - PHP 8.3 or later with `curl`, `dom`, `fileinfo`, `iconv`, `intl`, `json`, `mbstring`, `pdo`, and `pdo_mysql`
 - Composer 2
 - MySQL 8 or MariaDB
 - OCRmyPDF with Tesseract when `PDF_OCR_ENABLED=true`
-- An OpenAI API project, API billing, and an API key for embedding ingestion and retrieval
+- An OpenAI API project, API billing, and an API key for embedding, retrieval, and chat generation
 
 Confirm extensions with:
 
@@ -172,12 +186,16 @@ Homebrew's OCRmyPDF package includes English. Additional languages require their
    php bin/migrate.php
    ```
 
-   Configure the embedding provider before running the ingestion worker:
+   Configure the embedding and chat providers before running the ingestion worker or calling chat:
 
    ```dotenv
    EMBEDDING_PROVIDER=openai
+   LLM_PROVIDER=openai
    OPENAI_API_KEY=replace-with-a-project-api-key
    OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+   OPENAI_CHAT_MODEL=gpt-5-mini
+   OPENAI_CHAT_REASONING_EFFORT=low
+   OPENAI_CHAT_MAX_OUTPUT_TOKENS=600
    ```
 
    `OPENAI_EMBEDDING_DIMENSIONS` is optional. Leave it empty to use the model's default dimensions. Changing the embedding model or dimensions later requires re-embedding the stored chunks.
@@ -234,7 +252,7 @@ Set `DB_PASSWORD=rag_password` in `.env`, wait for the container health check, t
 
 ## Production deployment on Apache
 
-This section is the current deployment baseline and should be updated as later milestones introduce embeddings, API authentication, chat providers, scheduled source refreshes, and additional operational maintenance.
+This section is the current deployment baseline through Milestone 8. Later milestones will add source refresh operations, permanent deletion, abandoned-job hardening, and the final security review.
 
 ### Server packages
 
@@ -285,8 +303,12 @@ PDF_OCR_BINARY=/usr/bin/ocrmypdf
 PDF_OCR_LANGUAGES=eng
 
 EMBEDDING_PROVIDER=openai
+LLM_PROVIDER=openai
 OPENAI_API_KEY=replace-with-a-project-api-key
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_CHAT_MODEL=gpt-5-mini
+OPENAI_CHAT_REASONING_EFFORT=low
+OPENAI_CHAT_MAX_OUTPUT_TOKENS=600
 ```
 
 Generate `APP_SECRET` once and preserve it across releases. The macOS Homebrew path `/opt/homebrew/bin/ocrmypdf` must normally be changed to `/usr/bin/ocrmypdf` on Linux.
@@ -586,6 +608,8 @@ API_MAXIMUM_BODY_BYTES=65536
 API_RATE_LIMIT_WINDOW_SECONDS=60
 API_RATE_LIMIT_PER_KEY=60
 API_RATE_LIMIT_PER_IP=120
+API_CHAT_RATE_LIMIT_PER_KEY=10
+API_CHAT_RATE_LIMIT_PER_IP=20
 API_REQUEST_LOG_RETENTION_DAYS=30
 ```
 
@@ -626,6 +650,47 @@ curl -X POST https://ragserver.example.com/api/v1/retrieve \
 
 Requests without a valid active, unexpired key return HTTP 401. Rate-limited requests return HTTP 429 with `Retry-After`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining` headers. Successful authenticated requests include the rate-limit headers as well.
 
+## Grounded chat API
+
+Chat-generation and cost controls are configured separately from embedding and retrieval defaults:
+
+```dotenv
+LLM_PROVIDER=openai
+OPENAI_CHAT_MODEL=gpt-5-mini
+OPENAI_CHAT_REASONING_EFFORT=low
+OPENAI_CHAT_MAX_OUTPUT_TOKENS=600
+OPENAI_CHAT_MAXIMUM_RETRIES=0
+
+RAG_CHAT_TOP_K=5
+RAG_CHAT_MAXIMUM_TOP_K=8
+RAG_CHAT_CONTEXT_MAX_TOKENS=4000
+RAG_CHAT_MAXIMUM_QUESTION_CHARACTERS=4000
+
+API_CHAT_RATE_LIMIT_PER_KEY=10
+API_CHAT_RATE_LIMIT_PER_IP=20
+```
+
+`OPENAI_CHAT_REASONING_EFFORT` is optional. Leave it empty for models that do not support reasoning configuration. Supported values accepted by the application are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`, but model support differs; an unsupported model/effort combination returns a safe `provider_configuration_error`.
+
+The chat provider defaults to zero automatic HTTP retries. This prevents an ambiguous timeout from silently repeating a potentially billable generation. API clients can retry deliberately using their own bounded policy.
+
+`RAG_CHAT_TOP_K` is the server default. Clients may request another value, but cannot exceed `RAG_CHAT_MAXIMUM_TOP_K`. After retrieval, the application adds chunks in similarity order only while they fit within `RAG_CHAT_CONTEXT_MAX_TOKENS`. The token count is a conservative local estimate; actual provider usage is returned from OpenAI separately.
+
+Call chat using an active application API key:
+
+```bash
+curl -X POST https://ragserver.example.com/api/v1/chat \
+    -H 'Authorization: Bearer rag_live_replace_with_your_key' \
+    -H 'Content-Type: application/json' \
+    -d '{"question":"What is the refund policy?","conversation_id":null,"top_k":5}'
+```
+
+A successful response contains `answer`, structured `citations`, numeric `usage`, and `request_id`. Usage includes `retrieved_chunks`, the local `context_tokens` estimate, and provider-reported `input_tokens`, `cached_input_tokens`, `output_tokens`, `reasoning_tokens`, and `total_tokens`. Numeric values are copied into the API request audit log; complete questions and answers are not logged.
+
+This milestone is intentionally single-turn. Omit `conversation_id` or send `null`; a non-null value returns HTTP 422 rather than pretending that conversation history was stored. If no chunks meet the retrieval threshold, the endpoint returns the standard insufficient-information answer without calling the chat provider.
+
+The integration follows OpenAI's current recommendation to use the [Responses API for text generation](https://developers.openai.com/api/docs/guides/text). Before changing models, run representative retrieval and answer evaluations and verify citation accuracy, unsupported-answer refusal, latency, and token usage.
+
 The health endpoint remains public:
 
 ```text
@@ -642,4 +707,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-Milestone 7 stops after API-key management, authenticated retrieval, rate limiting, and request auditing. Milestone 8 will add grounded answer generation and `/api/v1/chat`; the current HTTP API retrieves matching chunks but does not generate a natural-language answer.
+Milestone 8 is complete through grounded single-turn answer generation, citations, `/api/v1/chat`, provider error handling, usage reporting, hard prompt/output controls, and independent chat rate limiting. Milestone 9 will add replacement-version workflows, URL refresh, reprocessing, permanent deletion, abandoned-job recovery hardening, and production security documentation.

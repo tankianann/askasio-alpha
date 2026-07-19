@@ -16,6 +16,7 @@ final class ApiRateLimiter
         private readonly int $windowSeconds,
         private readonly int $perKeyLimit,
         private readonly int $perIpLimit,
+        private readonly string $bucketNamespace = 'api',
     ) {
         if (strlen($this->applicationSecret) < 32) {
             throw new InvalidArgumentException('A strong application secret is required for API rate limiting.');
@@ -24,6 +25,10 @@ final class ApiRateLimiter
         if ($this->windowSeconds < 1 || $this->windowSeconds > 3600
             || $this->perKeyLimit < 1 || $this->perIpLimit < 1) {
             throw new InvalidArgumentException('API rate-limit configuration is invalid.');
+        }
+
+        if (preg_match('/^[a-z0-9_-]{1,32}$/', $this->bucketNamespace) !== 1) {
+            throw new InvalidArgumentException('API rate-limit namespace is invalid.');
         }
     }
 
@@ -37,7 +42,7 @@ final class ApiRateLimiter
         $this->repository->pruneExpired();
         $keyCount = $this->repository->consume(
             'api_key',
-            hash('sha256', 'api-key:' . $apiKey->id),
+            hash('sha256', $this->bucketNamespace . ':api-key:' . $apiKey->id),
             $bucketStartedAt,
             $expiresAt,
         );
@@ -48,7 +53,7 @@ final class ApiRateLimiter
 
         $ipCount = $this->repository->consume(
             'ip',
-            hash_hmac('sha256', $clientIp, $this->applicationSecret),
+            hash_hmac('sha256', $this->bucketNamespace . ':' . $clientIp, $this->applicationSecret),
             $bucketStartedAt,
             $expiresAt,
         );

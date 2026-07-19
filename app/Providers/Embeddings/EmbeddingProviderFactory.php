@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers\Embeddings;
 
 use App\Providers\OpenAI\OpenAiHttpClient;
+use App\Providers\OpenAI\OpenAiConfigurationException;
 use App\Support\Config;
 
 final class EmbeddingProviderFactory
@@ -27,13 +28,17 @@ final class EmbeddingProviderFactory
             throw new EmbeddingConfigurationException('OpenAI embedding dimensions are configured incorrectly.');
         }
 
-        $client = new OpenAiHttpClient(
-            $this->config->requireString('providers.openai.api_key'),
-            $this->config->requireString('providers.openai.base_url'),
-            $this->config->requireInt('providers.openai.connect_timeout_seconds'),
-            $this->config->requireInt('providers.openai.request_timeout_seconds'),
-            $this->config->requireInt('providers.openai.maximum_retries'),
-        );
+        try {
+            $client = new OpenAiHttpClient(
+                $this->config->requireString('providers.openai.api_key'),
+                $this->config->requireString('providers.openai.base_url'),
+                $this->config->requireInt('providers.openai.connect_timeout_seconds'),
+                $this->config->requireInt('providers.openai.request_timeout_seconds'),
+                $this->config->requireInt('providers.openai.maximum_retries'),
+            );
+        } catch (OpenAiConfigurationException $exception) {
+            throw new EmbeddingConfigurationException($exception->getMessage(), previous: $exception);
+        }
 
         return new OpenAiEmbeddingProvider(
             $client,

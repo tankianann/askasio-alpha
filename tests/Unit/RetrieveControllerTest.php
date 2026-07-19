@@ -8,6 +8,7 @@ use App\Controllers\Api\RetrieveController;
 use App\Domain\RAG\RetrievedChunk;
 use App\Exceptions\HttpException;
 use App\Http\Request;
+use App\Http\JsonRequestParser;
 use App\RAG\Retriever;
 use PHPUnit\Framework\TestCase;
 use Tests\Fakes\FakeEmbeddingProvider;
@@ -74,6 +75,6 @@ final class RetrieveControllerTest extends TestCase
             0.2,
         );
 
-        return new RetrieveController($retriever, 20, 4000, 65536);
+        return new RetrieveController($retriever, 20, 4000, new JsonRequestParser(65536));
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controllers\Api\HealthController;
+use App\Controllers\Api\ChatController;
 use App\Controllers\Api\RetrieveController;
 use App\Auth\AuthenticationService;
 use App\Auth\LoginRateLimiter;
@@ -16,6 +17,7 @@ use App\Controllers\Admin\SourceController;
 use App\Controllers\Admin\JobController;
 use App\Database\Connection;
 use App\Http\ErrorHandler;
+use App\Http\JsonRequestParser;
 use App\Http\Middleware\AdminAuthenticationMiddleware;
 use App\Http\Middleware\ApiKeyAuthenticationMiddleware;
 use App\Http\Middleware\ApiRateLimitMiddleware;
@@ -34,8 +36,17 @@ use App\Repositories\PdoLoginAttemptRepository;
 use App\Repositories\PdoSourceRepository;
 use App\Repositories\PdoIngestionJobRepository;
 use App\Providers\Embeddings\EmbeddingProviderFactory;
+use App\Providers\Embeddings\EmbeddingConfigurationException;
+use App\Providers\Chat\ChatConfigurationException;
+use App\Providers\Chat\ChatProviderFactory;
+use App\Exceptions\ConfigurationException;
+use App\Exceptions\HttpException;
+use App\Ingestion\Chunking\HeuristicTokenEstimator;
+use App\RAG\AnswerGenerator;
+use App\RAG\ContextSelector;
 use App\RAG\CosineSimilarity;
 use App\RAG\PdoVectorStore;
+use App\RAG\PromptBuilder;
 use App\RAG\Retriever;
 use App\Security\CsrfTokenManager;
 use App\Security\SourceUploadValidator;
@@ -190,6 +201,14 @@ $apiRateLimitMiddleware = new ApiRateLimitMiddleware(new ApiRateLimiter(
     $config->requireInt('api.rate_limit_per_key'),
     $config->requireInt('api.rate_limit_per_ip'),
 ));
+$chatRateLimitMiddleware = new ApiRateLimitMiddleware(new ApiRateLimiter(
+    new PdoApiRateLimitRepository($connection),
+    $appSecret,
+    $config->requireInt('api.rate_limit_window_seconds'),
+    $config->requireInt('api.chat_rate_limit_per_key'),
+    $config->requireInt('api.chat_rate_limit_per_ip'),
+    'chat',
+));
 $sessionMiddleware = new SessionStartMiddleware($session);
 $adminAuthenticationMiddleware = new AdminAuthenticationMiddleware($session, $admins);
 $csrfMiddleware = new CsrfMiddleware($csrf);
@@ -212,8 +231,41 @@ $retrieveHandler = static function (\App\Http\Request $request) use ($config, $c
         $retriever,
         $config->requireInt('rag.retrieval_maximum_top_k'),
         $config->requireInt('rag.retrieval_maximum_query_characters'),
-        $config->requireInt('rag.api_maximum_body_bytes'),
+        new JsonRequestParser($config->requireInt('rag.api_maximum_body_bytes')),
     );
+
+    return $controller($request);
+};
+
+$chatHandler = static function (\App\Http\Request $request) use ($config, $connection, $appSecret): \App\Http\Response {
+    try {
+        $embeddings = (new EmbeddingProviderFactory($config))->create();
+        $retriever = new Retriever(
+            $embeddings,
+            new PdoVectorStore($connection, new CosineSimilarity()),
+            $config->requireInt('rag.chat_default_top_k'),
+            $config->requireInt('rag.chat_maximum_top_k'),
+            (float) $config->get('rag.retrieval_minimum_similarity'),
+        );
+        $answers = new AnswerGenerator(
+            $retriever,
+            new ContextSelector(
+                new HeuristicTokenEstimator(),
+                $config->requireInt('rag.chat_context_maximum_tokens'),
+            ),
+            new PromptBuilder(),
+            (new ChatProviderFactory($config))->create(),
+        );
+        $controller = new ChatController(
+            $answers,
+            new JsonRequestParser($config->requireInt('rag.api_maximum_body_bytes')),
+            $config->requireInt('rag.chat_maximum_top_k'),
+            $config->requireInt('rag.chat_maximum_question_characters'),
+            $appSecret,
+        );
+    } catch (ConfigurationException|EmbeddingConfigurationException|ChatConfigurationException) {
+        throw new HttpException(503, 'The AI provider is not configured correctly.', 'provider_configuration_error');
+    }
 
     return $controller($request);
 };
@@ -231,9 +283,11 @@ $registerRoutes(
     $apiKeyController,
     $apiRequestLogController,
     $retrieveHandler,
+    $chatHandler,
     $apiRequestLoggingMiddleware,
     $apiKeyAuthenticationMiddleware,
     $apiRateLimitMiddleware,
+    $chatRateLimitMiddleware,
 );
 
 return [
