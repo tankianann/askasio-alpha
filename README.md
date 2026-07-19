@@ -33,7 +33,8 @@ A framework-free PHP application for managing knowledge sources and answering gr
 
 - Versioned URL, Markdown, and PDF source records
 - Immutable source-version origins with pending ingestion lifecycle state
-- Source list, details, metadata, and complete version history
+- Paginated source list with name search, source-type, availability, and latest-processing-state filters
+- Source details, metadata, and complete version history
 - Enable, disable, and soft-delete actions protected by CSRF
 - Immutable replacement uploads, URL refreshes, and reprocessing from any completed version
 - Explicit permanent deletion of versions, chunks, embeddings, jobs, and private files after soft deletion and exact-name confirmation
@@ -55,7 +56,7 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Recovery of reservations abandoned by crashed workers, including jobs whose version committed successfully before the worker exited
 - Long-running and cron-friendly CLI entry points
 - Structured, secret-redacted claim/completion/failure/recovery logs
-- Dashboard queue counts, dedicated Jobs screen, and per-source job history
+- Dashboard queue counts, paginated and filterable Processing screen, and per-source job history
 
 ### Extraction and chunking
 
@@ -97,7 +98,7 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Request audit records containing request ID, numeric key ID, endpoint, status, duration, error category, and numeric usage
 - No bearer secrets, complete questions, or raw client IP addresses in API request records
 - Configurable API Activity retention with a concurrency-safe scheduled purge command
-- Administrator API-key and recent API-request screens
+- Paginated and filterable API Access and API Activity screens
 
 ### Grounded RAG chat
 
@@ -448,6 +449,20 @@ As an additional operational safeguard, run recovery periodically. It is idempot
 */10 * * * * www-data cd /var/www/ragserver && /usr/bin/php bin/recover-jobs.php >/dev/null
 ```
 
+### Administrator list pagination and filters
+
+The Knowledge Base, Processing, and API Access screens use server-side filtering, sorting, counting, and pagination. They default to 25 rows per page and allow 50 or 100. Search, filters, sort direction, page size, and current page are represented in the URL, so refreshing or sharing an administrator URL preserves the view. Applying filters starts at page 1; if deletion or a narrower filter makes the requested page invalid, the controller redirects to the last valid page while retaining the validated query state.
+
+Available controls are:
+
+- **Knowledge Base:** source-name search; source type; enabled, disabled, or deleted availability; latest-version processing status; and sorting by updated date, name, source type, availability, latest processing status, or revision count.
+- **Processing:** job status; source; application-timezone date range; minimum and maximum attempt count; and sorting by created date, status, source, attempts, or next available time. The summary cards intentionally show global queue totals rather than filtered-page totals.
+- **API Access:** name or visible-prefix search; active, revoked, or expired display status; and sorting by creation date, name, status, last-used date, or expiry date. List queries select only display metadata and never load the stored API-key hash.
+
+Sort columns are mapped through application allowlists rather than accepting SQL identifiers from query parameters. Result queries select only the current page, use deterministic ID tie-breakers, and run a separate filtered count query. The supporting migration adds indexes for common date, status, name, last-use, and attempt-order paths.
+
+Offset pagination is appropriate for these administrator datasets and permits numbered pages and exact totals. At very high row counts, especially if Processing history grows into millions of jobs, keyset pagination should be considered. Sorts based on derived values such as source revision count or latest processing status require joins or computed expressions and can be slower than indexed date/status ordering. Source detail version and job histories remain complete, unpaginated histories and should be revisited if individual sources accumulate unusually large numbers of revisions.
+
 ### API Activity retention maintenance
 
 API request logs are retained for 30 days by default. Select one of the supported policies in `.env`:
@@ -783,4 +798,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-The initial nine-milestone application scope is implemented. The dashboard data-lifecycle audit is now implemented through shared pagination/query state, the API Activity read experience, scheduled retention maintenance, and confirmed filter-aware manual purging. Further dashboard scaling work remains separately reviewable.
+The initial nine-milestone application scope is implemented. The dashboard data-lifecycle audit is now implemented through shared pagination/query state, the API Activity read experience, scheduled retention maintenance, confirmed filter-aware manual purging, and paginated/filterable Knowledge Base, Processing, and API Access screens. Further dashboard scaling work remains separately reviewable.

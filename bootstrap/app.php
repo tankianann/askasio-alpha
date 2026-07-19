@@ -57,7 +57,9 @@ use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
 use App\Services\Sources\SourcePermanentDeletionService;
 use App\Services\Sources\SourceUpdateService;
+use App\Services\Sources\SourceListQueryParser;
 use App\Services\Ingestion\IngestionQueue;
+use App\Services\Ingestion\IngestionJobListQueryParser;
 use App\Services\Api\ApiRateLimiter;
 use App\Services\Api\ApiRequestContext;
 use App\Services\Api\ApiRequestLogQueryParser;
@@ -65,6 +67,7 @@ use App\Services\Api\ApiRequestLogPurgeIntentStore;
 use App\Services\Api\ApiRequestLogPurgeRequestParser;
 use App\Services\Api\ApiRequestLogPurgeService;
 use App\Services\ApiKeys\ApiKeyService;
+use App\Services\ApiKeys\ApiKeyListQueryParser;
 use App\Support\Config;
 use App\Support\ViewRenderer;
 use Dotenv\Dotenv;
@@ -182,6 +185,7 @@ $sourceController = new SourceController(
     $queue,
     $sourceUpdates,
     $sourceDeletion,
+    new SourceListQueryParser($timezone),
 );
 $jobController = new JobController(
     $queue,
@@ -189,6 +193,8 @@ $jobController = new JobController(
     $csrf,
     $config->requireString('app.env'),
     true,
+    $session,
+    new IngestionJobListQueryParser($timezone),
 );
 $apiKeyService = new ApiKeyService($apiKeys);
 $apiKeyController = new ApiKeyController(
@@ -199,6 +205,7 @@ $apiKeyController = new ApiKeyController(
     $session,
     $config->requireString('app.env'),
     $timezone,
+    new ApiKeyListQueryParser($timezone),
 );
 $apiRequestLogController = new ApiRequestLogController(
     $apiRequestLogs,

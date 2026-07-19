@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace Tests\Fakes;
 
 use App\Domain\Ingestion\IngestionJob;
+use App\Domain\Ingestion\IngestionJobListQuery;
+use App\Domain\Ingestion\IngestionJobListSort;
+use App\Domain\Ingestion\IngestionJobSourceOption;
 use App\Domain\Ingestion\JobStatus;
 use App\Repositories\IngestionJobRepositoryInterface;
+use App\Support\Pagination\PaginatedResult;
+use App\Support\SortDirection;
 
 final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInterface
 {
@@ -94,6 +99,69 @@ final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInte
     public function recent(int $limit): array
     {
         return array_slice(array_values($this->jobs), 0, $limit);
+    }
+
+    public function paginate(IngestionJobListQuery $query): PaginatedResult
+    {
+        $jobs = array_values(array_filter($this->jobs, static function (IngestionJob $job) use ($query): bool {
+            if ($query->status !== null && $job->status !== $query->status) {
+                return false;
+            }
+
+            if ($query->sourceId !== null && $job->sourceId !== $query->sourceId) {
+                return false;
+            }
+
+            if ($query->createdFromUtc !== null && $job->createdAt < $query->createdFromUtc) {
+                return false;
+            }
+
+            if ($query->createdBeforeUtc !== null && $job->createdAt >= $query->createdBeforeUtc) {
+                return false;
+            }
+
+            if ($query->minimumAttempts !== null && $job->attempts < $query->minimumAttempts) {
+                return false;
+            }
+
+            return $query->maximumAttempts === null || $job->attempts <= $query->maximumAttempts;
+        }));
+        $direction = $query->direction === SortDirection::Ascending ? 1 : -1;
+        usort($jobs, static function (IngestionJob $left, IngestionJob $right) use ($query, $direction): int {
+            $comparison = match ($query->sort) {
+                IngestionJobListSort::Date => strcmp($left->createdAt, $right->createdAt),
+                IngestionJobListSort::Status => strcmp($left->status->value, $right->status->value),
+                IngestionJobListSort::Source => strcasecmp((string) $left->sourceName, (string) $right->sourceName),
+                IngestionJobListSort::Attempts => $left->attempts <=> $right->attempts,
+                IngestionJobListSort::Available => strcmp($left->availableAt, $right->availableAt),
+            };
+
+            return ($comparison !== 0 ? $comparison : $left->id <=> $right->id) * $direction;
+        });
+        $total = count($jobs);
+        $pageRequest = $query->pagination->clampToTotal($total);
+
+        return new PaginatedResult(
+            array_slice($jobs, $pageRequest->offset(), $pageRequest->perPage),
+            $total,
+            $pageRequest,
+        );
+    }
+
+    public function sourceOptions(): array
+    {
+        $options = [];
+
+        foreach ($this->jobs as $job) {
+            if ($job->sourceId !== null && $job->sourceName !== null) {
+                $options[$job->sourceId] = new IngestionJobSourceOption($job->sourceId, $job->sourceName);
+            }
+        }
+
+        usort($options, static fn (IngestionJobSourceOption $left, IngestionJobSourceOption $right): int =>
+            strcasecmp($left->name, $right->name));
+
+        return array_values($options);
     }
 
     public function forSource(int $sourceId): array

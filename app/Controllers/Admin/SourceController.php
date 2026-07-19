@@ -7,6 +7,7 @@ namespace App\Controllers\Admin;
 use App\Auth\SessionStoreInterface;
 use App\Domain\Admin\AdminUser;
 use App\Domain\Sources\Source;
+use App\Domain\Sources\SourceListSort;
 use App\Domain\Sources\SourceType;
 use App\Exceptions\HttpException;
 use App\Exceptions\ValidationException;
@@ -19,6 +20,9 @@ use App\Services\Sources\SourcePermanentDeletionService;
 use App\Services\Sources\SourceUpdateService;
 use App\Support\ViewRenderer;
 use App\Services\Ingestion\IngestionQueue;
+use App\Services\Sources\SourceListQueryParser;
+use App\Support\QueryString;
+use App\Support\SortDirection;
 use ValueError;
 
 final class SourceController
@@ -37,16 +41,54 @@ final class SourceController
         private readonly IngestionQueue $queue,
         private readonly SourceUpdateService $updates,
         private readonly SourcePermanentDeletionService $deletion,
+        private readonly SourceListQueryParser $listQueries,
     ) {
     }
 
     public function index(Request $request): Response
     {
+        try {
+            $query = $this->listQueries->parse($request);
+        } catch (ValidationException $exception) {
+            $this->session->put(self::FLASH_ERROR, $exception->getMessage());
+
+            return Response::redirect('/admin/sources');
+        }
+
+        $page = $this->sources->paginate($query);
+
+        if ($page->pageRequest->page !== $query->pagination->page) {
+            return Response::redirect(QueryString::url(
+                '/admin/sources',
+                $query->queryParameters(),
+                ['page' => $page->pageRequest->page === 1 ? null : $page->pageRequest->page],
+            ));
+        }
+
+        $parameters = $query->queryParameters();
+
         return Response::html($this->views->render('sources/index', [
             ...$this->layoutData($request, 'Knowledge Base'),
-            'sources' => $this->sources->all(),
+            'page' => $page,
+            'query' => $query,
             'success' => $this->session->pull(self::FLASH_SUCCESS),
             'error' => $this->session->pull(self::FLASH_ERROR),
+            'queryUrl' => static fn (array $overrides = []): string => QueryString::url(
+                '/admin/sources',
+                $parameters,
+                $overrides,
+            ),
+            'sortUrl' => static function (SourceListSort $sort) use ($query, $parameters): string {
+                $direction = $query->sort === $sort && $query->direction === SortDirection::Descending
+                    ? SortDirection::Ascending
+                    : SortDirection::Descending;
+
+                return QueryString::url('/admin/sources', $parameters, [
+                    'page' => null,
+                    'sort' => $sort === SourceListSort::Updated ? null : $sort->value,
+                    'direction' => $direction === SortDirection::Descending ? null : $direction->value,
+                ]);
+            },
         ], 'layouts/admin'));
     }
 

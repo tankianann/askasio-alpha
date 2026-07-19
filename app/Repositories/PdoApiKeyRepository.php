@@ -6,12 +6,19 @@ namespace App\Repositories;
 
 use App\Database\Connection;
 use App\Domain\ApiKeys\ApiKey;
+use App\Domain\ApiKeys\ApiKeyListQuery;
+use App\Support\Pagination\PaginatedResult;
 use RuntimeException;
 
 final class PdoApiKeyRepository implements ApiKeyRepositoryInterface
 {
-    public function __construct(private readonly Connection $connection)
-    {
+    private readonly ApiKeyListSqlQueryBuilder $listQueries;
+
+    public function __construct(
+        private readonly Connection $connection,
+        ?ApiKeyListSqlQueryBuilder $listQueries = null,
+    ) {
+        $this->listQueries = $listQueries ?? new ApiKeyListSqlQueryBuilder();
     }
 
     public function all(): array
@@ -19,6 +26,30 @@ final class PdoApiKeyRepository implements ApiKeyRepositoryInterface
         $rows = $this->connection->pdo()->query($this->select() . ' ORDER BY created_at DESC, id DESC')->fetchAll();
 
         return array_map($this->hydrate(...), $rows);
+    }
+
+    public function paginate(ApiKeyListQuery $query): PaginatedResult
+    {
+        $pdo = $this->connection->pdo();
+        $where = $this->listQueries->where($query);
+        $count = $pdo->prepare('SELECT COUNT(*) FROM api_keys' . $where['sql']);
+        $count->execute($where['parameters']);
+        $total = (int) $count->fetchColumn();
+        $pageRequest = $query->pagination->clampToTotal($total);
+        $statement = $pdo->prepare(
+            $this->listSelect()
+            . $where['sql']
+            . $this->listQueries->orderBy($query)
+            . ' LIMIT ' . $pageRequest->perPage
+            . ' OFFSET ' . $pageRequest->offset(),
+        );
+        $statement->execute($where['parameters']);
+
+        return new PaginatedResult(
+            array_map($this->hydrate(...), $statement->fetchAll()),
+            $total,
+            $pageRequest,
+        );
     }
 
     public function findById(int $id): ?ApiKey
@@ -100,6 +131,13 @@ final class PdoApiKeyRepository implements ApiKeyRepositoryInterface
                 FROM api_keys';
     }
 
+    private function listSelect(): string
+    {
+        return 'SELECT id, created_by_admin_id, name, visible_prefix, status,
+                       created_at, last_used_at, expires_at, revoked_at
+                FROM api_keys';
+    }
+
     /** @param array<string, mixed> $row */
     private function hydrate(array $row): ApiKey
     {
@@ -108,7 +146,7 @@ final class PdoApiKeyRepository implements ApiKeyRepositoryInterface
             (int) $row['created_by_admin_id'],
             (string) $row['name'],
             (string) $row['visible_prefix'],
-            (string) $row['secret_hash'],
+            (string) ($row['secret_hash'] ?? ''),
             (string) $row['status'],
             (string) $row['created_at'],
             isset($row['last_used_at']) ? (string) $row['last_used_at'] : null,

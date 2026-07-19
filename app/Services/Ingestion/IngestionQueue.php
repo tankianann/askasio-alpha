@@ -6,11 +6,14 @@ namespace App\Services\Ingestion;
 
 use App\Domain\Ingestion\IngestionJob;
 use App\Domain\Ingestion\JobStatus;
+use App\Domain\Ingestion\IngestionJobListQuery;
+use App\Domain\Ingestion\IngestionJobSourceOption;
 use App\Ingestion\IngestionException;
 use App\Ingestion\PermanentIngestionException;
 use App\Repositories\IngestionJobRepositoryInterface;
 use InvalidArgumentException;
 use Throwable;
+use App\Support\Pagination\PaginatedResult;
 
 final class IngestionQueue
 {
@@ -76,6 +79,18 @@ final class IngestionQueue
     public function recent(int $limit = 100): array
     {
         return $this->jobs->recent($limit);
+    }
+
+    /** @return PaginatedResult<IngestionJob> */
+    public function paginate(IngestionJobListQuery $query): PaginatedResult
+    {
+        return $this->jobs->paginate($query);
+    }
+
+    /** @return list<IngestionJobSourceOption> */
+    public function sourceOptions(): array
+    {
+        return $this->jobs->sourceOptions();
     }
 
     /** @return list<IngestionJob> */

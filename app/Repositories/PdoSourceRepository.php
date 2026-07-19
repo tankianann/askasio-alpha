@@ -7,6 +7,7 @@ namespace App\Repositories;
 use App\Database\Connection;
 use App\Domain\Sources\ProcessingStatus;
 use App\Domain\Sources\Source;
+use App\Domain\Sources\SourceListQuery;
 use App\Domain\Sources\SourceStatus;
 use App\Domain\Sources\SourceType;
 use App\Domain\Sources\SourceVersion;
@@ -14,11 +15,17 @@ use Closure;
 use PDO;
 use RuntimeException;
 use Throwable;
+use App\Support\Pagination\PaginatedResult;
 
 final class PdoSourceRepository implements SourceRepositoryInterface
 {
-    public function __construct(private readonly Connection $connection)
-    {
+    private readonly SourceListSqlQueryBuilder $listQueries;
+
+    public function __construct(
+        private readonly Connection $connection,
+        ?SourceListSqlQueryBuilder $listQueries = null,
+    ) {
+        $this->listQueries = $listQueries ?? new SourceListSqlQueryBuilder();
     }
 
     public function all(): array
@@ -26,6 +33,31 @@ final class PdoSourceRepository implements SourceRepositoryInterface
         $statement = $this->connection->pdo()->query($this->sourceSelect() . ' ORDER BY s.created_at DESC, s.id DESC');
 
         return array_map($this->hydrateSource(...), $statement->fetchAll());
+    }
+
+    public function paginate(SourceListQuery $query): PaginatedResult
+    {
+        $pdo = $this->connection->pdo();
+        $where = $this->listQueries->where($query);
+        $from = $this->sourceFrom();
+        $count = $pdo->prepare('SELECT COUNT(*)' . "\n" . $from . $where['sql']);
+        $count->execute($where['parameters']);
+        $total = (int) $count->fetchColumn();
+        $pageRequest = $query->pagination->clampToTotal($total);
+        $statement = $pdo->prepare(
+            $this->sourceSelect()
+            . $where['sql']
+            . $this->listQueries->orderBy($query)
+            . ' LIMIT ' . $pageRequest->perPage
+            . ' OFFSET ' . $pageRequest->offset(),
+        );
+        $statement->execute($where['parameters']);
+
+        return new PaginatedResult(
+            array_map($this->hydrateSource(...), $statement->fetchAll()),
+            $total,
+            $pageRequest,
+        );
     }
 
     public function findById(int $id): ?Source
@@ -243,9 +275,21 @@ final class PdoSourceRepository implements SourceRepositoryInterface
             SELECT s.id, s.name, s.source_type, s.status, s.active_version_id,
                    s.created_at, s.updated_at, s.deleted_at,
                    (SELECT COUNT(*) FROM source_versions sv WHERE sv.source_id = s.id) AS version_count,
-                   (SELECT sv2.processing_status FROM source_versions sv2
-                    WHERE sv2.source_id = s.id ORDER BY sv2.version_number DESC LIMIT 1) AS latest_processing_status
-            FROM sources s
+                   latest.processing_status AS latest_processing_status
+            SQL . "\n" . $this->sourceFrom();
+    }
+
+    private function sourceFrom(): string
+    {
+        return <<<'SQL'
+             FROM sources s
+             LEFT JOIN source_versions latest ON latest.id = (
+                 SELECT latest_version.id
+                 FROM source_versions latest_version
+                 WHERE latest_version.source_id = s.id
+                 ORDER BY latest_version.version_number DESC
+                 LIMIT 1
+             )
             SQL;
     }
 

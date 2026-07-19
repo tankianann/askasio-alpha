@@ -6,11 +6,16 @@ namespace Tests\Fakes;
 
 use App\Domain\Sources\ProcessingStatus;
 use App\Domain\Sources\Source;
+use App\Domain\Sources\SourceListAvailability;
+use App\Domain\Sources\SourceListQuery;
+use App\Domain\Sources\SourceListSort;
 use App\Domain\Sources\SourceStatus;
 use App\Domain\Sources\SourceType;
 use App\Domain\Sources\SourceVersion;
 use App\Repositories\SourceRepositoryInterface;
 use Closure;
+use App\Support\Pagination\PaginatedResult;
+use App\Support\SortDirection;
 
 final class InMemorySourceRepository implements SourceRepositoryInterface
 {
@@ -25,6 +30,62 @@ final class InMemorySourceRepository implements SourceRepositoryInterface
     public function all(): array
     {
         return array_values($this->sources);
+    }
+
+    public function paginate(SourceListQuery $query): PaginatedResult
+    {
+        $sources = array_values(array_filter($this->sources, static function (Source $source) use ($query): bool {
+            if ($query->search !== null && mb_stripos($source->name, $query->search) === false) {
+                return false;
+            }
+
+            if ($query->type !== null && $source->type !== $query->type) {
+                return false;
+            }
+
+            if ($query->availability === SourceListAvailability::Enabled
+                && ($source->status !== SourceStatus::Enabled || $source->isDeleted())) {
+                return false;
+            }
+
+            if ($query->availability === SourceListAvailability::Disabled
+                && ($source->status !== SourceStatus::Disabled || $source->isDeleted())) {
+                return false;
+            }
+
+            if ($query->availability === SourceListAvailability::Deleted && !$source->isDeleted()) {
+                return false;
+            }
+
+            return $query->processingStatus === null || $source->latestProcessingStatus === $query->processingStatus;
+        }));
+        $direction = $query->direction === SortDirection::Ascending ? 1 : -1;
+        usort($sources, static function (Source $left, Source $right) use ($query, $direction): int {
+            $comparison = match ($query->sort) {
+                SourceListSort::Updated => strcmp($left->updatedAt, $right->updatedAt),
+                SourceListSort::Name => strcasecmp($left->name, $right->name),
+                SourceListSort::Type => strcmp($left->type->value, $right->type->value),
+                SourceListSort::Availability => strcmp(
+                    ($left->deletedAt !== null ? 'deleted' : $left->status->value),
+                    ($right->deletedAt !== null ? 'deleted' : $right->status->value),
+                ),
+                SourceListSort::Processing => strcmp(
+                    $left->latestProcessingStatus?->value ?? '',
+                    $right->latestProcessingStatus?->value ?? '',
+                ),
+                SourceListSort::Revisions => $left->versionCount <=> $right->versionCount,
+            };
+
+            return ($comparison !== 0 ? $comparison : $left->id <=> $right->id) * $direction;
+        });
+        $total = count($sources);
+        $pageRequest = $query->pagination->clampToTotal($total);
+
+        return new PaginatedResult(
+            array_slice($sources, $pageRequest->offset(), $pageRequest->perPage),
+            $total,
+            $pageRequest,
+        );
     }
 
     public function findById(int $id): ?Source

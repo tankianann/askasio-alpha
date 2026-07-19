@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Domain\ApiKeys\ApiKey;
+use App\Domain\ApiKeys\ApiKeyListQuery;
+use App\Support\Pagination\PaginatedResult;
 
 interface ApiKeyRepositoryInterface
 {
     /** @return list<ApiKey> */
     public function all(): array;
+
+    /** @return PaginatedResult<ApiKey> */
+    public function paginate(ApiKeyListQuery $query): PaginatedResult;
 
     public function findById(int $id): ?ApiKey;
 

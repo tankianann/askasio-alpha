@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Domain\Ingestion\IngestionJob;
+use App\Domain\Ingestion\IngestionJobListQuery;
+use App\Domain\Ingestion\IngestionJobSourceOption;
+use App\Support\Pagination\PaginatedResult;
 
 interface IngestionJobRepositoryInterface
 {
@@ -23,6 +26,12 @@ interface IngestionJobRepositoryInterface
 
     /** @return list<IngestionJob> */
     public function recent(int $limit): array;
+
+    /** @return PaginatedResult<IngestionJob> */
+    public function paginate(IngestionJobListQuery $query): PaginatedResult;
+
+    /** @return list<IngestionJobSourceOption> */
+    public function sourceOptions(): array;
 
     /** @return list<IngestionJob> */
     public function forSource(int $sourceId): array;

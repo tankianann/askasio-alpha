@@ -6,15 +6,23 @@ namespace App\Repositories;
 
 use App\Database\Connection;
 use App\Domain\Ingestion\IngestionJob;
+use App\Domain\Ingestion\IngestionJobListQuery;
+use App\Domain\Ingestion\IngestionJobSourceOption;
 use App\Domain\Ingestion\JobStatus;
 use PDO;
 use RuntimeException;
 use Throwable;
+use App\Support\Pagination\PaginatedResult;
 
 final class PdoIngestionJobRepository implements IngestionJobRepositoryInterface
 {
-    public function __construct(private readonly Connection $connection)
-    {
+    private readonly IngestionJobListSqlQueryBuilder $listQueries;
+
+    public function __construct(
+        private readonly Connection $connection,
+        ?IngestionJobListSqlQueryBuilder $listQueries = null,
+    ) {
+        $this->listQueries = $listQueries ?? new IngestionJobListSqlQueryBuilder();
     }
 
     public function enqueue(int $sourceVersionId, int $maxAttempts, int $priority = 0): IngestionJob
@@ -258,6 +266,47 @@ final class PdoIngestionJobRepository implements IngestionJobRepositoryInterface
         return array_map($this->hydrate(...), $statement->fetchAll());
     }
 
+    public function paginate(IngestionJobListQuery $query): PaginatedResult
+    {
+        $pdo = $this->connection->pdo();
+        $where = $this->listQueries->where($query);
+        $count = $pdo->prepare('SELECT COUNT(*)' . "\n" . $this->jobFrom() . $where['sql']);
+        $count->execute($where['parameters']);
+        $total = (int) $count->fetchColumn();
+        $pageRequest = $query->pagination->clampToTotal($total);
+        $statement = $pdo->prepare(
+            $this->jobSelect()
+            . $where['sql']
+            . $this->listQueries->orderBy($query)
+            . ' LIMIT ' . $pageRequest->perPage
+            . ' OFFSET ' . $pageRequest->offset(),
+        );
+        $statement->execute($where['parameters']);
+
+        return new PaginatedResult(
+            array_map($this->hydrate(...), $statement->fetchAll()),
+            $total,
+            $pageRequest,
+        );
+    }
+
+    public function sourceOptions(): array
+    {
+        $rows = $this->connection->pdo()->query(
+            'SELECT DISTINCT s.id, s.name' . "\n"
+            . $this->jobFrom()
+            . ' ORDER BY s.name ASC, s.id ASC',
+        )->fetchAll();
+
+        return array_map(
+            static fn (array $row): IngestionJobSourceOption => new IngestionJobSourceOption(
+                (int) $row['id'],
+                (string) $row['name'],
+            ),
+            $rows,
+        );
+    }
+
     public function forSource(int $sourceId): array
     {
         $statement = $this->connection->pdo()->prepare(
@@ -320,6 +369,12 @@ final class PdoIngestionJobRepository implements IngestionJobRepositoryInterface
                    j.attempts, j.max_attempts, j.available_at, j.reserved_at, j.reserved_by,
                    j.last_error, j.created_at, j.updated_at, j.completed_at, j.failed_at,
                    sv.source_id, sv.version_number, s.name AS source_name
+            SQL . "\n" . $this->jobFrom();
+    }
+
+    private function jobFrom(): string
+    {
+        return <<<'SQL'
             FROM ingestion_jobs j
             INNER JOIN source_versions sv ON sv.id = j.source_version_id
             INNER JOIN sources s ON s.id = sv.source_id

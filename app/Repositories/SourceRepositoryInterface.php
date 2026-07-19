@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Domain\Sources\Source;
+use App\Domain\Sources\SourceListQuery;
 use App\Domain\Sources\SourceType;
 use App\Domain\Sources\SourceVersion;
 use Closure;
+use App\Support\Pagination\PaginatedResult;
 
 interface SourceRepositoryInterface
 {
     /** @return list<Source> */
     public function all(): array;
+
+    /** @return PaginatedResult<Source> */
+    public function paginate(SourceListQuery $query): PaginatedResult;
 
     public function findById(int $id): ?Source;
 

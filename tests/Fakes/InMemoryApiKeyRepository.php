@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Tests\Fakes;
 
 use App\Domain\ApiKeys\ApiKey;
+use App\Domain\ApiKeys\ApiKeyListQuery;
+use App\Domain\ApiKeys\ApiKeyListSort;
+use App\Domain\ApiKeys\ApiKeyListStatus;
 use App\Repositories\ApiKeyRepositoryInterface;
+use App\Support\Pagination\PaginatedResult;
+use App\Support\SortDirection;
 
 final class InMemoryApiKeyRepository implements ApiKeyRepositoryInterface
 {
@@ -15,6 +20,39 @@ final class InMemoryApiKeyRepository implements ApiKeyRepositoryInterface
     public function all(): array
     {
         return array_values($this->keys);
+    }
+
+    public function paginate(ApiKeyListQuery $query): PaginatedResult
+    {
+        $keys = array_values(array_filter($this->keys, static function (ApiKey $key) use ($query): bool {
+            if ($query->search !== null
+                && mb_stripos($key->name, $query->search) === false
+                && mb_stripos($key->visiblePrefix, $query->search) === false) {
+                return false;
+            }
+
+            return $query->status === ApiKeyListStatus::All || $key->displayStatus() === $query->status->value;
+        }));
+        $direction = $query->direction === SortDirection::Ascending ? 1 : -1;
+        usort($keys, static function (ApiKey $left, ApiKey $right) use ($query, $direction): int {
+            $comparison = match ($query->sort) {
+                ApiKeyListSort::Created => strcmp($left->createdAt, $right->createdAt),
+                ApiKeyListSort::Name => strcasecmp($left->name, $right->name),
+                ApiKeyListSort::Status => strcmp($left->displayStatus(), $right->displayStatus()),
+                ApiKeyListSort::LastUsed => strcmp((string) $left->lastUsedAt, (string) $right->lastUsedAt),
+                ApiKeyListSort::Expires => strcmp((string) $left->expiresAt, (string) $right->expiresAt),
+            };
+
+            return ($comparison !== 0 ? $comparison : $left->id <=> $right->id) * $direction;
+        });
+        $total = count($keys);
+        $pageRequest = $query->pagination->clampToTotal($total);
+
+        return new PaginatedResult(
+            array_slice($keys, $pageRequest->offset(), $pageRequest->perPage),
+            $total,
+            $pageRequest,
+        );
     }
 
     public function findById(int $id): ?ApiKey

@@ -15,7 +15,7 @@ This document records the Milestone 9 security baseline. It is an operational ch
 
 - Administrator passwords use PHP password hashing and verification; plaintext passwords are never stored.
 - Administrator state changes require authenticated sessions and CSRF tokens. Login attempts are throttled by normalized username and client IP identifiers.
-- API keys are generated from secure random bytes, shown once, and stored only as a visible prefix plus SHA-256 hash. Authentication comparisons use constant-time equality.
+- API keys are generated from secure random bytes, shown once, and stored only as a visible prefix plus SHA-256 hash. Authentication comparisons use constant-time equality. API Access list queries select display metadata only and do not load secret hashes.
 - API requests are size/type/schema validated and rate-limited by API key and HMAC-derived IP identifier.
 - SQL uses prepared PDO statements. Templates escape untrusted output, including extracted text and provider/job errors.
 - Uploaded files are stored under randomized server names outside `public/` and validated by size, extension, detected MIME type, and signature or UTF-8 content rules.

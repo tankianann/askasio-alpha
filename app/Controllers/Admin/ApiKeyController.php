@@ -7,6 +7,7 @@ namespace App\Controllers\Admin;
 use App\Auth\SessionStoreInterface;
 use App\Domain\Admin\AdminUser;
 use App\Domain\ApiKeys\ApiKey;
+use App\Domain\ApiKeys\ApiKeyListSort;
 use App\Exceptions\HttpException;
 use App\Exceptions\ValidationException;
 use App\Http\Request;
@@ -14,6 +15,9 @@ use App\Http\Response;
 use App\Repositories\ApiKeyRepositoryInterface;
 use App\Security\CsrfTokenManager;
 use App\Services\ApiKeys\ApiKeyService;
+use App\Services\ApiKeys\ApiKeyListQueryParser;
+use App\Support\QueryString;
+use App\Support\SortDirection;
 use App\Support\ViewRenderer;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -21,6 +25,7 @@ use DateTimeZone;
 final class ApiKeyController
 {
     private const FLASH_SUCCESS = '_flash_api_key_success';
+    private const FLASH_ERROR = '_flash_api_key_error';
 
     public function __construct(
         private readonly ApiKeyRepositoryInterface $keys,
@@ -30,15 +35,54 @@ final class ApiKeyController
         private readonly SessionStoreInterface $session,
         private readonly string $environment,
         private readonly string $timezone,
+        private readonly ApiKeyListQueryParser $listQueries,
     ) {
     }
 
     public function index(Request $request): Response
     {
+        try {
+            $query = $this->listQueries->parse($request);
+        } catch (ValidationException $exception) {
+            $this->session->put(self::FLASH_ERROR, $exception->getMessage());
+
+            return Response::redirect('/admin/api-keys');
+        }
+
+        $page = $this->keys->paginate($query);
+
+        if ($page->pageRequest->page !== $query->pagination->page) {
+            return Response::redirect(QueryString::url(
+                '/admin/api-keys',
+                $query->queryParameters(),
+                ['page' => $page->pageRequest->page === 1 ? null : $page->pageRequest->page],
+            ));
+        }
+
+        $parameters = $query->queryParameters();
+
         return Response::html($this->views->render('api_keys/index', [
             ...$this->layoutData($request, 'API Access'),
-            'keys' => $this->keys->all(),
+            'page' => $page,
+            'query' => $query,
             'success' => $this->session->pull(self::FLASH_SUCCESS),
+            'filterError' => $this->session->pull(self::FLASH_ERROR),
+            'queryUrl' => static fn (array $overrides = []): string => QueryString::url(
+                '/admin/api-keys',
+                $parameters,
+                $overrides,
+            ),
+            'sortUrl' => static function (ApiKeyListSort $sort) use ($query, $parameters): string {
+                $direction = $query->sort === $sort && $query->direction === SortDirection::Descending
+                    ? SortDirection::Ascending
+                    : SortDirection::Descending;
+
+                return QueryString::url('/admin/api-keys', $parameters, [
+                    'page' => null,
+                    'sort' => $sort === ApiKeyListSort::Created ? null : $sort->value,
+                    'direction' => $direction === SortDirection::Descending ? null : $direction->value,
+                ]);
+            },
         ], 'layouts/admin'));
     }
 
