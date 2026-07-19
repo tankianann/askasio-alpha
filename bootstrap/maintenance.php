@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Database\Connection;
 use App\Logging\LoggerFactory;
+use App\Maintenance\ApiRequestLogMaintenanceLock;
 use App\Maintenance\PdoAdvisoryLock;
 use App\Repositories\PdoApiRequestLogRepository;
 use App\Services\Api\ApiRequestLogRetentionPolicy;
@@ -31,7 +32,7 @@ $retention = new ApiRequestLogRetentionService(
     new PdoAdvisoryLock($connection),
     $logger,
     $config->requireInt('api.request_log_purge_batch_size'),
-    'ask-asio:api-retention:' . substr(hash('sha256', $databaseName), 0, 16),
+    ApiRequestLogMaintenanceLock::name($databaseName),
 );
 
 return ['api_request_log_retention' => $retention, 'logger' => $logger];

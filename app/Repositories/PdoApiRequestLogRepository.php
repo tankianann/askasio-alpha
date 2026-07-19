@@ -7,18 +7,23 @@ namespace App\Repositories;
 use App\Database\Connection;
 use App\Domain\Api\ApiRequestConnectionOption;
 use App\Domain\Api\ApiRequestLog;
+use App\Domain\Api\ApiRequestLogPurgeCriteria;
+use App\Domain\Api\ApiRequestLogPurgeSnapshot;
 use App\Domain\Api\ApiRequestLogQuery;
 use App\Support\Pagination\PaginatedResult;
 
 final class PdoApiRequestLogRepository implements ApiRequestLogRepositoryInterface
 {
     private readonly ApiRequestLogSqlQueryBuilder $queries;
+    private readonly ApiRequestLogPurgeSqlQueryBuilder $purgeQueries;
 
     public function __construct(
         private readonly Connection $connection,
         ?ApiRequestLogSqlQueryBuilder $queries = null,
+        ?ApiRequestLogPurgeSqlQueryBuilder $purgeQueries = null,
     ) {
         $this->queries = $queries ?? new ApiRequestLogSqlQueryBuilder();
+        $this->purgeQueries = $purgeQueries ?? new ApiRequestLogPurgeSqlQueryBuilder();
     }
 
     public function record(ApiRequestLog $log): void
@@ -116,6 +121,44 @@ final class PdoApiRequestLogRepository implements ApiRequestLogRepositoryInterfa
              LIMIT ' . $limit,
         );
         $statement->execute(['cutoff' => $cutoff]);
+
+        return $statement->rowCount();
+    }
+
+    public function purgeSnapshot(ApiRequestLogPurgeCriteria $criteria): ApiRequestLogPurgeSnapshot
+    {
+        $where = $this->purgeQueries->where($criteria);
+        $statement = $this->connection->pdo()->prepare(
+            'SELECT COUNT(*) AS record_count, MAX(id) AS maximum_id FROM api_request_logs' . $where['sql'],
+        );
+        $statement->execute($where['parameters']);
+        $row = $statement->fetch();
+
+        if (!is_array($row)) {
+            throw new \RuntimeException('Unable to create the API request purge snapshot.');
+        }
+
+        return new ApiRequestLogPurgeSnapshot(
+            $criteria,
+            (int) $row['record_count'],
+            isset($row['maximum_id']) ? (int) $row['maximum_id'] : null,
+        );
+    }
+
+    public function purgeSnapshotBatch(ApiRequestLogPurgeSnapshot $snapshot, int $limit = 1000): int
+    {
+        if ($snapshot->maximumId === null || $snapshot->recordCount === 0) {
+            return 0;
+        }
+
+        $limit = max(1, min($limit, 10000));
+        $where = $this->purgeQueries->where($snapshot->criteria, $snapshot->maximumId);
+        $statement = $this->connection->pdo()->prepare(
+            'DELETE FROM api_request_logs'
+            . $where['sql']
+            . ' ORDER BY id ASC LIMIT ' . $limit,
+        );
+        $statement->execute($where['parameters']);
 
         return $statement->rowCount();
     }

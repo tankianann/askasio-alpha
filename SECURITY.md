@@ -23,6 +23,7 @@ This document records the Milestone 9 security baseline. It is an operational ch
 - Provider secrets and bearer tokens are redacted from application logs. API request records omit full questions, answers, raw IP addresses, and credentials.
 - Source activation, chunks, and embeddings commit together. A failed or older out-of-order version cannot displace the current active version.
 - Permanent source deletion requires prior soft deletion, exact-name confirmation, CSRF protection, and no pending/processing jobs.
+- Manual API Activity deletion requires administrator authentication, CSRF validation, a server-side short-lived scope snapshot, count review, and an exact confirmation phrase. Newer records beyond the reviewed maximum ID are excluded.
 - HTTPS responses use HSTS. Administrator responses disable caching. CSP blocks framing and limits scripts, styles, images, objects, forms, and base URLs.
 
 ## Operations checklist

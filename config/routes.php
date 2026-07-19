@@ -99,6 +99,9 @@ return [
                 $router->post('/api-keys/{apiKeyId}/revoke', [$apiKeyController, 'revoke'], name: 'admin.api_keys.revoke');
                 $router->post('/api-keys/{apiKeyId}/delete', [$apiKeyController, 'delete'], name: 'admin.api_keys.delete');
                 $router->get('/api-requests', $apiRequestLogController, name: 'admin.api_requests.index');
+                $router->get('/api-requests/purge', [$apiRequestLogController, 'purge'], name: 'admin.api_requests.purge');
+                $router->post('/api-requests/purge/preview', [$apiRequestLogController, 'previewPurge'], name: 'admin.api_requests.purge_preview');
+                $router->post('/api-requests/purge', [$apiRequestLogController, 'executePurge'], name: 'admin.api_requests.purge_execute');
             },
         );
     },

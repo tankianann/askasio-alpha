@@ -10,9 +10,14 @@ use App\Domain\Api\ApiRequestLog;
 use App\Http\Request;
 use App\Security\CsrfTokenManager;
 use App\Services\Api\ApiRequestLogQueryParser;
+use App\Services\Api\ApiRequestLogPurgeIntentStore;
+use App\Services\Api\ApiRequestLogPurgeRequestParser;
+use App\Services\Api\ApiRequestLogPurgeService;
 use App\Support\ViewRenderer;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Tests\Fakes\InMemoryApiRequestLogRepository;
+use Tests\Fakes\InMemoryMaintenanceLock;
 use Tests\Fakes\InMemorySessionStore;
 
 final class ApiRequestLogControllerTest extends TestCase
@@ -86,6 +91,92 @@ final class ApiRequestLogControllerTest extends TestCase
         self::assertStringNotContainsString('DROP TABLE', $followed->body());
     }
 
+    public function testItPreviewsAndPurgesOnlyTheFrozenFilteredSnapshot(): void
+    {
+        $repository = new InMemoryApiRequestLogRepository();
+        $repository->record($this->log('chat-1', '/api/v1/chat'));
+        $repository->record($this->log('retrieve-1', '/api/v1/retrieve'));
+        $repository->record($this->log('chat-2', '/api/v1/chat'));
+        $session = new InMemorySessionStore();
+        $controller = $this->controller($repository, $session);
+        $preview = $controller->previewPurge(new Request(
+            'POST',
+            '/admin/api-requests/purge/preview?endpoint=%2Fapi%2Fv1%2Fchat',
+            query: ['endpoint' => '/api/v1/chat'],
+            parsedBody: ['scope' => 'matching_filters'],
+            attributes: ['admin_user' => $this->admin()],
+        ));
+
+        self::assertSame(200, $preview->status());
+        self::assertStringContainsString('<strong>2</strong> matching requests', $preview->body());
+        self::assertStringContainsString('Endpoint: /api/v1/chat', $preview->body());
+        self::assertMatchesRegularExpression('/name="purge_token" value="([a-f0-9]{64})"/', $preview->body());
+        preg_match('/name="purge_token" value="([a-f0-9]{64})"/', $preview->body(), $matches);
+
+        $repository->record($this->log('chat-after-review', '/api/v1/chat'));
+        $execute = $controller->executePurge(new Request(
+            'POST',
+            '/admin/api-requests/purge',
+            parsedBody: [
+                'purge_token' => $matches[1],
+                'confirmation' => 'DELETE 2 REQUESTS',
+            ],
+            attributes: ['admin_user' => $this->admin()],
+        ));
+
+        self::assertSame(303, $execute->status());
+        self::assertSame('/admin/api-requests', $execute->headers()['Location']);
+        self::assertSame(
+            ['retrieve-1', 'chat-after-review'],
+            array_map(static fn (ApiRequestLog $log): string => $log->requestId, $repository->logs),
+        );
+
+        $followed = $controller(new Request(
+            'GET',
+            '/admin/api-requests',
+            attributes: ['admin_user' => $this->admin()],
+        ));
+        self::assertStringContainsString('2 API Activity records were permanently deleted.', $followed->body());
+    }
+
+    public function testMatchingFilterPurgeRequiresAnActiveFilter(): void
+    {
+        $response = $this->controller($this->repository(2))->previewPurge(new Request(
+            'POST',
+            '/admin/api-requests/purge/preview',
+            parsedBody: ['scope' => 'matching_filters'],
+            attributes: ['admin_user' => $this->admin()],
+        ));
+
+        self::assertSame(422, $response->status());
+        self::assertStringContainsString('Apply at least one filter', $response->body());
+    }
+
+    public function testIncorrectConfirmationDoesNotDeleteRecords(): void
+    {
+        $repository = $this->repository(2);
+        $session = new InMemorySessionStore();
+        $controller = $this->controller($repository, $session);
+        $preview = $controller->previewPurge(new Request(
+            'POST',
+            '/admin/api-requests/purge/preview',
+            parsedBody: ['scope' => 'all'],
+            attributes: ['admin_user' => $this->admin()],
+        ));
+        preg_match('/name="purge_token" value="([a-f0-9]{64})"/', $preview->body(), $matches);
+
+        $response = $controller->executePurge(new Request(
+            'POST',
+            '/admin/api-requests/purge',
+            parsedBody: ['purge_token' => $matches[1], 'confirmation' => 'DELETE EVERYTHING'],
+            attributes: ['admin_user' => $this->admin()],
+        ));
+
+        self::assertSame(303, $response->status());
+        self::assertSame('/admin/api-requests/purge', $response->headers()['Location']);
+        self::assertCount(2, $repository->logs);
+    }
+
     private function controller(
         InMemoryApiRequestLogRepository $repository,
         ?InMemorySessionStore $session = null,
@@ -98,6 +189,15 @@ final class ApiRequestLogControllerTest extends TestCase
             new CsrfTokenManager($session),
             $session,
             new ApiRequestLogQueryParser('Asia/Singapore'),
+            new ApiRequestLogPurgeRequestParser('Asia/Singapore'),
+            new ApiRequestLogPurgeService(
+                $repository,
+                new InMemoryMaintenanceLock(),
+                new NullLogger(),
+                2,
+                'test:api-log-purge',
+            ),
+            new ApiRequestLogPurgeIntentStore($session),
             'testing',
         );
     }
@@ -129,5 +229,23 @@ final class ApiRequestLogControllerTest extends TestCase
     private function admin(): AdminUser
     {
         return new AdminUser(1, 'archie', 'not-used');
+    }
+
+    private function log(string $requestId, string $endpoint): ApiRequestLog
+    {
+        return new ApiRequestLog(
+            $requestId,
+            7,
+            str_repeat('a', 64),
+            'POST',
+            $endpoint,
+            200,
+            50,
+            null,
+            [],
+            '2026-07-19 10:00:00',
+            'Website',
+            'rag_live_abcd',
+        );
     }
 }

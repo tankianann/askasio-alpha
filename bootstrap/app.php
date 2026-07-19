@@ -28,6 +28,8 @@ use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\SessionStartMiddleware;
 use App\Http\Router;
 use App\Logging\LoggerFactory;
+use App\Maintenance\ApiRequestLogMaintenanceLock;
+use App\Maintenance\PdoAdvisoryLock;
 use App\Repositories\PdoAdminRepository;
 use App\Repositories\PdoApiKeyRepository;
 use App\Repositories\PdoApiRateLimitRepository;
@@ -59,6 +61,9 @@ use App\Services\Ingestion\IngestionQueue;
 use App\Services\Api\ApiRateLimiter;
 use App\Services\Api\ApiRequestContext;
 use App\Services\Api\ApiRequestLogQueryParser;
+use App\Services\Api\ApiRequestLogPurgeIntentStore;
+use App\Services\Api\ApiRequestLogPurgeRequestParser;
+use App\Services\Api\ApiRequestLogPurgeService;
 use App\Services\ApiKeys\ApiKeyService;
 use App\Support\Config;
 use App\Support\ViewRenderer;
@@ -201,6 +206,15 @@ $apiRequestLogController = new ApiRequestLogController(
     $csrf,
     $session,
     new ApiRequestLogQueryParser($timezone),
+    new ApiRequestLogPurgeRequestParser($timezone),
+    new ApiRequestLogPurgeService(
+        $apiRequestLogs,
+        new PdoAdvisoryLock($connection),
+        $logger,
+        $config->requireInt('api.request_log_purge_batch_size'),
+        ApiRequestLogMaintenanceLock::name($config->requireString('database.database')),
+    ),
+    new ApiRequestLogPurgeIntentStore($session),
     $config->requireString('app.env'),
 );
 $apiRequestContext = new ApiRequestContext();

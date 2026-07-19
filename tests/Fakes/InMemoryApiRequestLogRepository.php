@@ -7,6 +7,9 @@ namespace Tests\Fakes;
 use App\Domain\Api\ApiRequestAuthenticationState;
 use App\Domain\Api\ApiRequestConnectionOption;
 use App\Domain\Api\ApiRequestLog;
+use App\Domain\Api\ApiRequestLogPurgeCriteria;
+use App\Domain\Api\ApiRequestLogPurgeSnapshot;
+use App\Domain\Api\ApiRequestStatusGroup;
 use App\Domain\Api\ApiRequestLogQuery;
 use App\Domain\Api\ApiRequestLogSort;
 use App\Repositories\ApiRequestLogRepositoryInterface;
@@ -19,6 +22,10 @@ final class InMemoryApiRequestLogRepository implements ApiRequestLogRepositoryIn
     /** @var list<ApiRequestLog> */
     public array $logs = [];
     public ?Throwable $pruneFailure = null;
+
+    /** @var array<int, int> */
+    private array $logIds = [];
+    private int $nextLogId = 1;
 
     public function record(ApiRequestLog $log): void
     {
@@ -150,5 +157,111 @@ final class InMemoryApiRequestLogRepository implements ApiRequestLogRepositoryIn
         $this->logs = $remaining;
 
         return $deleted;
+    }
+
+    public function purgeSnapshot(ApiRequestLogPurgeCriteria $criteria): ApiRequestLogPurgeSnapshot
+    {
+        $count = 0;
+        $maximumId = null;
+
+        foreach ($this->logs as $log) {
+            if (!$this->matchesPurgeCriteria($log, $criteria)) {
+                continue;
+            }
+
+            ++$count;
+            $maximumId = max($maximumId ?? 0, $this->idFor($log));
+        }
+
+        return new ApiRequestLogPurgeSnapshot($criteria, $count, $maximumId);
+    }
+
+    public function purgeSnapshotBatch(ApiRequestLogPurgeSnapshot $snapshot, int $limit = 1000): int
+    {
+        if ($snapshot->maximumId === null) {
+            return 0;
+        }
+
+        $deleted = 0;
+        $remaining = [];
+
+        foreach ($this->logs as $log) {
+            if ($deleted < $limit
+                && $this->idFor($log) <= $snapshot->maximumId
+                && $this->matchesPurgeCriteria($log, $snapshot->criteria)) {
+                ++$deleted;
+                continue;
+            }
+
+            $remaining[] = $log;
+        }
+
+        $this->logs = $remaining;
+
+        return $deleted;
+    }
+
+    private function idFor(ApiRequestLog $log): int
+    {
+        $objectId = spl_object_id($log);
+
+        return $this->logIds[$objectId] ??= $this->nextLogId++;
+    }
+
+    private function matchesPurgeCriteria(ApiRequestLog $log, ApiRequestLogPurgeCriteria $criteria): bool
+    {
+        if ($criteria->cutoffUtc !== null && ($log->createdAt === null || $log->createdAt >= $criteria->cutoffUtc)) {
+            return false;
+        }
+
+        if ($criteria->createdFromUtc !== null && ($log->createdAt === null || $log->createdAt < $criteria->createdFromUtc)) {
+            return false;
+        }
+
+        if ($criteria->createdBeforeUtc !== null && ($log->createdAt === null || $log->createdAt >= $criteria->createdBeforeUtc)) {
+            return false;
+        }
+
+        if ($criteria->apiKeyId !== null && $log->apiKeyId !== $criteria->apiKeyId) {
+            return false;
+        }
+
+        if ($criteria->endpoint !== null && $log->endpoint !== $criteria->endpoint) {
+            return false;
+        }
+
+        if ($criteria->method !== null && $log->method !== $criteria->method) {
+            return false;
+        }
+
+        if ($criteria->statusCode !== null && $log->statusCode !== $criteria->statusCode) {
+            return false;
+        }
+
+        if ($criteria->statusCode === null && $criteria->statusGroup instanceof ApiRequestStatusGroup
+            && ($log->statusCode < $criteria->statusGroup->minimumStatus()
+                || $log->statusCode > $criteria->statusGroup->maximumStatus())) {
+            return false;
+        }
+
+        if ($criteria->minimumDurationMilliseconds !== null
+            && $log->durationMilliseconds < $criteria->minimumDurationMilliseconds) {
+            return false;
+        }
+
+        if ($criteria->maximumDurationMilliseconds !== null
+            && $log->durationMilliseconds > $criteria->maximumDurationMilliseconds) {
+            return false;
+        }
+
+        if ($criteria->requestId !== null && $log->requestId !== $criteria->requestId) {
+            return false;
+        }
+
+        if ($criteria->authentication === ApiRequestAuthenticationState::Authenticated && $log->apiKeyId === null) {
+            return false;
+        }
+
+        return $criteria->authentication !== ApiRequestAuthenticationState::Unauthenticated || $log->apiKeyId === null;
     }
 }

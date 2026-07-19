@@ -477,6 +477,111 @@
     color: var(--muted);
 }
 
+.purge-scope-panel {
+    max-width: 64rem;
+}
+
+.flush-heading {
+    margin-top: 0;
+}
+
+.purge-filter-context {
+    display: grid;
+    gap: 0.65rem;
+    margin: 1.25rem 0;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+    font-size: 0.8rem;
+}
+
+.purge-scope-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    margin: 1.5rem 0;
+    padding: 0;
+    border: 0;
+}
+
+.purge-scope-option {
+    display: grid;
+    align-content: start;
+    gap: 0.65rem;
+    min-height: 9.5rem;
+    padding: 1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    color: var(--muted);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+
+.purge-scope-option:hover {
+    border-color: #aebdca;
+}
+
+.purge-scope-option:has(input[type="radio"]:checked) {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.purge-scope-option.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+}
+
+.purge-scope-title {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--ink-strong);
+    font-size: 0.9rem;
+    font-weight: 650;
+}
+
+.purge-scope-title input {
+    accent-color: var(--accent);
+}
+
+.purge-scope-option select,
+.purge-scope-option input[type="date"] {
+    width: 100%;
+    min-height: 2.7rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    color: var(--ink-strong);
+    background: #fff;
+}
+
+.purge-scope-all:has(input:checked) {
+    border-color: #d69296;
+    background: #fff5f5;
+    box-shadow: 0 0 0 3px rgb(172 55 63 / 10%);
+}
+
+.purge-confirmation {
+    max-width: 64rem;
+}
+
+.purge-record-count {
+    margin: 1rem 0 0.35rem;
+    color: var(--ink-strong);
+}
+
+.purge-record-count strong {
+    display: block;
+    font-size: clamp(2.4rem, 8vw, 4rem);
+    letter-spacing: -0.05em;
+    line-height: 1;
+}
+
 .auth-body {
     display: grid;
     min-height: 100vh;
@@ -620,6 +725,10 @@
     }
 
     .filter-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .purge-scope-grid {
         grid-template-columns: 1fr;
     }
 

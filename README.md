@@ -476,6 +476,17 @@ Schedule it once per day. The host cron timezone does not affect retention bound
 
 Failures return a non-zero exit code and are written to the secret-redacted application log. Configure cron or monitoring to alert on command failure. If retention is set to `0`, the command reports that records are kept forever and makes no database changes. Backups may continue to contain records that have already expired from the live database, so apply a separate backup-retention policy where required.
 
+Administrators can also open **API Activity → Purge activity** for a controlled manual purge. Available scopes are:
+
+- records older than 30, 90, 180, or 365 days;
+- records created before a selected date, interpreted at midnight in `APP_TIMEZONE` and converted to UTC;
+- records matching the current validated API Activity filters; or
+- all API Activity records.
+
+The application shows an authoritative count before deletion and stores the reviewed scope in the administrator session behind a random, short-lived token. Confirmation requires typing the displayed phrase exactly. The snapshot also records the highest matching log ID, so requests recorded after review are never added to the approved deletion set. Execution uses the same database advisory lock as scheduled retention, deletes in configured batches, and records the administrator ID, reviewed count, scope, and actual deleted count in the secret-redacted operational log. The UI never sends SQL conditions or a client-controlled deletion count.
+
+Manual purge routes are protected by administrator session authentication and CSRF validation. Deletion is permanent in the live database; backups may still retain older copies according to their independent lifecycle. Filter a dataset first and use **matching current filters** when a narrower purge is preferable.
+
 ### Backups, monitoring, and releases
 
 A complete backup includes both the MySQL database and `FILESYSTEM_PATH`; the database does not contain the immutable uploaded files. The `.env` file should be backed up separately and securely. Logs are optional operational data. For a strictly consistent backup, briefly stop the ingestion worker and prevent administrator source changes while the database and source directory snapshots are taken. Test restoration periodically on a separate database and storage path.
@@ -772,4 +783,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-Milestone 9 is complete through immutable replacement uploads, URL refresh, version reprocessing, ordered atomic activation, confirmed permanent deletion, abandoned-worker recovery hardening, security headers, and production operations documentation. The initial nine-milestone application scope is implemented; future work should be treated as a new, separately reviewed milestone.
+The initial nine-milestone application scope is implemented. The dashboard data-lifecycle audit is now implemented through shared pagination/query state, the API Activity read experience, scheduled retention maintenance, and confirmed filter-aware manual purging. Further dashboard scaling work remains separately reviewable.

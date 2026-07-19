@@ -4,8 +4,12 @@
         <h1>API Activity</h1>
         <p class="muted">Understand usage, authentication attempts, and response times. Questions and bearer secrets are never recorded.</p>
     </div>
+    <a class="button button-quiet" href="<?= $escape($purgeUrl) ?>">Purge activity</a>
 </div>
 
+<?php if (is_string($success) && $success !== ''): ?>
+    <div class="alert alert-success" role="status"><?= $escape($success) ?></div>
+<?php endif; ?>
 <?php if (is_string($filterError) && $filterError !== ''): ?>
     <div class="alert alert-error" role="alert"><?= $escape($filterError) ?></div>
 <?php endif; ?>

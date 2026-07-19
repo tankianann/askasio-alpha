@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#ffffff">
     <title><?= $escape($title) ?> · Ask Asio</title>
     <link rel="icon" href="/assets/images/ask-asio.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/assets/app.css?v=11">
+    <link rel="stylesheet" href="/assets/app.css?v=12">
     <script src="/assets/app.js?v=10" defer></script>
 </head>
 <body class="admin-body">

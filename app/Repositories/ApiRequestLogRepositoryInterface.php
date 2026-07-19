@@ -7,6 +7,8 @@ namespace App\Repositories;
 use App\Domain\Api\ApiRequestLog;
 use App\Domain\Api\ApiRequestConnectionOption;
 use App\Domain\Api\ApiRequestLogQuery;
+use App\Domain\Api\ApiRequestLogPurgeCriteria;
+use App\Domain\Api\ApiRequestLogPurgeSnapshot;
 use App\Support\Pagination\PaginatedResult;
 
 interface ApiRequestLogRepositoryInterface
@@ -23,4 +25,8 @@ interface ApiRequestLogRepositoryInterface
     public function connectionOptions(): array;
 
     public function pruneOlderThan(string $cutoff, int $limit = 1000): int;
+
+    public function purgeSnapshot(ApiRequestLogPurgeCriteria $criteria): ApiRequestLogPurgeSnapshot;
+
+    public function purgeSnapshotBatch(ApiRequestLogPurgeSnapshot $snapshot, int $limit = 1000): int;
 }
