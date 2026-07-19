@@ -30,7 +30,7 @@ final class ApiRequestLogPurgeSecurityTest extends TestCase
     {
         $session = new InMemorySessionStore();
         $admins = new InMemoryAdminRepository();
-        $admin = $admins->create('archie', 'hash');
+        $admin = $admins->create('asio', 'hash');
         $session->put(AdminAuthenticationMiddleware::SESSION_ADMIN_ID, $admin->id);
         [$router, $called] = $this->router($session, $admins);
 
@@ -48,7 +48,7 @@ final class ApiRequestLogPurgeSecurityTest extends TestCase
     {
         $session = new InMemorySessionStore();
         $admins = new InMemoryAdminRepository();
-        $admin = $admins->create('archie', 'hash');
+        $admin = $admins->create('asio', 'hash');
         $session->put(AdminAuthenticationMiddleware::SESSION_ADMIN_ID, $admin->id);
         $tokens = new CsrfTokenManager($session);
         [$router, $called] = $this->router($session, $admins, $tokens);

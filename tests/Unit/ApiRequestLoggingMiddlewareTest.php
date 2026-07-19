@@ -66,4 +66,62 @@ final class ApiRequestLoggingMiddlewareTest extends TestCase
         self::assertSame('unauthorized', $repository->logs[0]->errorCategory);
         self::assertNull($repository->logs[0]->apiKeyId);
     }
+
+    public function testPrivacyBoundaryExcludesCredentialsBodiesPromptsRetrievedTextAndAnswers(): void
+    {
+        $repository = new InMemoryApiRequestLogRepository();
+        $context = new ApiRequestContext();
+        $context->apiKeyId = 17;
+        $middleware = new ApiRequestLoggingMiddleware(
+            $repository,
+            $context,
+            new NullLogger(),
+            str_repeat('s', 32),
+        );
+        $request = (new Request(
+            'POST',
+            '/api/v1/chat?debug_secret=QUERY_SECRET',
+            headers: ['authorization' => 'Bearer rag_live_AUTHORIZATION_SECRET'],
+            rawBody: '{"question":"PROMPT_SECRET","private_document":"DOCUMENT_SECRET"}',
+            clientIp: '198.51.100.77',
+        ))->withAttribute('request_id', 'privacy-request');
+
+        $middleware->process($request, static fn (): Response => Response::json([
+            'answer' => 'ANSWER_SECRET',
+            'citations' => [['excerpt' => 'RETRIEVED_TEXT_SECRET']],
+            'usage' => ['retrieved_chunks' => 3, 'output_tokens' => 42],
+        ]));
+
+        self::assertCount(1, $repository->logs);
+        $stored = serialize($repository->logs[0]);
+
+        foreach ([
+            'QUERY_SECRET',
+            'AUTHORIZATION_SECRET',
+            'PROMPT_SECRET',
+            'DOCUMENT_SECRET',
+            'ANSWER_SECRET',
+            'RETRIEVED_TEXT_SECRET',
+            '198.51.100.77',
+        ] as $privateValue) {
+            self::assertStringNotContainsString($privateValue, $stored);
+        }
+
+        self::assertSame('/api/v1/chat', $repository->logs[0]->endpoint);
+        self::assertSame(['retrieved_chunks' => 3, 'output_tokens' => 42], $repository->logs[0]->usage);
+        self::assertSame([
+            'requestId',
+            'apiKeyId',
+            'ipHash',
+            'method',
+            'endpoint',
+            'statusCode',
+            'durationMilliseconds',
+            'errorCategory',
+            'usage',
+            'createdAt',
+            'apiKeyName',
+            'apiKeyPrefix',
+        ], array_keys(get_object_vars($repository->logs[0])));
+    }
 }

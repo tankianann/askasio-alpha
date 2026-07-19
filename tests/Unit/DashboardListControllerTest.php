@@ -193,6 +193,6 @@ final class DashboardListControllerTest extends TestCase
 
     private function admin(): AdminUser
     {
-        return new AdminUser(1, 'archie', 'not-used');
+        return new AdminUser(1, 'asio', 'not-used');
     }
 }

@@ -139,7 +139,7 @@ final class SourceDetailHistoryTest extends TestCase
             'GET',
             $uri,
             query: $query,
-            attributes: ['admin_user' => new AdminUser(1, 'archie', 'not-used')],
+            attributes: ['admin_user' => new AdminUser(1, 'asio', 'not-used')],
         ))->withRouteParameters($routes);
     }
 

@@ -466,6 +466,36 @@ Offset pagination is appropriate for these administrator datasets and permits nu
 
 Source details paginate revision and processing histories independently at 10 rows per section using `revision_page` and `job_page`. Both values remain in pagination links and revision-detail navigation. History queries select revision metadata and chunk counts but deliberately omit `source_versions.extracted_text` and `metadata_json`; those potentially large fields are loaded only for the explicitly requested revision detail. Invalid or out-of-range history pages redirect to a canonical valid URL. The source-version `(source_id, version_number)` constraint and ingestion-job `(source_version_id, created_at, id)` index support deterministic history access.
 
+### Dashboard data audit
+
+| Screen | Dataset | Growth risk | Pagination | Filtering/search | Sorting | Retention | Final recommendation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Overview | Aggregate source/job counts | Low | Not applicable | Not applicable | Not applicable | Follows underlying records | Aggregate queries only; no row collection is loaded. |
+| Knowledge Base | Sources with latest revision state | Moderate | 25 by default; 50/100 optional | Name, type, availability, processing state | Updated, name, type, availability, processing, revisions | Soft/permanent source deletion | Current offset pagination is appropriate. |
+| Source details | Immutable revisions and ingestion jobs | High per frequently updated source | Independent 10-row histories | None required currently | Newest revision/job first | Preserved until permanent source deletion | Large extracted fields are excluded from history and opened on demand. |
+| Processing | Ingestion jobs | High | 25 by default; 50/100 optional | Status, source, date, attempts | Date, status, source, attempts, availability | Removed with permanently deleted source; no global job-retention policy | Monitor table growth and consider operational job retention only if audit requirements permit it. |
+| API Access | Application API keys | Moderate | 25 by default; 50/100 optional | Name/prefix search and display status | Created, name, status, last used, expiry | Administrator revocation/deletion | Full keys are never listed; list projections omit hashes. |
+| API Activity | API request audit metadata | Highest | 25 by default; 50/100 optional | Date, connection, endpoint, method, exact/grouped status, duration, request ID, authentication state | Date, duration, status, endpoint, connection | Configurable 0/30/90/180/365 days plus confirmed manual purge | Keep scheduled retention enabled and monitor row count/index size. |
+
+API Activity defaults to newest first and shows exact result counts, numbered pages where useful, Previous/Next controls, and “Showing x–y of z” feedback. Filters, sorting, and pagination are persisted as validated query parameters. Filtering produces a clear active-filter summary and filtered empty state. The connection selector contains one option per historically observed API-key ID; if an installation accumulates many thousands of deleted connections, replace that selector with an asynchronous searchable control or a separate paginated lookup.
+
+### Query and index review
+
+The final development-schema review used MySQL `EXPLAIN` on default and filtered API Activity reads, scheduled retention deletion, Processing status reads, source revision/job histories, and API Access ordering. The schema provides these primary dashboard paths:
+
+| Dataset | Supporting indexes |
+| --- | --- |
+| API Activity | unique request ID; `created_at`; `(api_key_id, created_at)`; `(status_code, created_at)`; `(endpoint, created_at)`; `(duration_ms, created_at)` |
+| Sources | status/deletion; type/deletion; `(updated_at, id)`; `(name, id)`; unique `(source_id, version_number)` on revisions |
+| Processing | claim/reservation indexes; `(created_at, id)`; `(status, created_at, id)`; `(attempts, created_at, id)`; `(source_version_id, created_at, id)` |
+| API Access | unique secret hash for authentication; status/expiry; `(created_at, id)`; `(name, id)`; `(last_used_at, id)` |
+
+`EXPLAIN` selected range/index access for retention cutoffs, duration ordering, Processing status, and revision history. The local database contains very few rows, so MySQL reasonably chose table scans/filesorts for some unfiltered newest-first queries; this does not indicate that their ordering indexes are absent. Run `ANALYZE TABLE` after large imports and use `EXPLAIN ANALYZE` with representative production filters before changing indexes.
+
+Per-source job history joins jobs through all revisions of a source and may use a temporary filesort before applying the 10-row limit. This is acceptable for the current source lifecycle. If measurements show a single source accumulating very large job histories, consider adding an immutable `source_id` to `ingestion_jobs` and indexing `(source_id, created_at, id)` in a separately reviewed migration.
+
+All dashboard pages currently use offset pagination because exact totals and numbered navigation are useful to one administrator. Its costs are the filtered `COUNT(*)` and work skipped for deep offsets. Consider keyset pagination for API Activity or Processing when retained datasets reach millions of rows or measured deep-page latency becomes unacceptable. Derived source sorts such as revision count and latest processing state naturally require more work than indexed date/status ordering.
+
 ### API Activity retention maintenance
 
 API request logs are retained for 30 days by default. Select one of the supported policies in `.env`:
@@ -504,6 +534,18 @@ Administrators can also open **API Activity → Purge activity** for a controlle
 The application shows an authoritative count before deletion and stores the reviewed scope in the administrator session behind a random, short-lived token. Confirmation requires typing the displayed phrase exactly. The snapshot also records the highest matching log ID, so requests recorded after review are never added to the approved deletion set. Execution uses the same database advisory lock as scheduled retention, deletes in configured batches, and records the administrator ID, reviewed count, scope, and actual deleted count in the secret-redacted operational log. The UI never sends SQL conditions or a client-controlled deletion count.
 
 Manual purge routes are protected by administrator session authentication and CSRF validation. Deletion is permanent in the live database; backups may still retain older copies according to their independent lifecycle. Filter a dataset first and use **matching current filters** when a narrower purge is preferable.
+
+For a systemd-worker deployment, a consolidated `/etc/cron.d/ragserver-maintenance` example is:
+
+```cron
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+*/10 * * * * www-data cd /var/www/ragserver && /usr/bin/php bin/recover-jobs.php >/dev/null
+15 2 * * * www-data cd /var/www/ragserver && /usr/bin/php bin/prune-api-requests.php >/dev/null
+```
+
+Keep the earlier once-per-minute `process-jobs.php --once` entry only when cron is being used instead of the persistent systemd worker. Do not run both ingestion modes initially. The recovery and retention commands are idempotent; retention also uses a database advisory lock. Preserve stderr or integrate command exit codes with host monitoring so maintenance failures are not silent.
 
 ### Backups, monitoring, and releases
 
@@ -565,7 +607,7 @@ Use `SESSION_SECURE_COOKIE=always` when the application must only be accessed ov
 
 Always configure a web server with `public/` as its document root. Serving the repository root could expose application and operational files despite the front-controller design.
 
-Use `APP_DEBUG=false` in production. Unexpected errors always produce a generic response and a request ID; enabling development debugging never exposes stack traces or exception messages to HTTP clients. Details remain in `storage/logs/`, with credential-shaped context recursively redacted. Logs rotate daily and retain 14 files by default. Complete questions and answers are not logged.
+Use `APP_DEBUG=false` in production. Unexpected errors always produce a generic response and a request ID; enabling development debugging never exposes stack traces or exception messages to HTTP clients. Details remain in `storage/logs/`, with credential-shaped context recursively redacted. Logs rotate daily and retain 14 files by default. API questions, complete request bodies, retrieved content, citations, and generated answers are not logged or stored in API Activity. There is intentionally no configuration switch to enable prompt logging in this release.
 
 Secure HTTPS responses include HSTS, all administrator responses are marked `Cache-Control: no-store`, and all responses receive CSP, MIME-sniffing, referrer, permissions, and same-origin resource headers. HSTS is intentionally omitted on plain HTTP development requests.
 
@@ -791,7 +833,7 @@ The health endpoint remains public:
 GET /api/v1/health
 ```
 
-API request logs retain the numeric API-key identifier for audit correlation after permanent key deletion, but never retain the complete key. Client IP addresses are HMAC-hashed with `APP_SECRET`. Keep `APP_SECRET` stable or IP hashes produced before and after rotation will not correlate.
+API request logs retain the numeric API-key identifier for audit correlation after permanent key deletion, but never retain the complete key. Client IP addresses are HMAC-hashed with `APP_SECRET`, and the hash itself is not selected for the administrator activity table. Keep `APP_SECRET` stable or IP hashes produced before and after rotation will not correlate.
 
 ## Migration policy
 
@@ -801,4 +843,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-The initial nine-milestone application scope is implemented. The dashboard data-lifecycle audit is now implemented through shared pagination/query state, the API Activity read experience, scheduled retention maintenance, confirmed filter-aware manual purging, paginated/filterable Knowledge Base, Processing, and API Access screens, and hardened source-detail histories with on-demand extracted content. Further dashboard scaling work remains separately reviewable.
+The initial nine-milestone application scope and dashboard data-lifecycle audit are implemented. This includes validated shared query state, all reviewed list pagination/filtering/sorting, API Activity retention and manual purge, source-detail hardening, privacy regression coverage, documented indexes, deployment schedules, and a final MySQL query-plan review. Remaining scaling triggers are explicitly documented above rather than treated as current defects.
