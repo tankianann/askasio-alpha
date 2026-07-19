@@ -104,6 +104,12 @@ final class ApiRequestLogQueryParser
             throw new ValidationException('The request_id parameter is invalid.');
         }
 
+        $authentication = $this->authentication($request);
+
+        if ($apiKeyId !== null && $authentication === ApiRequestAuthenticationState::Unauthenticated) {
+            throw new ValidationException('An API connection cannot be combined with unauthenticated requests.');
+        }
+
         return new ApiRequestLogQuery(
             new PageRequest($page, $perPage, self::ALLOWED_PAGE_SIZES),
             $dateFrom,
@@ -118,7 +124,7 @@ final class ApiRequestLogQueryParser
             $minimumDuration,
             $maximumDuration,
             $requestId,
-            $this->authentication($request),
+            $authentication,
             $this->sort($request),
             $this->direction($request),
         );

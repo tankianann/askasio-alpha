@@ -58,6 +58,7 @@ use App\Services\Sources\SourceUpdateService;
 use App\Services\Ingestion\IngestionQueue;
 use App\Services\Api\ApiRateLimiter;
 use App\Services\Api\ApiRequestContext;
+use App\Services\Api\ApiRequestLogQueryParser;
 use App\Services\ApiKeys\ApiKeyService;
 use App\Support\Config;
 use App\Support\ViewRenderer;
@@ -198,6 +199,8 @@ $apiRequestLogController = new ApiRequestLogController(
     $apiRequestLogs,
     $views,
     $csrf,
+    $session,
+    new ApiRequestLogQueryParser($timezone),
     $config->requireString('app.env'),
 );
 $apiRequestContext = new ApiRequestContext();

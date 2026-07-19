@@ -119,6 +119,10 @@ final class ApiRequestLogQueryParserTest extends TestCase
         yield 'reversed duration' => [['duration_min' => '500', 'duration_max' => '100']];
         yield 'invalid request ID' => [['request_id' => 'request id with spaces']];
         yield 'invalid authentication state' => [['authentication' => 'maybe']];
+        yield 'connection with unauthenticated state' => [[
+            'api_key_id' => '7',
+            'authentication' => 'unauthenticated',
+        ]];
         yield 'invalid sort' => [['sort' => 'raw_sql']];
         yield 'invalid direction' => [['direction' => 'sideways']];
         yield 'array injection' => [['status_code' => ['500']]];
