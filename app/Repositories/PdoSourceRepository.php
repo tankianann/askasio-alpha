@@ -37,6 +37,25 @@ final class PdoSourceRepository implements SourceRepositoryInterface
         return is_array($row) ? $this->hydrateSource($row) : null;
     }
 
+    public function lockById(int $id): ?Source
+    {
+        $statement = $this->connection->pdo()->prepare('SELECT id FROM sources WHERE id = :id FOR UPDATE');
+        $statement->execute(['id' => $id]);
+
+        return $statement->fetchColumn() === false ? null : $this->findById($id);
+    }
+
+    public function findVersionById(int $id): ?SourceVersion
+    {
+        $statement = $this->connection->pdo()->prepare(
+            $this->versionSelect() . ' WHERE sv.id = :id LIMIT 1',
+        );
+        $statement->execute(['id' => $id]);
+        $row = $statement->fetch();
+
+        return is_array($row) ? $this->hydrateVersion($row) : null;
+    }
+
     public function versionsForSource(int $sourceId): array
     {
         $statement = $this->connection->pdo()->prepare(
@@ -123,6 +142,34 @@ final class PdoSourceRepository implements SourceRepositoryInterface
         $statement->execute(['id' => $id]);
     }
 
+    public function hasInFlightJobs(int $sourceId): bool
+    {
+        $statement = $this->connection->pdo()->prepare(
+            "SELECT j.id
+             FROM ingestion_jobs j
+             INNER JOIN source_versions sv ON sv.id = j.source_version_id
+             WHERE sv.source_id = :source_id AND j.status IN ('pending', 'processing')
+             FOR UPDATE",
+        );
+        $statement->execute(['source_id' => $sourceId]);
+
+        return $statement->fetchAll() !== [];
+    }
+
+    public function permanentlyDelete(int $id): void
+    {
+        $clearActive = $this->connection->pdo()->prepare(
+            'UPDATE sources SET active_version_id = NULL WHERE id = :id',
+        );
+        $clearActive->execute(['id' => $id]);
+        $delete = $this->connection->pdo()->prepare('DELETE FROM sources WHERE id = :id');
+        $delete->execute(['id' => $id]);
+
+        if ($delete->rowCount() !== 1) {
+            throw new RuntimeException('The source could not be permanently deleted.');
+        }
+    }
+
     public function transaction(Closure $operation): mixed
     {
         $pdo = $this->connection->pdo();
@@ -179,17 +226,6 @@ final class PdoSourceRepository implements SourceRepositoryInterface
         }
 
         return $version;
-    }
-
-    private function findVersionById(int $id): ?SourceVersion
-    {
-        $statement = $this->connection->pdo()->prepare(
-            $this->versionSelect() . ' WHERE sv.id = :id LIMIT 1',
-        );
-        $statement->execute(['id' => $id]);
-        $row = $statement->fetch();
-
-        return is_array($row) ? $this->hydrateVersion($row) : null;
     }
 
     private function updateStatus(int $id, SourceStatus $status): void

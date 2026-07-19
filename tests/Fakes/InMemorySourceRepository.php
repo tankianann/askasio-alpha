@@ -14,6 +14,8 @@ use Closure;
 
 final class InMemorySourceRepository implements SourceRepositoryInterface
 {
+    public bool $inFlightJobs = false;
+
     /** @var array<int, Source> */
     private array $sources = [];
 
@@ -28,6 +30,24 @@ final class InMemorySourceRepository implements SourceRepositoryInterface
     public function findById(int $id): ?Source
     {
         return $this->sources[$id] ?? null;
+    }
+
+    public function lockById(int $id): ?Source
+    {
+        return $this->findById($id);
+    }
+
+    public function findVersionById(int $id): ?SourceVersion
+    {
+        foreach ($this->versions as $versions) {
+            foreach ($versions as $version) {
+                if ($version->id === $id) {
+                    return $version;
+                }
+            }
+        }
+
+        return null;
     }
 
     public function versionsForSource(int $sourceId): array
@@ -112,6 +132,16 @@ final class InMemorySourceRepository implements SourceRepositoryInterface
         );
     }
 
+    public function hasInFlightJobs(int $sourceId): bool
+    {
+        return $this->inFlightJobs;
+    }
+
+    public function permanentlyDelete(int $id): void
+    {
+        unset($this->sources[$id], $this->versions[$id]);
+    }
+
     public function transaction(Closure $operation): mixed
     {
         return $operation();
@@ -134,7 +164,7 @@ final class InMemorySourceRepository implements SourceRepositoryInterface
             $filename,
             $url,
             $path,
-            $hash,
+            null,
             $mime,
             $size,
             ProcessingStatus::Pending,
@@ -142,6 +172,7 @@ final class InMemorySourceRepository implements SourceRepositoryInterface
             '2026-07-17 00:00:00.000000',
             null,
             null,
+            $hash,
         );
         $this->versions[$sourceId][] = $version;
         $source = $this->sources[$sourceId];

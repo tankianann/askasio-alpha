@@ -66,7 +66,7 @@ final class IngestionQueue
         return JobStatus::Pending;
     }
 
-    /** @return array{retried: int, failed: int} */
+    /** @return array{completed: int, retried: int, failed: int} */
     public function recoverAbandoned(): array
     {
         return $this->jobs->recoverAbandoned($this->abandonedTimeoutSeconds);

@@ -18,7 +18,7 @@ interface IngestionJobRepositoryInterface
 
     public function fail(int $jobId, string $workerId, string $error): void;
 
-    /** @return array{retried: int, failed: int} */
+    /** @return array{completed: int, retried: int, failed: int} */
     public function recoverAbandoned(int $timeoutSeconds): array;
 
     /** @return list<IngestionJob> */

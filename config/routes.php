@@ -84,9 +84,14 @@ return [
                 $router->get('/sources/create', [$sourceController, 'create'], name: 'admin.sources.create');
                 $router->post('/sources', [$sourceController, 'store'], name: 'admin.sources.store');
                 $router->get('/sources/{sourceId}', [$sourceController, 'show'], name: 'admin.sources.show');
+                $router->get('/sources/{sourceId}/replace', [$sourceController, 'replace'], name: 'admin.sources.replace');
+                $router->post('/sources/{sourceId}/replacement', [$sourceController, 'storeReplacement'], name: 'admin.sources.replacement');
+                $router->post('/sources/{sourceId}/refresh', [$sourceController, 'refresh'], name: 'admin.sources.refresh');
+                $router->post('/sources/{sourceId}/versions/{versionId}/reprocess', [$sourceController, 'reprocess'], name: 'admin.sources.reprocess');
                 $router->post('/sources/{sourceId}/disable', [$sourceController, 'disable'], name: 'admin.sources.disable');
                 $router->post('/sources/{sourceId}/enable', [$sourceController, 'enable'], name: 'admin.sources.enable');
                 $router->post('/sources/{sourceId}/delete', [$sourceController, 'delete'], name: 'admin.sources.delete');
+                $router->post('/sources/{sourceId}/permanent-delete', [$sourceController, 'permanentDelete'], name: 'admin.sources.permanent_delete');
                 $router->get('/jobs', $jobController, name: 'admin.jobs.index');
                 $router->get('/api-keys', [$apiKeyController, 'index'], name: 'admin.api_keys.index');
                 $router->get('/api-keys/create', [$apiKeyController, 'create'], name: 'admin.api_keys.create');

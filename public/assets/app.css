@@ -443,6 +443,12 @@ tbody tr:last-child td {
     padding: clamp(1.5rem, 5vw, 2.5rem);
 }
 
+.danger-zone {
+    margin-top: 2rem;
+    border-color: #e3aaaa;
+    background: #fffafa;
+}
+
 .form-group {
     display: grid;
     gap: 0.55rem;

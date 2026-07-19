@@ -166,19 +166,50 @@ final class PdoIngestionJobRepository implements IngestionJobRepositoryInterface
         $cutoff = gmdate('Y-m-d H:i:s.u', time() - $timeoutSeconds);
         $pdo = $this->connection->pdo();
         $pdo->beginTransaction();
+        $completed = 0;
         $retried = 0;
         $failed = 0;
 
         try {
             $statement = $pdo->prepare(
-                "SELECT id, attempts, max_attempts FROM ingestion_jobs
-                 WHERE status = 'processing' AND reserved_at < :cutoff
-                 ORDER BY reserved_at ASC LIMIT 100 FOR UPDATE SKIP LOCKED",
+                "SELECT j.id, j.attempts, j.max_attempts, sv.processing_status
+                 FROM ingestion_jobs j
+                 INNER JOIN source_versions sv ON sv.id = j.source_version_id
+                 WHERE j.status = 'processing' AND j.reserved_at < :cutoff
+                 ORDER BY j.reserved_at ASC LIMIT 100 FOR UPDATE SKIP LOCKED",
             );
             $statement->execute(['cutoff' => $cutoff]);
 
             foreach ($statement->fetchAll() as $row) {
                 $jobId = (int) $row['id'];
+                $versionStatus = (string) $row['processing_status'];
+
+                if (in_array($versionStatus, ['ready', 'inactive'], true)) {
+                    $update = $pdo->prepare(
+                        "UPDATE ingestion_jobs
+                         SET status = 'completed', reserved_at = NULL, reserved_by = NULL,
+                             completed_at = UTC_TIMESTAMP(6), updated_at = UTC_TIMESTAMP(6), last_error = NULL
+                         WHERE id = :id AND status = 'processing'",
+                    );
+                    $update->execute(['id' => $jobId]);
+                    $completed++;
+
+                    continue;
+                }
+
+                if ($versionStatus === 'failed') {
+                    $update = $pdo->prepare(
+                        "UPDATE ingestion_jobs
+                         SET status = 'failed', reserved_at = NULL, reserved_by = NULL,
+                             failed_at = UTC_TIMESTAMP(6), updated_at = UTC_TIMESTAMP(6),
+                             last_error = COALESCE(last_error, 'Source processing failed before the worker reservation expired.')
+                         WHERE id = :id AND status = 'processing'",
+                    );
+                    $update->execute(['id' => $jobId]);
+                    $failed++;
+
+                    continue;
+                }
 
                 if ((int) $row['attempts'] >= (int) $row['max_attempts']) {
                     $update = $pdo->prepare(
@@ -207,7 +238,7 @@ final class PdoIngestionJobRepository implements IngestionJobRepositoryInterface
 
             $pdo->commit();
 
-            return ['retried' => $retried, 'failed' => $failed];
+            return ['completed' => $completed, 'retried' => $retried, 'failed' => $failed];
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();

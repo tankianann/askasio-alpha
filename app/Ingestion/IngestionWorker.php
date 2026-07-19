@@ -41,7 +41,7 @@ final class IngestionWorker
 
         $recovered = $this->queue->recoverAbandoned();
 
-        if ($recovered['retried'] > 0 || $recovered['failed'] > 0) {
+        if ($recovered['completed'] > 0 || $recovered['retried'] > 0 || $recovered['failed'] > 0) {
             $this->logger->warning('Recovered abandoned ingestion jobs.', [
                 'worker_id' => $this->workerId,
                 ...$recovered,

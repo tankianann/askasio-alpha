@@ -21,8 +21,8 @@ final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInte
 
     public ?int $lastRecoveryTimeout = null;
 
-    /** @var array{retried: int, failed: int} */
-    public array $recoveryResult = ['retried' => 0, 'failed' => 0];
+    /** @var array{completed: int, retried: int, failed: int} */
+    public array $recoveryResult = ['completed' => 0, 'retried' => 0, 'failed' => 0];
 
     public function enqueue(int $sourceVersionId, int $maxAttempts, int $priority = 0): IngestionJob
     {

@@ -16,6 +16,10 @@ interface SourceRepositoryInterface
 
     public function findById(int $id): ?Source;
 
+    public function lockById(int $id): ?Source;
+
+    public function findVersionById(int $id): ?SourceVersion;
+
     /** @return list<SourceVersion> */
     public function versionsForSource(int $sourceId): array;
 
@@ -39,6 +43,10 @@ interface SourceRepositoryInterface
     public function enable(int $id): void;
 
     public function softDelete(int $id): void;
+
+    public function hasInFlightJobs(int $sourceId): bool;
+
+    public function permanentlyDelete(int $id): void;
 
     public function transaction(Closure $operation): mixed;
 }

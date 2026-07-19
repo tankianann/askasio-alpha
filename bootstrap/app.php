@@ -53,6 +53,8 @@ use App\Security\SourceUploadValidator;
 use App\Security\UrlSourceValidator;
 use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
+use App\Services\Sources\SourcePermanentDeletionService;
+use App\Services\Sources\SourceUpdateService;
 use App\Services\Ingestion\IngestionQueue;
 use App\Services\Api\ApiRateLimiter;
 use App\Services\Api\ApiRequestContext;
@@ -125,13 +127,24 @@ if ($resolvedStoragePath === $resolvedPublicPath
     throw new RuntimeException('FILESYSTEM_PATH must be outside the public directory.');
 }
 
+$sourceFileStorage = new SourceFileStorage($resolvedStoragePath);
+$sourceUploadValidator = new SourceUploadValidator($config->requireInt('app.max_upload_size_mb') * 1024 * 1024);
+$urlSourceValidator = new UrlSourceValidator();
 $sourceCreation = new SourceCreationService(
     $sources,
-    new UrlSourceValidator(),
-    new SourceUploadValidator($config->requireInt('app.max_upload_size_mb') * 1024 * 1024),
-    new SourceFileStorage($resolvedStoragePath),
+    $urlSourceValidator,
+    $sourceUploadValidator,
+    $sourceFileStorage,
     $queue,
 );
+$sourceUpdates = new SourceUpdateService(
+    $sources,
+    $urlSourceValidator,
+    $sourceUploadValidator,
+    $sourceFileStorage,
+    $queue,
+);
+$sourceDeletion = new SourcePermanentDeletionService($sources, $sourceFileStorage, $logger);
 $router = new Router();
 $router->middleware(new RequestIdMiddleware());
 $router->middleware(new SecurityHeadersMiddleware());
@@ -161,6 +174,8 @@ $sourceController = new SourceController(
     $config->requireString('app.env'),
     $config->requireInt('app.max_upload_size_mb'),
     $queue,
+    $sourceUpdates,
+    $sourceDeletion,
 );
 $jobController = new JobController(
     $queue,

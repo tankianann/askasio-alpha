@@ -1,6 +1,6 @@
 # RAG Server
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–8 provide the application foundation, secure single-administrator interface, versioned source management, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, and grounded chat with citations.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening.
 
 ## Implemented functionality
 
@@ -35,6 +35,8 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Immutable source-version origins with pending ingestion lifecycle state
 - Source list, details, metadata, and complete version history
 - Enable, disable, and soft-delete actions protected by CSRF
+- Immutable replacement uploads, URL refreshes, and reprocessing from any completed version
+- Explicit permanent deletion of versions, chunks, embeddings, jobs, and private files after soft deletion and exact-name confirmation
 - Public URL policy that rejects non-HTTP protocols, credentials, localhost, literal private/reserved addresses, and metadata hosts
 - Markdown MIME, extension, UTF-8, binary-content, and size validation
 - PDF MIME, extension, `%PDF-` signature, and size validation
@@ -50,7 +52,7 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Unique worker reservations and ownership checks on completion/failure
 - Configurable maximum attempts and exponential retry delays
 - Permanent failure handling that updates the source-version processing status
-- Recovery of reservations abandoned by crashed workers
+- Recovery of reservations abandoned by crashed workers, including jobs whose version committed successfully before the worker exited
 - Long-running and cron-friendly CLI entry points
 - Structured, secret-redacted claim/completion/failure/recovery logs
 - Dashboard queue counts, dedicated Jobs screen, and per-source job history
@@ -65,6 +67,7 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - UTF-8 normalization, deterministic SHA-256 hashes of normalized extracted content, and separate uploaded-file hashes
 - Configurable paragraph/sentence-aware chunks with overlap, token estimates, ordering, section/page metadata, and character offsets
 - Transactional chunk persistence and source-version activation; the former active version changes only after a replacement succeeds
+- Activation ordering that prevents an older concurrent job from replacing a newer active version
 - Unchanged refreshed content retained as an inactive version without replacing the current active version
 - Escaped extracted-text and formatted metadata inspection in source version history
 
@@ -252,7 +255,7 @@ Set `DB_PASSWORD=rag_password` in `.env`, wait for the container health check, t
 
 ## Production deployment on Apache
 
-This section is the current deployment baseline through Milestone 8. Later milestones will add source refresh operations, permanent deletion, abandoned-job hardening, and the final security review.
+This section is the production deployment baseline through Milestone 9.
 
 ### Server packages
 
@@ -425,6 +428,12 @@ sudo journalctl -u ragserver-worker -f
 
 Begin with one worker because PDF OCR can be CPU- and memory-intensive. The worker also requires outbound HTTPS access to `api.openai.com` for embeddings. The queue supports multiple atomic workers, but additional workers should be added only after observing production resource use and provider rate limits.
 
+Each worker checks for expired reservations before claiming another job. `JOB_ABANDONED_TIMEOUT_MINUTES` must be longer than the longest legitimate URL, PDF/OCR, and embedding run. The default is 30 minutes, which is intentionally longer than the default 15-minute OCR process timeout. A separate recovery command can be run safely even when the extraction or provider pipeline is unavailable:
+
+```bash
+php bin/recover-jobs.php
+```
+
 For a very low-volume installation, cron may be used instead of systemd:
 
 ```cron
@@ -433,9 +442,15 @@ For a very low-volume installation, cron may be used instead of systemd:
 
 The one-shot command processes at most one available job. `flock` prevents overlapping cron invocations. Do not configure both cron and the persistent service for the initial deployment.
 
+As an additional operational safeguard, run recovery periodically. It is idempotent and handles only processing reservations older than the configured timeout:
+
+```cron
+*/10 * * * * www-data cd /var/www/ragserver && /usr/bin/php bin/recover-jobs.php >/dev/null
+```
+
 ### Backups, monitoring, and releases
 
-A complete backup includes both the MySQL database and `FILESYSTEM_PATH`; the database does not contain the immutable uploaded files. The `.env` file should be backed up separately and securely. Logs are optional operational data.
+A complete backup includes both the MySQL database and `FILESYSTEM_PATH`; the database does not contain the immutable uploaded files. The `.env` file should be backed up separately and securely. Logs are optional operational data. For a strictly consistent backup, briefly stop the ingestion worker and prevent administrator source changes while the database and source directory snapshots are taken. Test restoration periodically on a separate database and storage path.
 
 Useful health checks are:
 
@@ -448,16 +463,17 @@ sudo journalctl -u ragserver-worker --since today
 For subsequent releases:
 
 ```bash
+sudo systemctl stop ragserver-worker
 composer install --no-dev --optimize-autoloader
 php bin/migrate.php
 php bin/embed-chunks.php
-sudo systemctl restart ragserver-worker
+sudo systemctl start ragserver-worker
 sudo systemctl reload php8.3-fpm
 ```
 
 Run the PHPUnit suite in CI or before packaging the release, since production installs intentionally omit Composer development dependencies.
 
-Keep MySQL bound to localhost or a private network, expose only required firewall ports, monitor disk usage for source uploads, and test database/source-file restoration periodically. There are currently no other application scheduler commands; URL refresh scheduling and data-retention maintenance will be documented when those features are implemented.
+Keep MySQL bound to localhost or a private network, expose only required firewall ports, monitor disk usage for source uploads and private `.trash` staging, configure log rotation/retention, and alert on failed jobs or a stopped worker. URL refresh is an explicit administrator action in this release; it is not scheduled automatically.
 
 ## Tests and checks
 
@@ -470,6 +486,8 @@ composer validate --strict
 ```
 
 ## Configuration and security
+
+The complete production security checklist is in [SECURITY.md](SECURITY.md).
 
 Copy `.env.example` to `.env`; `.env` is git-ignored. Provider secrets are never loaded into responses or logs. Provider configuration errors use safe messages that do not contain keys, request headers, or embedding input text.
 
@@ -490,11 +508,21 @@ Use `SESSION_SECURE_COOKIE=always` when the application must only be accessed ov
 
 Always configure a web server with `public/` as its document root. Serving the repository root could expose application and operational files despite the front-controller design.
 
-Use `APP_DEBUG=false` in production. Unexpected errors always produce a generic response and a request ID; enabling development debugging never exposes stack traces or exception messages to HTTP clients. Details remain in `storage/logs/`, with credential-shaped context recursively redacted. Logs rotate daily and retain 14 files by default. Questions will not be logged unless `LOG_API_QUESTIONS=true` is explicitly configured in a future API milestone.
+Use `APP_DEBUG=false` in production. Unexpected errors always produce a generic response and a request ID; enabling development debugging never exposes stack traces or exception messages to HTTP clients. Details remain in `storage/logs/`, with credential-shaped context recursively redacted. Logs rotate daily and retain 14 files by default. Complete questions and answers are not logged.
+
+Secure HTTPS responses include HSTS, all administrator responses are marked `Cache-Control: no-store`, and all responses receive CSP, MIME-sniffing, referrer, permissions, and same-origin resource headers. HSTS is intentionally omitted on plain HTTP development requests.
 
 The database connection sets its session timezone to UTC. Application timestamps exposed by health use UTC; `APP_TIMEZONE` is retained for future display-layer localization.
 
 ## Source uploads and storage
+
+### Source update and deletion lifecycle
+
+Every replacement, URL refresh, and reprocessing request creates a new immutable source version and queue job. Existing versions are never edited or overwritten. The previous active version remains available to retrieval until the new version has been fully extracted, chunked, embedded, and committed. If processing fails, the active version is unchanged. If two jobs somehow finish out of order, only the newest version is eligible to become active.
+
+Use **Refresh URL** for URL sources, **Upload replacement** for Markdown/PDF sources, or **Reprocess as new version** on a completed version. Only one pending or processing job may be created for a source through the administrator workflow at a time.
+
+Soft deletion disables retrieval but preserves all records and files. Permanent deletion is available only after soft deletion and requires typing the source name exactly. It removes the source, all versions, chunks/embeddings, ingestion jobs, and its private source directory. Permanent deletion is irreversible and is blocked while a job is pending or processing. Take a verified backup before using it when retention is required.
 
 `FILESYSTEM_PATH` must resolve outside `public/`; the application refuses to start if it points into the web root. The default is:
 
@@ -532,7 +560,7 @@ Worker behavior is configured through:
 JOB_MAX_ATTEMPTS=3
 JOB_RETRY_BASE_SECONDS=30
 JOB_RETRY_MAX_SECONDS=3600
-JOB_ABANDONED_TIMEOUT_MINUTES=15
+JOB_ABANDONED_TIMEOUT_MINUTES=30
 JOB_POLL_SECONDS=2
 ```
 
@@ -582,6 +610,12 @@ The worker now extracts, chunks, embeds, stores, and activates source versions. 
 ```
 
 For production, prefer the systemd service documented in the production deployment section. Use either systemd or cron, not both initially.
+
+Abandoned-job recovery runs automatically before a healthy worker claims work. It distinguishes between a genuinely unfinished attempt and a version that was already committed as `ready` or `inactive` before the worker crashed. The latter is completed without reprocessing; other expired attempts return to pending or fail after their final attempt. Recovery can also be invoked independently with:
+
+```bash
+composer recover-jobs
+```
 
 Unexpected exception messages are written only to the secret-redacted application log. The job table and administrator UI receive a generic reference. Controlled ingestion exceptions may provide a deliberately safe operational message. A transient OCR engine failure follows normal job retry rules; a successful OCR run that recognizes no readable text fails permanently with an actionable message.
 
@@ -707,4 +741,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-Milestone 8 is complete through grounded single-turn answer generation, citations, `/api/v1/chat`, provider error handling, usage reporting, hard prompt/output controls, and independent chat rate limiting. Milestone 9 will add replacement-version workflows, URL refresh, reprocessing, permanent deletion, abandoned-job recovery hardening, and production security documentation.
+Milestone 9 is complete through immutable replacement uploads, URL refresh, version reprocessing, ordered atomic activation, confirmed permanent deletion, abandoned-worker recovery hardening, security headers, and production operations documentation. The initial nine-milestone application scope is implemented; future work should be treated as a new, separately reviewed milestone.

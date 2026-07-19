@@ -89,10 +89,10 @@ final class IngestionQueueTest extends TestCase
     public function testItDelegatesAbandonedReservationRecoveryWithConfiguredTimeout(): void
     {
         $repository = new InMemoryIngestionJobRepository();
-        $repository->recoveryResult = ['retried' => 2, 'failed' => 1];
+        $repository->recoveryResult = ['completed' => 1, 'retried' => 2, 'failed' => 1];
         $queue = $this->queue($repository);
 
-        self::assertSame(['retried' => 2, 'failed' => 1], $queue->recoverAbandoned());
+        self::assertSame(['completed' => 1, 'retried' => 2, 'failed' => 1], $queue->recoverAbandoned());
         self::assertSame(900, $repository->lastRecoveryTimeout);
     }
 

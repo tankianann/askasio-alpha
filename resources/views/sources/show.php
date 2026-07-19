@@ -9,6 +9,14 @@
     </div>
     <?php if (!$source->isDeleted()): ?>
         <div class="action-row">
+            <?php if ($source->type->value === 'url'): ?>
+                <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/refresh" data-confirm="Fetch this URL and create a new immutable version?">
+                    <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
+                    <button class="button button-primary" type="submit">Refresh URL</button>
+                </form>
+            <?php else: ?>
+                <a class="button button-primary" href="/admin/sources/<?= $escape($source->id) ?>/replace">Upload replacement</a>
+            <?php endif; ?>
             <?php if ($source->status->value === 'enabled'): ?>
                 <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/disable">
                     <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
@@ -59,6 +67,24 @@
 
 <?php if (is_string($success) && $success !== ''): ?>
     <div class="alert alert-success" role="status"><?= $escape($success) ?></div>
+<?php endif; ?>
+<?php if (is_string($error) && $error !== ''): ?>
+    <div class="alert alert-error" role="alert"><?= $escape($error) ?></div>
+<?php endif; ?>
+
+<?php if ($source->isDeleted()): ?>
+    <section class="panel form-panel danger-zone">
+        <h2>Permanently delete source</h2>
+        <p>This irreversibly removes every version, chunk, embedding, ingestion job, and stored file.</p>
+        <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/permanent-delete">
+            <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
+            <div class="form-group">
+                <label for="confirmation">Type <strong><?= $escape($source->name) ?></strong> to confirm</label>
+                <input id="confirmation" name="confirmation" type="text" required autocomplete="off">
+            </div>
+            <button class="button button-danger" type="submit">Permanently delete</button>
+        </form>
+    </section>
 <?php endif; ?>
 
 <section class="panel metadata-panel">
@@ -119,6 +145,12 @@
                     <summary>View extracted metadata</summary>
                     <pre><?= $escape($formatJson($version->metadata)) ?></pre>
                 </details>
+            <?php endif; ?>
+            <?php if (!$source->isDeleted() && !in_array($version->processingStatus->value, ['pending', 'processing'], true)): ?>
+                <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/versions/<?= $escape($version->id) ?>/reprocess" data-confirm="Create a new version from version <?= $escape($version->versionNumber) ?> and process it again?">
+                    <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
+                    <button class="button button-quiet" type="submit">Reprocess as new version</button>
+                </form>
             <?php endif; ?>
         </article>
     <?php endforeach; ?>

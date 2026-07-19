@@ -10,13 +10,19 @@ use App\Domain\Ingestion\ExtractedDocument;
 use App\Domain\Sources\ProcessingStatus;
 use App\Domain\Sources\SourceType;
 use App\Domain\Sources\SourceVersion;
+use App\Ingestion\SourceVersionActivationPolicy;
 use RuntimeException;
 use Throwable;
 
 final class PdoSourceIngestionRepository implements SourceIngestionRepositoryInterface
 {
-    public function __construct(private readonly Connection $connection)
-    {
+    private readonly SourceVersionActivationPolicy $activationPolicy;
+
+    public function __construct(
+        private readonly Connection $connection,
+        ?SourceVersionActivationPolicy $activationPolicy = null,
+    ) {
+        $this->activationPolicy = $activationPolicy ?? new SourceVersionActivationPolicy();
     }
 
     public function findVersion(int $id): ?SourceVersion
@@ -44,7 +50,8 @@ final class PdoSourceIngestionRepository implements SourceIngestionRepositoryInt
 
         try {
             $lock = $pdo->prepare(
-                'SELECT s.active_version_id, active.content_hash AS active_content_hash
+                'SELECT s.active_version_id, active.content_hash AS active_content_hash,
+                        active.version_number AS active_version_number
                  FROM sources s
                  LEFT JOIN source_versions active ON active.id = s.active_version_id
                  WHERE s.id = :source_id FOR UPDATE',
@@ -108,7 +115,8 @@ final class PdoSourceIngestionRepository implements SourceIngestionRepositoryInt
 
         try {
             $lock = $pdo->prepare(
-                'SELECT s.active_version_id, active.content_hash AS active_content_hash
+                'SELECT s.active_version_id, active.content_hash AS active_content_hash,
+                        active.version_number AS active_version_number
                  FROM sources s
                  LEFT JOIN source_versions active ON active.id = s.active_version_id
                  WHERE s.id = :source_id FOR UPDATE',
@@ -121,10 +129,32 @@ final class PdoSourceIngestionRepository implements SourceIngestionRepositoryInt
             }
 
             $activeVersionId = isset($source['active_version_id']) ? (int) $source['active_version_id'] : null;
+            $activeVersionNumber = isset($source['active_version_number'])
+                ? (int) $source['active_version_number']
+                : null;
             $contentHash = $document->contentHash();
             $documentMetadata = json_encode($document->metadata, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             $delete = $pdo->prepare('DELETE FROM source_chunks WHERE source_version_id = :version_id');
             $delete->execute(['version_id' => $version->id]);
+
+            if (!$this->activationPolicy->shouldActivate($version->versionNumber, $activeVersionNumber)) {
+                $superseded = $pdo->prepare(
+                    "UPDATE source_versions
+                     SET content_hash = :content_hash, extracted_text = :extracted_text,
+                         metadata_json = :metadata_json, processing_status = 'inactive',
+                         error_message = NULL, processed_at = UTC_TIMESTAMP(6), activated_at = NULL
+                     WHERE id = :id",
+                );
+                $superseded->execute([
+                    'content_hash' => $contentHash,
+                    'extracted_text' => $document->content,
+                    'metadata_json' => $documentMetadata,
+                    'id' => $version->id,
+                ]);
+                $pdo->commit();
+
+                return false;
+            }
 
             if ($activeVersionId !== null
                 && $activeVersionId !== $version->id
