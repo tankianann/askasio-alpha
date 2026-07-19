@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#f4f7fa">
-    <title><?= $escape($title) ?> · Ask Archie</title>
-    <link rel="icon" href="/assets/images/ask-archie.svg" type="image/svg+xml">
+    <title><?= $escape($title) ?> · Ask Asio</title>
+    <link rel="icon" href="/assets/images/ask-asio.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/assets/app.css?v=10">
 </head>
 <body class="auth-body">
 <main class="auth-shell">
     <section class="auth-card" aria-labelledby="login-heading">
         <div class="auth-brand">
-            <img src="/assets/images/ask-archie.svg" alt="">
-            <span>Ask Archie</span>
+            <img src="/assets/images/ask-asio.svg" alt="">
+            <span>Ask Asio</span>
         </div>
         <p class="eyebrow">Welcome back</p>
         <h1 id="login-heading">Sign in</h1>
@@ -49,7 +49,7 @@
                 autocomplete="current-password"
             >
 
-            <button type="submit" class="button button-primary button-full">Sign in to Ask Archie</button>
+            <button type="submit" class="button button-primary button-full">Sign in to Ask Asio</button>
         </form>
     </section>
 </main>

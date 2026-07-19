@@ -2,7 +2,7 @@
     <div>
         <p class="eyebrow">Workspace</p>
         <h1>Overview</h1>
-        <p class="muted">A clear view of Ask Archie’s knowledge, system health, and recent processing.</p>
+        <p class="muted">A clear view of Ask Asio’s knowledge, system health, and recent processing.</p>
     </div>
 </div>
 
@@ -18,7 +18,7 @@
         <span class="status-dot <?= $activeSourceCount > 0 ? 'status-dot-ready' : 'status-dot-pending' ?>" aria-hidden="true"></span>
         <div>
             <h2>Knowledge Base</h2>
-            <p><strong><?= $escape($activeSourceCount) ?></strong> active document<?= $activeSourceCount === 1 ? '' : 's' ?> available to Ask Archie.</p>
+            <p><strong><?= $escape($activeSourceCount) ?></strong> active document<?= $activeSourceCount === 1 ? '' : 's' ?> available to Ask Asio.</p>
             <p><a class="text-link" href="/admin/sources">Manage knowledge</a></p>
         </div>
     </article>

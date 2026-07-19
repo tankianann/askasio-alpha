@@ -23,7 +23,7 @@ final class LoggerFactory
 
         $level = Level::fromName((string) $config->get('logging.level', 'info'));
         $handler = new RotatingFileHandler($path, (int) $config->get('logging.max_files', 14), $level, true, 0640);
-        $logger = new Logger('ask-archie');
+        $logger = new Logger('ask-asio');
         $logger->pushProcessor(new SecretRedactionProcessor());
         $logger->pushProcessor(new PsrLogMessageProcessor());
         $logger->pushHandler($handler);

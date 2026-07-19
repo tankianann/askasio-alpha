@@ -194,7 +194,7 @@ final class SourceController
     {
         $source = $this->sourceFromRequest($request);
         $this->sources->disable($source->id);
-        $this->session->put(self::FLASH_SUCCESS, 'Document disabled. Ask Archie will exclude it from answers.');
+        $this->session->put(self::FLASH_SUCCESS, 'Document disabled. Ask Asio will exclude it from answers.');
 
         return Response::redirect('/admin/sources/' . $source->id, 303);
     }

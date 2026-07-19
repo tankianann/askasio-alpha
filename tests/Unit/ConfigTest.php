@@ -12,9 +12,9 @@ final class ConfigTest extends TestCase
 {
     public function testItReadsNestedValuesAndDefaults(): void
     {
-        $config = new Config(['app' => ['name' => 'Ask Archie']]);
+        $config = new Config(['app' => ['name' => 'Ask Asio']]);
 
-        self::assertSame('Ask Archie', $config->get('app.name'));
+        self::assertSame('Ask Asio', $config->get('app.name'));
         self::assertSame('fallback', $config->get('app.missing', 'fallback'));
     }
 

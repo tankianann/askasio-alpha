@@ -2,7 +2,7 @@
     <div>
         <p class="eyebrow">Operations</p>
         <h1>Processing</h1>
-        <p class="muted">Follow how Ask Archie extracts, prepares, and indexes your knowledge.</p>
+        <p class="muted">Follow how Ask Asio extracts, prepares, and indexes your knowledge.</p>
     </div>
 </div>
 
@@ -23,7 +23,7 @@
 
 <?php if ($jobs === []): ?>
     <section class="empty-state">
-        <img class="empty-logo" src="/assets/images/ask-archie.svg" alt="">
+        <img class="empty-logo" src="/assets/images/ask-asio.svg" alt="">
         <h2>Nothing to process yet</h2>
         <p>Add something to your Knowledge Base and its processing activity will appear here.</p>
         <a class="button button-primary" href="/admin/sources/create">

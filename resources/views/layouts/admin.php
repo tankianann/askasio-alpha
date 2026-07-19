@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#ffffff">
-    <title><?= $escape($title) ?> · Ask Archie</title>
-    <link rel="icon" href="/assets/images/ask-archie.svg" type="image/svg+xml">
+    <title><?= $escape($title) ?> · Ask Asio</title>
+    <link rel="icon" href="/assets/images/ask-asio.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/assets/app.css?v=10">
     <script src="/assets/app.js?v=10" defer></script>
 </head>
 <body class="admin-body">
 <div class="admin-shell">
     <header class="mobile-topbar">
-        <a class="brand" href="/admin" aria-label="Ask Archie overview">
-            <img class="brand-logo" src="/assets/images/ask-archie.svg" alt="">
-            <span class="brand-name">Ask Archie</span>
+        <a class="brand" href="/admin" aria-label="Ask Asio overview">
+            <img class="brand-logo" src="/assets/images/ask-asio.svg" alt="">
+            <span class="brand-name">Ask Asio</span>
         </a>
         <button class="mobile-menu-button" type="button" aria-controls="admin-sidebar" aria-expanded="false" aria-label="Open navigation" data-sidebar-open>
             <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-menu"></use></svg>
@@ -24,9 +24,9 @@
 
     <aside class="sidebar" id="admin-sidebar" aria-label="Primary navigation">
         <div class="sidebar-main">
-            <a class="brand" href="/admin" aria-label="Ask Archie overview">
-                <img class="brand-logo" src="/assets/images/ask-archie.svg" alt="">
-                <span class="brand-name">Ask Archie</span>
+            <a class="brand" href="/admin" aria-label="Ask Asio overview">
+                <img class="brand-logo" src="/assets/images/ask-asio.svg" alt="">
+                <span class="brand-name">Ask Asio</span>
             </a>
             <button class="sidebar-close" type="button" aria-label="Close navigation" data-sidebar-close>
                 <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-close"></use></svg>

@@ -7,7 +7,7 @@ $oldUrl = $old['url'] ?? '';
     <div>
         <p class="breadcrumbs"><a href="/admin/sources">Knowledge Base</a> <span>/</span> Add knowledge</p>
         <h1>Add knowledge</h1>
-        <p class="muted">Choose the content Ask Archie should learn from. Processing begins after it is added.</p>
+        <p class="muted">Choose the content Ask Asio should learn from. Processing begins after it is added.</p>
     </div>
 </div>
 
@@ -39,7 +39,7 @@ $oldUrl = $old['url'] ?? '';
     <div class="form-group source-fields" data-source-fields="url">
         <label for="url">Page URL</label>
         <input id="url" name="url" type="url" value="<?= $escape($oldUrl) ?>" maxlength="2048" placeholder="https://example.com/policy">
-        <p class="field-help">Only public HTTP and HTTPS pages are accepted. Ask Archie will securely retrieve the page content.</p>
+        <p class="field-help">Only public HTTP and HTTPS pages are accepted. Ask Asio will securely retrieve the page content.</p>
     </div>
 
     <div class="form-group source-fields" data-source-fields="markdown">

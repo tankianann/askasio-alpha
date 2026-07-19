@@ -2,7 +2,7 @@
     <div>
         <p class="eyebrow">Knowledge</p>
         <h1>Knowledge Base</h1>
-        <p class="muted">Manage the URLs, Markdown, and PDF content Ask Archie can learn from.</p>
+        <p class="muted">Manage the URLs, Markdown, and PDF content Ask Asio can learn from.</p>
     </div>
     <a class="button button-primary" href="/admin/sources/create">
         <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
@@ -16,9 +16,9 @@
 
 <?php if ($sources === []): ?>
     <section class="empty-state">
-        <img class="empty-logo" src="/assets/images/ask-archie.svg" alt="">
+        <img class="empty-logo" src="/assets/images/ask-asio.svg" alt="">
         <h2>Your Knowledge Base is ready</h2>
-        <p>Add a URL, Markdown file, or PDF so Ask Archie has something to learn from.</p>
+        <p>Add a URL, Markdown file, or PDF so Ask Asio has something to learn from.</p>
         <a class="button button-primary" href="/admin/sources/create">
             <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
             <span>Add your first document</span>

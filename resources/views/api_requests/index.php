@@ -10,7 +10,7 @@
     <section class="empty-state">
         <div class="empty-icon" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#icon-arrow-up-right"></use></svg></div>
         <h2>No API activity yet</h2>
-        <p>Activity from applications connected to Ask Archie will appear here.</p>
+        <p>Activity from applications connected to Ask Asio will appear here.</p>
     </section>
 <?php else: ?>
     <div class="table-card">

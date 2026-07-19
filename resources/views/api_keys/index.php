@@ -2,7 +2,7 @@
     <div>
         <p class="eyebrow">Connections</p>
         <h1>API Access</h1>
-        <p class="muted">Create and manage secure connections for applications that communicate with Ask Archie.</p>
+        <p class="muted">Create and manage secure connections for applications that communicate with Ask Asio.</p>
     </div>
     <a class="button button-primary" href="/admin/api-keys/create">
         <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
@@ -16,9 +16,9 @@
 
 <?php if ($keys === []): ?>
     <section class="empty-state">
-        <img class="empty-logo" src="/assets/images/ask-archie.svg" alt="">
+        <img class="empty-logo" src="/assets/images/ask-asio.svg" alt="">
         <h2>No API connections yet</h2>
-        <p>Create secure API access before connecting an external application to Ask Archie.</p>
+        <p>Create secure API access before connecting an external application to Ask Asio.</p>
         <a class="button button-primary" href="/admin/api-keys/create">
             <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
             <span>Create your first connection</span>

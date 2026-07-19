@@ -1,4 +1,4 @@
-# Ask Archie
+# Ask Asio
 
 A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening.
 
@@ -396,7 +396,7 @@ A persistent systemd worker is recommended. It processes uploads immediately, su
 
 ```ini
 [Unit]
-Description=Ask Archie processing worker
+Description=Ask Asio processing worker
 After=network-online.target
 Wants=network-online.target
 
