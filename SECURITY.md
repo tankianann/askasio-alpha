@@ -32,6 +32,7 @@ This document records the Milestone 9 security baseline. It is an operational ch
 - Back up MySQL and `FILESYSTEM_PATH` together; test restoration away from production.
 - Monitor health, worker status, failed jobs, provider errors/rate limits, disk capacity, and application logs.
 - Set `JOB_ABANDONED_TIMEOUT_MINUTES` above the longest legitimate ingestion run and schedule `bin/recover-jobs.php` as a fallback.
+- Choose an explicit API Activity retention period and schedule `bin/prune-api-requests.php`; align database-backup retention with the same privacy requirements.
 - Apply OS, PHP, web server, MySQL, OCRmyPDF/Tesseract, and Composer security updates through a tested release process.
 - Run `composer audit`, the test suite, PHP syntax checks, and `composer validate --strict` before production releases.
 - Review trusted-proxy handling before deploying behind a TLS-terminating proxy. The application intentionally does not trust forwarded headers by default.

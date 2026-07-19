@@ -110,7 +110,10 @@ final class PdoApiRequestLogRepository implements ApiRequestLogRepositoryInterfa
     {
         $limit = max(1, min($limit, 10000));
         $statement = $this->connection->pdo()->prepare(
-            'DELETE FROM api_request_logs WHERE created_at < :cutoff LIMIT ' . $limit,
+            'DELETE FROM api_request_logs
+             WHERE created_at < :cutoff
+             ORDER BY created_at ASC, id ASC
+             LIMIT ' . $limit,
         );
         $statement->execute(['cutoff' => $cutoff]);
 

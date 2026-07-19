@@ -12,11 +12,13 @@ use App\Domain\Api\ApiRequestLogSort;
 use App\Repositories\ApiRequestLogRepositoryInterface;
 use App\Support\Pagination\PaginatedResult;
 use App\Support\SortDirection;
+use Throwable;
 
 final class InMemoryApiRequestLogRepository implements ApiRequestLogRepositoryInterface
 {
     /** @var list<ApiRequestLog> */
     public array $logs = [];
+    public ?Throwable $pruneFailure = null;
 
     public function record(ApiRequestLog $log): void
     {
@@ -129,6 +131,24 @@ final class InMemoryApiRequestLogRepository implements ApiRequestLogRepositoryIn
 
     public function pruneOlderThan(string $cutoff, int $limit = 1000): int
     {
-        return 0;
+        if ($this->pruneFailure instanceof Throwable) {
+            throw $this->pruneFailure;
+        }
+
+        $deleted = 0;
+        $remaining = [];
+
+        foreach ($this->logs as $log) {
+            if ($deleted < $limit && $log->createdAt !== null && $log->createdAt < $cutoff) {
+                ++$deleted;
+                continue;
+            }
+
+            $remaining[] = $log;
+        }
+
+        $this->logs = $remaining;
+
+        return $deleted;
     }
 }

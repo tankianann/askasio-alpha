@@ -96,7 +96,7 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - MySQL-backed fixed-window limits by API key and HMAC-hashed client IP
 - Request audit records containing request ID, numeric key ID, endpoint, status, duration, error category, and numeric usage
 - No bearer secrets, complete questions, or raw client IP addresses in API request records
-- Configurable request-log retention with opportunistic pruning
+- Configurable API Activity retention with a concurrency-safe scheduled purge command
 - Administrator API-key and recent API-request screens
 
 ### Grounded RAG chat
@@ -448,6 +448,34 @@ As an additional operational safeguard, run recovery periodically. It is idempot
 */10 * * * * www-data cd /var/www/ragserver && /usr/bin/php bin/recover-jobs.php >/dev/null
 ```
 
+### API Activity retention maintenance
+
+API request logs are retained for 30 days by default. Select one of the supported policies in `.env`:
+
+```dotenv
+# 0 keeps records forever; otherwise use 30, 90, 180, or 365.
+API_REQUEST_LOG_RETENTION_DAYS=30
+API_REQUEST_LOG_PURGE_BATCH_SIZE=1000
+```
+
+Retention is applied by an explicit maintenance command rather than during customer requests:
+
+```bash
+php bin/prune-api-requests.php
+# or
+composer prune-api-requests
+```
+
+The command calculates its cutoff in UTC, deletes only rows strictly older than that cutoff, and repeatedly deletes the oldest records in bounded batches. It is idempotent. A MySQL advisory lock scoped to the configured database prevents concurrent invocations; a second invocation exits successfully without deleting anything. Start with the default batch size and reduce it if production database monitoring shows undesirable lock or replication pressure. The existing `api_request_logs(created_at)` index supports cutoff selection and ordered deletion.
+
+Schedule it once per day. The host cron timezone does not affect retention boundaries because the application converts the current instant and cutoff to UTC:
+
+```cron
+15 2 * * * www-data cd /var/www/ragserver && /usr/bin/php bin/prune-api-requests.php >/dev/null
+```
+
+Failures return a non-zero exit code and are written to the secret-redacted application log. Configure cron or monitoring to alert on command failure. If retention is set to `0`, the command reports that records are kept forever and makes no database changes. Backups may continue to contain records that have already expired from the live database, so apply a separate backup-retention policy where required.
+
 ### Backups, monitoring, and releases
 
 A complete backup includes both the MySQL database and `FILESYSTEM_PATH`; the database does not contain the immutable uploaded files. The `.env` file should be backed up separately and securely. Logs are optional operational data. For a strictly consistent backup, briefly stop the ingestion worker and prevent administrator source changes while the database and source directory snapshots are taken. Test restoration periodically on a separate database and storage path.
@@ -645,7 +673,10 @@ API_RATE_LIMIT_PER_IP=120
 API_CHAT_RATE_LIMIT_PER_KEY=10
 API_CHAT_RATE_LIMIT_PER_IP=20
 API_REQUEST_LOG_RETENTION_DAYS=30
+API_REQUEST_LOG_PURGE_BATCH_SIZE=1000
 ```
+
+`API_REQUEST_LOG_RETENTION_DAYS` accepts only `0`, `30`, `90`, `180`, or `365`; `0` means keep forever. Run `bin/prune-api-requests.php` on a daily schedule to enforce the selected policy. API requests only append audit metadata and never perform retention deletion themselves.
 
 Run the embedding backfill after deploying Milestone 6 or whenever legacy active chunks have no embedding:
 

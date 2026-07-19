@@ -24,7 +24,6 @@ final class ApiRequestLoggingMiddlewareTest extends TestCase
             $context,
             new NullLogger(),
             str_repeat('s', 32),
-            30,
         );
         $request = (new Request(
             'POST',
@@ -57,7 +56,6 @@ final class ApiRequestLoggingMiddlewareTest extends TestCase
             new ApiRequestContext(),
             new NullLogger(),
             str_repeat('s', 32),
-            30,
         );
         $request = (new Request('POST', '/api/v1/retrieve'))->withAttribute('request_id', 'request-4');
         $middleware->process($request, static fn (): Response => Response::json([

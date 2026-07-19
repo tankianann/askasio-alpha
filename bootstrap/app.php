@@ -209,7 +209,6 @@ $apiRequestLoggingMiddleware = new ApiRequestLoggingMiddleware(
     $apiRequestContext,
     $logger,
     $appSecret,
-    $config->requireInt('api.request_log_retention_days'),
 );
 $apiKeyAuthenticationMiddleware = new ApiKeyAuthenticationMiddleware($apiKeyService, $apiRequestContext);
 $apiRateLimitMiddleware = new ApiRateLimitMiddleware(new ApiRateLimiter(

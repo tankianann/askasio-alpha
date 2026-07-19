@@ -21,11 +21,7 @@ final class ApiRequestLoggingMiddleware implements MiddlewareInterface
         private readonly ApiRequestContext $context,
         private readonly LoggerInterface $logger,
         private readonly string $applicationSecret,
-        private readonly int $retentionDays,
     ) {
-        if ($this->retentionDays < 1) {
-            throw new \InvalidArgumentException('API request log retention must be at least one day.');
-        }
     }
 
     public function process(Request $request, Closure $next): Response
@@ -79,10 +75,6 @@ final class ApiRequestLoggingMiddleware implements MiddlewareInterface
                 $usage,
             ));
 
-            if (random_int(1, 100) === 1) {
-                $cutoff = gmdate('Y-m-d H:i:s', time() - ($this->retentionDays * 86400));
-                $this->logs->pruneOlderThan($cutoff);
-            }
         } catch (Throwable $exception) {
             $this->logger->warning('API request audit record could not be persisted.', [
                 'request_id' => $requestId,
