@@ -1,10 +1,13 @@
 <div class="page-heading">
     <div>
-        <p class="eyebrow">Access</p>
-        <h1>API keys</h1>
-        <p class="muted">Create and revoke bearer credentials for external applications.</p>
+        <p class="eyebrow">Connections</p>
+        <h1>API Access</h1>
+        <p class="muted">Create and manage secure connections for applications that communicate with Ask Archie.</p>
     </div>
-    <a class="button button-primary" href="/admin/api-keys/create">Create API key</a>
+    <a class="button button-primary" href="/admin/api-keys/create">
+        <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
+        <span>Create connection</span>
+    </a>
 </div>
 
 <?php if (is_string($success) && $success !== ''): ?>
@@ -13,10 +16,13 @@
 
 <?php if ($keys === []): ?>
     <section class="empty-state">
-        <div class="empty-icon" aria-hidden="true">+</div>
-        <h2>No API keys yet</h2>
-        <p>Create a key before connecting an external application to the retrieval API.</p>
-        <a class="button button-primary" href="/admin/api-keys/create">Create your first API key</a>
+        <img class="empty-logo" src="/assets/images/ask-archie.svg" alt="">
+        <h2>No API connections yet</h2>
+        <p>Create secure API access before connecting an external application to Ask Archie.</p>
+        <a class="button button-primary" href="/admin/api-keys/create">
+            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
+            <span>Create your first connection</span>
+        </a>
     </section>
 <?php else: ?>
     <div class="table-card">

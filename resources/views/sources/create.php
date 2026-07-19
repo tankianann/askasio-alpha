@@ -5,9 +5,9 @@ $oldUrl = $old['url'] ?? '';
 ?>
 <div class="page-heading page-heading-compact">
     <div>
-        <p class="breadcrumbs"><a href="/admin/sources">Sources</a> <span>/</span> Add source</p>
-        <h1>Add source</h1>
-        <p class="muted">The first version will be stored with pending processing status.</p>
+        <p class="breadcrumbs"><a href="/admin/sources">Knowledge Base</a> <span>/</span> Add knowledge</p>
+        <h1>Add knowledge</h1>
+        <p class="muted">Choose the content Ask Archie should learn from. Processing begins after it is added.</p>
     </div>
 </div>
 
@@ -19,13 +19,13 @@ $oldUrl = $old['url'] ?? '';
     <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
 
     <div class="form-group">
-        <label for="name">Source name</label>
+        <label for="name">Document name</label>
         <input id="name" name="name" type="text" value="<?= $escape($oldName) ?>" maxlength="190" required autofocus>
-        <p class="field-help">A clear administrative name, such as “Refund policy”.</p>
+        <p class="field-help">Use a clear, memorable name, such as “Refund policy”.</p>
     </div>
 
     <fieldset class="form-group">
-        <legend>Source type</legend>
+        <legend>Content type</legend>
         <div class="choice-grid">
             <?php foreach (['url' => 'URL', 'markdown' => 'Markdown', 'pdf' => 'PDF'] as $value => $label): ?>
                 <label class="choice-card">
@@ -39,7 +39,7 @@ $oldUrl = $old['url'] ?? '';
     <div class="form-group source-fields" data-source-fields="url">
         <label for="url">Page URL</label>
         <input id="url" name="url" type="url" value="<?= $escape($oldUrl) ?>" maxlength="2048" placeholder="https://example.com/policy">
-        <p class="field-help">Only public HTTP and HTTPS destinations are accepted. Fetching begins in the ingestion milestones.</p>
+        <p class="field-help">Only public HTTP and HTTPS pages are accepted. Ask Archie will securely retrieve the page content.</p>
     </div>
 
     <div class="form-group source-fields" data-source-fields="markdown">
@@ -56,6 +56,9 @@ $oldUrl = $old['url'] ?? '';
 
     <div class="form-actions">
         <a class="button button-quiet" href="/admin/sources">Cancel</a>
-        <button class="button button-primary" type="submit">Add source</button>
+        <button class="button button-primary" type="submit">
+            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
+            <span>Add to Knowledge Base</span>
+        </button>
     </div>
 </form>

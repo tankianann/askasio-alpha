@@ -1,0 +1,264 @@
+.admin-body {
+    background:
+        radial-gradient(circle at 8% 0%, rgb(11 123 221 / 17%), transparent 34rem),
+        radial-gradient(circle at 100% 100%, rgb(11 123 221 / 11%), transparent 30rem),
+        #eef6fc;
+    background-attachment: fixed;
+}
+
+.admin-shell {
+    min-height: 100vh;
+}
+
+.sidebar {
+    position: fixed;
+    z-index: 30;
+    inset: 0 auto 0 0;
+    display: flex;
+    width: var(--sidebar-width);
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.35rem 1rem 1rem;
+    border-right: 1px solid var(--line);
+    background: rgb(255 255 255 / 96%);
+}
+
+.sidebar-main {
+    min-height: 0;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.25rem 0.45rem;
+    color: var(--ink-strong);
+    text-decoration: none;
+}
+
+.brand-logo {
+    width: 2.55rem;
+    height: 2.55rem;
+    flex: 0 0 auto;
+    object-fit: contain;
+}
+
+.brand-name {
+    font-size: 1.08rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+.nav-label {
+    margin: 2rem 0.7rem 0.65rem;
+    color: #8a99a8;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.sidebar nav {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.sidebar nav a {
+    display: flex;
+    min-height: 2.8rem;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: var(--radius-sm);
+    color: var(--muted-strong);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: color var(--transition), background var(--transition);
+}
+
+.sidebar nav a:hover {
+    color: var(--ink-strong);
+    background: var(--surface-soft);
+}
+
+.sidebar nav a[aria-current="page"] {
+    color: #0868b9;
+    background: var(--accent-soft);
+    font-weight: 600;
+}
+
+.sidebar-footer {
+    display: grid;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+}
+
+.account-summary {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0 0.35rem;
+}
+
+.account-avatar {
+    display: grid;
+    width: 2.3rem;
+    height: 2.3rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid #c9e2f8;
+    border-radius: 50%;
+    color: #0868b9;
+    background: var(--accent-soft);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.account-copy {
+    display: grid;
+    min-width: 0;
+    line-height: 1.35;
+}
+
+.account-name {
+    overflow: hidden;
+    color: var(--ink-strong);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.environment-label {
+    color: var(--muted);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.logout-form {
+    display: block;
+}
+
+.admin-main {
+    width: calc(100% - var(--sidebar-width));
+    min-height: 100vh;
+    margin-left: var(--sidebar-width);
+    padding: clamp(2.5rem, 5vw, 4.75rem) clamp(2rem, 5vw, 5rem);
+}
+
+.admin-content {
+    width: min(100%, 76rem);
+    margin: 0 auto;
+}
+
+.mobile-topbar {
+    display: none;
+}
+
+.sidebar-close {
+    display: none;
+}
+
+.sidebar-scrim {
+    display: none;
+}
+
+@media (max-width: 62rem) {
+    .sidebar {
+        width: 16rem;
+        transform: translateX(-102%);
+        box-shadow: var(--shadow-float);
+        transition: transform 220ms ease;
+    }
+
+    .sidebar-open .sidebar {
+        transform: translateX(0);
+    }
+
+    .admin-main {
+        width: 100%;
+        margin-left: 0;
+        padding-top: 6.25rem;
+    }
+
+    .mobile-topbar {
+        position: fixed;
+        z-index: 20;
+        inset: 0 0 auto;
+        display: flex;
+        min-height: 4.5rem;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1.25rem;
+        border-bottom: 1px solid rgb(228 233 238 / 85%);
+        background: rgb(255 255 255 / 88%);
+        backdrop-filter: blur(16px);
+    }
+
+    .mobile-topbar .brand {
+        padding: 0;
+    }
+
+    .mobile-topbar .brand-logo {
+        width: 2.25rem;
+        height: 2.25rem;
+    }
+
+    .mobile-menu-button,
+    .sidebar-close {
+        display: inline-grid;
+        width: 2.65rem;
+        height: 2.65rem;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        color: var(--ink);
+        background: var(--surface);
+        cursor: pointer;
+    }
+
+    .sidebar-close {
+        display: inline-grid;
+        position: absolute;
+        top: 1.2rem;
+        right: 1rem;
+        border: 0;
+        background: var(--surface-soft);
+    }
+
+    .sidebar .brand {
+        padding-right: 3rem;
+    }
+
+    .sidebar-scrim {
+        position: fixed;
+        z-index: 25;
+        inset: 0;
+        display: block;
+        visibility: hidden;
+        border: 0;
+        opacity: 0;
+        background: rgb(12 30 47 / 42%);
+        transition: opacity 220ms ease, visibility 220ms ease;
+    }
+
+    .sidebar-open .sidebar-scrim {
+        visibility: visible;
+        opacity: 1;
+    }
+}
+
+@media (max-width: 40rem) {
+    .admin-main {
+        padding: 5.75rem 1.15rem 2.5rem;
+    }
+
+    .mobile-topbar {
+        padding-inline: 1rem;
+    }
+}

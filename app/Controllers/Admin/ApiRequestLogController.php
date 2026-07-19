@@ -30,7 +30,7 @@ final class ApiRequestLogController
         }
 
         return Response::html($this->views->render('api_requests/index', [
-            'title' => 'API requests',
+            'title' => 'API Activity',
             'admin' => $admin,
             'csrfToken' => $this->csrf->token(),
             'environment' => $this->environment,

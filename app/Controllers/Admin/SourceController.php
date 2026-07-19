@@ -43,7 +43,7 @@ final class SourceController
     public function index(Request $request): Response
     {
         return Response::html($this->views->render('sources/index', [
-            ...$this->layoutData($request, 'Sources'),
+            ...$this->layoutData($request, 'Knowledge Base'),
             'sources' => $this->sources->all(),
             'success' => $this->session->pull(self::FLASH_SUCCESS),
             'error' => $this->session->pull(self::FLASH_ERROR),
@@ -92,7 +92,7 @@ final class SourceController
             ], 422);
         }
 
-        $this->session->put(self::FLASH_SUCCESS, sprintf('Source “%s” was added and is pending ingestion.', $source->name));
+        $this->session->put(self::FLASH_SUCCESS, sprintf('“%s” was added and is ready for processing.', $source->name));
 
         return Response::redirect('/admin/sources/' . $source->id, 303);
     }
@@ -135,7 +135,7 @@ final class SourceController
 
         $this->session->put(
             self::FLASH_SUCCESS,
-            sprintf('Replacement version %d was queued for ingestion.', $version->versionNumber),
+            sprintf('Replacement revision %d is ready for processing.', $version->versionNumber),
         );
 
         return Response::redirect('/admin/sources/' . $source->id, 303);
@@ -149,7 +149,7 @@ final class SourceController
             $version = $this->updates->refreshUrl($source);
             $this->session->put(
                 self::FLASH_SUCCESS,
-                sprintf('URL refresh version %d was queued for ingestion.', $version->versionNumber),
+                sprintf('URL refresh revision %d is ready for processing.', $version->versionNumber),
             );
         } catch (ValidationException $exception) {
             $this->session->put(self::FLASH_ERROR, $exception->getMessage());
@@ -178,7 +178,7 @@ final class SourceController
             $this->session->put(
                 self::FLASH_SUCCESS,
                 sprintf(
-                    'Version %d was copied to version %d and queued for reprocessing.',
+                    'Revision %d was copied to revision %d and is ready for reprocessing.',
                     $version->versionNumber,
                     $copy->versionNumber,
                 ),
@@ -194,7 +194,7 @@ final class SourceController
     {
         $source = $this->sourceFromRequest($request);
         $this->sources->disable($source->id);
-        $this->session->put(self::FLASH_SUCCESS, 'Source disabled. It will be excluded from retrieval.');
+        $this->session->put(self::FLASH_SUCCESS, 'Document disabled. Ask Archie will exclude it from answers.');
 
         return Response::redirect('/admin/sources/' . $source->id, 303);
     }
@@ -208,7 +208,7 @@ final class SourceController
         }
 
         $this->sources->enable($source->id);
-        $this->session->put(self::FLASH_SUCCESS, 'Source enabled.');
+        $this->session->put(self::FLASH_SUCCESS, 'Document enabled.');
 
         return Response::redirect('/admin/sources/' . $source->id, 303);
     }
@@ -217,7 +217,7 @@ final class SourceController
     {
         $source = $this->sourceFromRequest($request);
         $this->sources->softDelete($source->id);
-        $this->session->put(self::FLASH_SUCCESS, sprintf('Source “%s” was moved to deleted sources.', $source->name));
+        $this->session->put(self::FLASH_SUCCESS, sprintf('“%s” was moved to deleted items.', $source->name));
 
         return Response::redirect('/admin/sources', 303);
     }
@@ -235,7 +235,7 @@ final class SourceController
             return Response::redirect('/admin/sources/' . $source->id, 303);
         }
 
-        $this->session->put(self::FLASH_SUCCESS, sprintf('Source “%s” was permanently deleted.', $source->name));
+        $this->session->put(self::FLASH_SUCCESS, sprintf('“%s” was permanently deleted.', $source->name));
 
         return Response::redirect('/admin/sources', 303);
     }
@@ -248,7 +248,7 @@ final class SourceController
         int $status = 200,
     ): Response {
         return Response::html($this->views->render('sources/create', [
-            ...$this->layoutData($request, 'Add source'),
+            ...$this->layoutData($request, 'Add knowledge'),
             'error' => $error,
             'old' => $old,
             'maximumUploadMegabytes' => $this->maximumUploadMegabytes,

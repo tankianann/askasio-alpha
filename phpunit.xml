@@ -6,7 +6,7 @@
          colors="true"
          failOnWarning="true">
     <testsuites>
-        <testsuite name="RAG Server">
+        <testsuite name="Ask Archie">
             <directory>tests</directory>
         </testsuite>
     </testsuites>

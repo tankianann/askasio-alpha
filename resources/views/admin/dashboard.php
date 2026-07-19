@@ -1,8 +1,8 @@
 <div class="page-heading">
     <div>
-        <p class="eyebrow">Administration</p>
-        <h1>Dashboard</h1>
-        <p class="muted">Manage the knowledge sources used by your RAG application.</p>
+        <p class="eyebrow">Workspace</p>
+        <h1>Overview</h1>
+        <p class="muted">A clear view of Ask Archie’s knowledge, system health, and recent processing.</p>
     </div>
 </div>
 
@@ -10,34 +10,34 @@
     <article class="status-card">
         <span class="status-dot status-dot-ready" aria-hidden="true"></span>
         <div>
-            <h2>Authentication</h2>
-            <p>Session protection is active for <?= $escape($admin->username) ?>.</p>
+            <h2>Workspace access</h2>
+            <p>Your secure session is active as <?= $escape($admin->username) ?>.</p>
         </div>
     </article>
     <article class="status-card">
         <span class="status-dot <?= $activeSourceCount > 0 ? 'status-dot-ready' : 'status-dot-pending' ?>" aria-hidden="true"></span>
         <div>
-            <h2>Knowledge sources</h2>
-            <p><strong><?= $escape($activeSourceCount) ?></strong> enabled source<?= $activeSourceCount === 1 ? '' : 's' ?>.</p>
-            <p><a class="text-link" href="/admin/sources">Manage sources</a></p>
+            <h2>Knowledge Base</h2>
+            <p><strong><?= $escape($activeSourceCount) ?></strong> active document<?= $activeSourceCount === 1 ? '' : 's' ?> available to Ask Archie.</p>
+            <p><a class="text-link" href="/admin/sources">Manage knowledge</a></p>
         </div>
     </article>
 </section>
 
-<section class="status-grid dashboard-jobs" aria-label="Ingestion queue">
+<section class="status-grid dashboard-jobs" aria-label="Processing status">
     <article class="status-card">
         <span class="status-dot <?= $pendingJobCount > 0 ? 'status-dot-pending' : 'status-dot-ready' ?>" aria-hidden="true"></span>
         <div>
-            <h2>Pending jobs</h2>
-            <p><strong><?= $escape($pendingJobCount) ?></strong> waiting for ingestion.</p>
-            <p><a class="text-link" href="/admin/jobs">View queue</a></p>
+            <h2>Waiting to process</h2>
+            <p><strong><?= $escape($pendingJobCount) ?></strong> item<?= $pendingJobCount === 1 ? '' : 's' ?> waiting to be processed.</p>
+            <p><a class="text-link" href="/admin/jobs">View processing</a></p>
         </div>
     </article>
     <article class="status-card">
         <span class="status-dot <?= $failedJobCount > 0 ? 'status-dot-failed' : 'status-dot-ready' ?>" aria-hidden="true"></span>
         <div>
-            <h2>Failed jobs</h2>
-            <p><strong><?= $escape($failedJobCount) ?></strong> permanently failed.</p>
+            <h2>Needs attention</h2>
+            <p><strong><?= $escape($failedJobCount) ?></strong> processing item<?= $failedJobCount === 1 ? '' : 's' ?> need<?= $failedJobCount === 1 ? 's' : '' ?> attention.</p>
         </div>
     </article>
 </section>

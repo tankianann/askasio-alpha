@@ -103,7 +103,7 @@ final class AuthController
     private function loginView(?string $error = null, string $username = '', int $status = 200): Response
     {
         return Response::html($this->views->render('auth/login', [
-            'title' => 'Administrator login',
+            'title' => 'Sign in',
             'csrfToken' => $this->csrf->token(),
             'error' => $error,
             'username' => $username,

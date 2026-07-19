@@ -1,8 +1,8 @@
 <div class="page-heading page-heading-compact">
     <div>
-        <p class="breadcrumbs"><a href="/admin/sources">Sources</a> <span>/</span> <a href="/admin/sources/<?= $escape($source->id) ?>"><?= $escape($source->name) ?></a> <span>/</span> Replace</p>
+        <p class="breadcrumbs"><a href="/admin/sources">Knowledge Base</a> <span>/</span> <a href="/admin/sources/<?= $escape($source->id) ?>"><?= $escape($source->name) ?></a> <span>/</span> Replace</p>
         <h1>Upload replacement</h1>
-        <p class="muted">The current active version remains searchable until this replacement finishes successfully.</p>
+        <p class="muted">The current revision remains available until this replacement finishes processing successfully.</p>
     </div>
 </div>
 
@@ -21,7 +21,7 @@
     </div>
 
     <div class="form-actions">
-        <button class="button button-primary" type="submit">Queue replacement</button>
+        <button class="button button-primary" type="submit">Process replacement</button>
         <a class="button button-quiet" href="/admin/sources/<?= $escape($source->id) ?>">Cancel</a>
     </div>
 </form>

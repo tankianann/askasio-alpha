@@ -1,10 +1,13 @@
 <div class="page-heading">
     <div>
         <p class="eyebrow">Knowledge</p>
-        <h1>Sources</h1>
-        <p class="muted">Manage URLs, Markdown documents, and PDF documents.</p>
+        <h1>Knowledge Base</h1>
+        <p class="muted">Manage the URLs, Markdown, and PDF content Ask Archie can learn from.</p>
     </div>
-    <a class="button button-primary" href="/admin/sources/create">Add source</a>
+    <a class="button button-primary" href="/admin/sources/create">
+        <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
+        <span>Add knowledge</span>
+    </a>
 </div>
 
 <?php if (is_string($success) && $success !== ''): ?>
@@ -13,10 +16,13 @@
 
 <?php if ($sources === []): ?>
     <section class="empty-state">
-        <div class="empty-icon" aria-hidden="true">+</div>
-        <h2>No knowledge sources yet</h2>
-        <p>Add a URL, Markdown file, or PDF file to create its first pending version.</p>
-        <a class="button button-primary" href="/admin/sources/create">Add your first source</a>
+        <img class="empty-logo" src="/assets/images/ask-archie.svg" alt="">
+        <h2>Your Knowledge Base is ready</h2>
+        <p>Add a URL, Markdown file, or PDF so Ask Archie has something to learn from.</p>
+        <a class="button button-primary" href="/admin/sources/create">
+            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
+            <span>Add your first document</span>
+        </a>
     </section>
 <?php else: ?>
     <div class="table-card">
@@ -25,9 +31,9 @@
             <tr>
                 <th>Name</th>
                 <th>Type</th>
-                <th>Source status</th>
-                <th>Latest processing</th>
-                <th>Versions</th>
+                <th>Availability</th>
+                <th>Processing</th>
+                <th>Revisions</th>
                 <th>Updated</th>
             </tr>
             </thead>

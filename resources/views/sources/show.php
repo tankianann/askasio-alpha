@@ -1,16 +1,16 @@
 <div class="page-heading page-heading-compact">
     <div>
-        <p class="breadcrumbs"><a href="/admin/sources">Sources</a> <span>/</span> <?= $escape($source->name) ?></p>
+        <p class="breadcrumbs"><a href="/admin/sources">Knowledge Base</a> <span>/</span> <?= $escape($source->name) ?></p>
         <div class="title-row">
             <h1><?= $escape($source->name) ?></h1>
             <?php if ($source->isDeleted()): ?><span class="badge badge-deleted">Deleted</span><?php endif; ?>
         </div>
-        <p class="muted"><?= $escape($source->type->label()) ?> source · Created <?= $escape($formatDate($source->createdAt)) ?></p>
+        <p class="muted"><?= $escape($source->type->label()) ?> document · Added <?= $escape($formatDate($source->createdAt)) ?></p>
     </div>
     <?php if (!$source->isDeleted()): ?>
         <div class="action-row">
             <?php if ($source->type->value === 'url'): ?>
-                <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/refresh" data-confirm="Fetch this URL and create a new immutable version?">
+                <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/refresh" data-confirm="Fetch this URL and create a new revision?">
                     <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
                     <button class="button button-primary" type="submit">Refresh URL</button>
                 </form>
@@ -28,7 +28,7 @@
                     <button class="button button-primary" type="submit">Enable</button>
                 </form>
             <?php endif; ?>
-            <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/delete" data-confirm="Soft-delete this source? Its versions and files will be preserved.">
+            <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/delete" data-confirm="Move this document to deleted items? Its revisions and files will be preserved.">
                 <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
                 <button class="button button-danger" type="submit">Delete</button>
             </form>
@@ -38,17 +38,17 @@
 
 <section class="section-heading">
     <div>
-        <h2>Ingestion jobs</h2>
-        <p class="muted">Queue attempts and operational errors for this source.</p>
+        <h2>Processing history</h2>
+        <p class="muted">Review processing attempts and any operational issues for this document.</p>
     </div>
 </section>
 
 <?php if ($jobs === []): ?>
-    <div class="panel compact-panel muted">No ingestion jobs are associated with this source.</div>
+    <div class="panel compact-panel muted">No processing activity is associated with this document.</div>
 <?php else: ?>
     <div class="table-card">
         <table>
-            <thead><tr><th>Job</th><th>Version</th><th>Status</th><th>Attempts</th><th>Available</th><th>Last error</th></tr></thead>
+            <thead><tr><th>Activity</th><th>Revision</th><th>Status</th><th>Attempts</th><th>Available</th><th>Last error</th></tr></thead>
             <tbody>
             <?php foreach ($jobs as $job): ?>
                 <tr>
@@ -74,8 +74,8 @@
 
 <?php if ($source->isDeleted()): ?>
     <section class="panel form-panel danger-zone">
-        <h2>Permanently delete source</h2>
-        <p>This irreversibly removes every version, chunk, embedding, ingestion job, and stored file.</p>
+        <h2>Permanently delete document</h2>
+        <p>This irreversibly removes every revision, content segment, embedding, processing record, and stored file.</p>
         <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/permanent-delete">
             <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
             <div class="form-group">
@@ -88,18 +88,18 @@
 <?php endif; ?>
 
 <section class="panel metadata-panel">
-    <div><span>Source ID</span><strong><?= $escape($source->id) ?></strong></div>
+    <div><span>Document ID</span><strong><?= $escape($source->id) ?></strong></div>
     <div><span>Status</span><strong><?= $escape(ucfirst($source->status->value)) ?></strong></div>
-    <div><span>Active version</span><strong><?= $source->activeVersionId === null ? 'None yet' : $escape($source->activeVersionId) ?></strong></div>
-    <div><span>Versions</span><strong><?= $escape($source->versionCount) ?></strong></div>
+    <div><span>Active revision</span><strong><?= $source->activeVersionId === null ? 'None yet' : $escape($source->activeVersionId) ?></strong></div>
+    <div><span>Revisions</span><strong><?= $escape($source->versionCount) ?></strong></div>
     <div><span>Updated</span><strong><?= $escape($formatDate($source->updatedAt)) ?></strong></div>
     <div><span>Deleted</span><strong><?= $escape($formatDate($source->deletedAt)) ?></strong></div>
 </section>
 
 <section class="section-heading">
     <div>
-        <h2>Version history</h2>
-        <p class="muted">Versions are immutable. A version becomes active only after extraction and chunking succeed.</p>
+        <h2>Revision history</h2>
+        <p class="muted">Revisions are preserved for reliability. A revision becomes active only after its content is processed successfully.</p>
     </div>
 </section>
 
@@ -108,7 +108,7 @@
         <article class="panel version-card">
             <div class="version-heading">
                 <div>
-                    <h3>Version <?= $escape($version->versionNumber) ?></h3>
+                    <h3>Revision <?= $escape($version->versionNumber) ?></h3>
                     <p><?= $escape($formatDate($version->createdAt)) ?></p>
                 </div>
                 <span class="badge badge-<?= $escape($version->processingStatus->value) ?>"><?= $escape(ucfirst($version->processingStatus->value)) ?></span>
@@ -124,7 +124,7 @@
                     <div><dt>Stored path</dt><dd><code><?= $escape($version->storedFilePath) ?></code></dd></div>
                     <div class="definition-wide"><dt>File SHA-256</dt><dd><code class="break-text"><?= $escape($version->fileHash) ?></code></dd></div>
                 <?php endif; ?>
-                <div><dt>Chunks</dt><dd><?= $escape($version->chunkCount) ?></dd></div>
+                <div><dt>Content segments</dt><dd><?= $escape($version->chunkCount) ?></dd></div>
                 <?php if ($version->contentHash !== null): ?>
                     <div class="definition-wide"><dt>Extracted content SHA-256</dt><dd><code class="break-text"><?= $escape($version->contentHash) ?></code></dd></div>
                 <?php endif; ?>
@@ -147,9 +147,9 @@
                 </details>
             <?php endif; ?>
             <?php if (!$source->isDeleted() && !in_array($version->processingStatus->value, ['pending', 'processing'], true)): ?>
-                <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/versions/<?= $escape($version->id) ?>/reprocess" data-confirm="Create a new version from version <?= $escape($version->versionNumber) ?> and process it again?">
+                <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/versions/<?= $escape($version->id) ?>/reprocess" data-confirm="Create a new revision from revision <?= $escape($version->versionNumber) ?> and process it again?">
                     <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
-                    <button class="button button-quiet" type="submit">Reprocess as new version</button>
+                    <button class="button button-quiet" type="submit">Reprocess as new revision</button>
                 </form>
             <?php endif; ?>
         </article>

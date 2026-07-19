@@ -31,7 +31,7 @@ final class JobController
         }
 
         return Response::html($this->views->render('jobs/index', [
-            'title' => 'Ingestion jobs',
+            'title' => 'Processing',
             'admin' => $admin,
             'csrfToken' => $this->csrf->token(),
             'environment' => $this->environment,

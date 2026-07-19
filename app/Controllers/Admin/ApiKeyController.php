@@ -36,7 +36,7 @@ final class ApiKeyController
     public function index(Request $request): Response
     {
         return Response::html($this->views->render('api_keys/index', [
-            ...$this->layoutData($request, 'API keys'),
+            ...$this->layoutData($request, 'API Access'),
             'keys' => $this->keys->all(),
             'success' => $this->session->pull(self::FLASH_SUCCESS),
         ], 'layouts/admin'));
@@ -66,7 +66,7 @@ final class ApiKeyController
         }
 
         return Response::html($this->views->render('api_keys/created', [
-            ...$this->layoutData($request, 'API key created'),
+            ...$this->layoutData($request, 'Connection created'),
             'created' => $created,
         ], 'layouts/admin'), 201)->withHeader('Cache-Control', 'no-store');
     }
@@ -97,7 +97,7 @@ final class ApiKeyController
         int $status = 200,
     ): Response {
         return Response::html($this->views->render('api_keys/create', [
-            ...$this->layoutData($request, 'Create API key'),
+            ...$this->layoutData($request, 'Create connection'),
             'error' => $error,
             'old' => $old,
         ], 'layouts/admin'), $status);

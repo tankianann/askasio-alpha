@@ -49,7 +49,7 @@ final class ApiKeyAuthenticationMiddleware implements MiddlewareInterface
                 'request_id' => is_string($requestId) ? $requestId : null,
             ],
         ], 401)
-            ->withHeader('WWW-Authenticate', 'Bearer realm="RAG Server"')
+            ->withHeader('WWW-Authenticate', 'Bearer realm="Ask Archie"')
             ->withHeader('Cache-Control', 'no-store');
     }
 }

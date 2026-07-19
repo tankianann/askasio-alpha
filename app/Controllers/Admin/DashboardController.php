@@ -34,7 +34,7 @@ final class DashboardController
         $queueCounts = $this->queue->counts();
 
         return Response::html($this->views->render('admin/dashboard', [
-            'title' => 'Dashboard',
+            'title' => 'Overview',
             'admin' => $admin,
             'csrfToken' => $this->csrf->token(),
             'environment' => $this->environment,

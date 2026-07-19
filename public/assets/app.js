@@ -8,6 +8,66 @@ document.querySelectorAll('[data-confirm]').forEach((form) => {
     });
 });
 
+const sidebarOpenButton = document.querySelector('[data-sidebar-open]');
+const sidebarCloseButtons = document.querySelectorAll('[data-sidebar-close]');
+const adminSidebar = document.getElementById('admin-sidebar');
+const desktopSidebarMedia = window.matchMedia('(min-width: 62.01rem)');
+
+function setSidebarOpen(open) {
+    document.body.classList.toggle('sidebar-open', open);
+
+    if (sidebarOpenButton instanceof HTMLButtonElement) {
+        sidebarOpenButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    if (adminSidebar instanceof HTMLElement) {
+        const hiddenDrawer = !desktopSidebarMedia.matches && !open;
+        adminSidebar.inert = hiddenDrawer;
+        adminSidebar.setAttribute('aria-hidden', hiddenDrawer ? 'true' : 'false');
+    }
+}
+
+if (sidebarOpenButton instanceof HTMLButtonElement) {
+    sidebarOpenButton.addEventListener('click', () => {
+        setSidebarOpen(true);
+        const sidebarCloseButton = document.querySelector('.sidebar-close');
+
+        if (sidebarCloseButton instanceof HTMLButtonElement) {
+            sidebarCloseButton.focus();
+        }
+    });
+}
+
+sidebarCloseButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+        setSidebarOpen(false);
+
+        if (sidebarOpenButton instanceof HTMLButtonElement) {
+            sidebarOpenButton.focus();
+        }
+    });
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
+        setSidebarOpen(false);
+
+        if (sidebarOpenButton instanceof HTMLButtonElement) {
+            sidebarOpenButton.focus();
+        }
+    }
+});
+
+desktopSidebarMedia.addEventListener('change', (event) => {
+    if (event.matches) {
+        setSidebarOpen(false);
+    } else {
+        setSidebarOpen(document.body.classList.contains('sidebar-open'));
+    }
+});
+
+setSidebarOpen(false);
+
 const sourceTypeInputs = document.querySelectorAll('input[name="source_type"]');
 const sourceFields = document.querySelectorAll('[data-source-fields]');
 

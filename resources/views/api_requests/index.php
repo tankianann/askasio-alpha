@@ -1,16 +1,16 @@
 <div class="page-heading">
     <div>
         <p class="eyebrow">Operations</p>
-        <h1>API requests</h1>
-        <p class="muted">Recent authenticated and rejected API activity. Questions and bearer secrets are not recorded.</p>
+        <h1>API Activity</h1>
+        <p class="muted">Understand recent usage, authentication attempts, and response times. Questions and bearer secrets are never recorded.</p>
     </div>
 </div>
 
 <?php if ($logs === []): ?>
     <section class="empty-state">
-        <div class="empty-icon" aria-hidden="true">↗</div>
-        <h2>No API requests recorded</h2>
-        <p>Requests to authenticated API endpoints will appear here.</p>
+        <div class="empty-icon" aria-hidden="true"><svg class="icon"><use href="/assets/icons.svg#icon-arrow-up-right"></use></svg></div>
+        <h2>No API activity yet</h2>
+        <p>Activity from applications connected to Ask Archie will appear here.</p>
     </section>
 <?php else: ?>
     <div class="table-card">
@@ -18,7 +18,7 @@
             <thead>
             <tr>
                 <th>Date</th>
-                <th>API key</th>
+                <th>Connection</th>
                 <th>Request</th>
                 <th>Status</th>
                 <th>Duration</th>
