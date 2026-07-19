@@ -11,6 +11,7 @@ use App\Domain\Ingestion\IngestionJobSourceOption;
 use App\Domain\Ingestion\JobStatus;
 use App\Repositories\IngestionJobRepositoryInterface;
 use App\Support\Pagination\PaginatedResult;
+use App\Support\Pagination\PageRequest;
 use App\Support\SortDirection;
 
 final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInterface
@@ -164,12 +165,22 @@ final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInte
         return array_values($options);
     }
 
-    public function forSource(int $sourceId): array
+    public function paginateForSource(int $sourceId, PageRequest $page): PaginatedResult
     {
-        return array_values(array_filter(
+        $jobs = array_values(array_filter(
             $this->jobs,
             static fn (IngestionJob $job): bool => $job->sourceId === $sourceId,
         ));
+        usort($jobs, static fn (IngestionJob $left, IngestionJob $right): int =>
+            strcmp($right->createdAt, $left->createdAt) ?: $right->id <=> $left->id);
+        $total = count($jobs);
+        $page = $page->clampToTotal($total);
+
+        return new PaginatedResult(
+            array_slice($jobs, $page->offset(), $page->perPage),
+            $total,
+            $page,
+        );
     }
 
     public function counts(): array

@@ -16,6 +16,7 @@ use PDO;
 use RuntimeException;
 use Throwable;
 use App\Support\Pagination\PaginatedResult;
+use App\Support\Pagination\PageRequest;
 
 final class PdoSourceRepository implements SourceRepositoryInterface
 {
@@ -88,14 +89,42 @@ final class PdoSourceRepository implements SourceRepositoryInterface
         return is_array($row) ? $this->hydrateVersion($row) : null;
     }
 
-    public function versionsForSource(int $sourceId): array
+    public function paginateVersionsForSource(int $sourceId, PageRequest $page): PaginatedResult
     {
-        $statement = $this->connection->pdo()->prepare(
-            $this->versionSelect() . ' WHERE sv.source_id = :source_id ORDER BY sv.version_number DESC',
+        $pdo = $this->connection->pdo();
+        $count = $pdo->prepare('SELECT COUNT(*) FROM source_versions WHERE source_id = :source_id');
+        $count->execute(['source_id' => $sourceId]);
+        $total = (int) $count->fetchColumn();
+        $page = $page->clampToTotal($total);
+        $statement = $pdo->prepare(
+            $this->versionSummarySelect()
+            . ' WHERE sv.source_id = :source_id'
+            . ' ORDER BY sv.version_number DESC, sv.id DESC'
+            . ' LIMIT ' . $page->perPage
+            . ' OFFSET ' . $page->offset(),
         );
         $statement->execute(['source_id' => $sourceId]);
 
-        return array_map($this->hydrateVersion(...), $statement->fetchAll());
+        return new PaginatedResult(
+            array_map($this->hydrateVersion(...), $statement->fetchAll()),
+            $total,
+            $page,
+        );
+    }
+
+    public function latestOriginalUrlForSource(int $sourceId): ?string
+    {
+        $statement = $this->connection->pdo()->prepare(
+            'SELECT original_url
+             FROM source_versions
+             WHERE source_id = :source_id AND original_url IS NOT NULL
+             ORDER BY version_number DESC, id DESC
+             LIMIT 1',
+        );
+        $statement->execute(['source_id' => $sourceId]);
+        $url = $statement->fetchColumn();
+
+        return is_string($url) ? $url : null;
     }
 
     public function countEnabled(): int
@@ -300,6 +329,19 @@ final class PdoSourceRepository implements SourceRepositoryInterface
                    sv.stored_file_path, sv.content_hash, sv.file_hash, sv.mime_type, sv.file_size,
                    sv.processing_status, sv.error_message, sv.extracted_text, sv.metadata_json,
                    sv.created_at, sv.processed_at,
+                   sv.activated_at, s.source_type,
+                   (SELECT COUNT(*) FROM source_chunks sc WHERE sc.source_version_id = sv.id) AS chunk_count
+            FROM source_versions sv
+            INNER JOIN sources s ON s.id = sv.source_id
+            SQL;
+    }
+
+    private function versionSummarySelect(): string
+    {
+        return <<<'SQL'
+            SELECT sv.id, sv.source_id, sv.version_number, sv.original_filename, sv.original_url,
+                   sv.stored_file_path, sv.content_hash, sv.file_hash, sv.mime_type, sv.file_size,
+                   sv.processing_status, sv.error_message, sv.created_at, sv.processed_at,
                    sv.activated_at, s.source_type,
                    (SELECT COUNT(*) FROM source_chunks sc WHERE sc.source_version_id = sv.id) AS chunk_count
             FROM source_versions sv

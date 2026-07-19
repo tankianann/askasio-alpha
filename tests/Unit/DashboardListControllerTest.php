@@ -20,6 +20,7 @@ use App\Services\Ingestion\IngestionQueue;
 use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
 use App\Services\Sources\SourceListQueryParser;
+use App\Services\Sources\SourceHistoryQueryParser;
 use App\Services\Sources\SourcePermanentDeletionService;
 use App\Services\Sources\SourceUpdateService;
 use App\Support\ViewRenderer;
@@ -158,6 +159,7 @@ final class DashboardListControllerTest extends TestCase
             new SourceUpdateService($sources, $urls, $uploads, $storage, $queue),
             new SourcePermanentDeletionService($sources, $storage, new NullLogger()),
             new SourceListQueryParser('Asia/Singapore'),
+            new SourceHistoryQueryParser('Asia/Singapore'),
         );
     }
 

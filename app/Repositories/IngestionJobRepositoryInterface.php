@@ -8,6 +8,7 @@ use App\Domain\Ingestion\IngestionJob;
 use App\Domain\Ingestion\IngestionJobListQuery;
 use App\Domain\Ingestion\IngestionJobSourceOption;
 use App\Support\Pagination\PaginatedResult;
+use App\Support\Pagination\PageRequest;
 
 interface IngestionJobRepositoryInterface
 {
@@ -33,8 +34,8 @@ interface IngestionJobRepositoryInterface
     /** @return list<IngestionJobSourceOption> */
     public function sourceOptions(): array;
 
-    /** @return list<IngestionJob> */
-    public function forSource(int $sourceId): array;
+    /** @return PaginatedResult<IngestionJob> */
+    public function paginateForSource(int $sourceId, PageRequest $page): PaginatedResult;
 
     /** @return array{pending: int, processing: int, completed: int, failed: int} */
     public function counts(): array;

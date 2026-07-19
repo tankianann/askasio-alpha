@@ -84,6 +84,7 @@ return [
                 $router->get('/sources/create', [$sourceController, 'create'], name: 'admin.sources.create');
                 $router->post('/sources', [$sourceController, 'store'], name: 'admin.sources.store');
                 $router->get('/sources/{sourceId}', [$sourceController, 'show'], name: 'admin.sources.show');
+                $router->get('/sources/{sourceId}/versions/{versionId}', [$sourceController, 'version'], name: 'admin.sources.versions.show');
                 $router->get('/sources/{sourceId}/replace', [$sourceController, 'replace'], name: 'admin.sources.replace');
                 $router->post('/sources/{sourceId}/replacement', [$sourceController, 'storeReplacement'], name: 'admin.sources.replacement');
                 $router->post('/sources/{sourceId}/refresh', [$sourceController, 'refresh'], name: 'admin.sources.refresh');

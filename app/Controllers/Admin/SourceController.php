@@ -8,6 +8,8 @@ use App\Auth\SessionStoreInterface;
 use App\Domain\Admin\AdminUser;
 use App\Domain\Sources\Source;
 use App\Domain\Sources\SourceListSort;
+use App\Domain\Sources\SourceHistoryQuery;
+use App\Domain\Sources\SourceVersion;
 use App\Domain\Sources\SourceType;
 use App\Exceptions\HttpException;
 use App\Exceptions\ValidationException;
@@ -21,6 +23,7 @@ use App\Services\Sources\SourceUpdateService;
 use App\Support\ViewRenderer;
 use App\Services\Ingestion\IngestionQueue;
 use App\Services\Sources\SourceListQueryParser;
+use App\Services\Sources\SourceHistoryQueryParser;
 use App\Support\QueryString;
 use App\Support\SortDirection;
 use ValueError;
@@ -42,6 +45,7 @@ final class SourceController
         private readonly SourceUpdateService $updates,
         private readonly SourcePermanentDeletionService $deletion,
         private readonly SourceListQueryParser $listQueries,
+        private readonly SourceHistoryQueryParser $historyQueries,
     ) {
     }
 
@@ -143,13 +147,67 @@ final class SourceController
     {
         $source = $this->sourceFromRequest($request);
 
+        try {
+            $query = $this->historyQueries->parse($request);
+        } catch (ValidationException $exception) {
+            $this->session->put(self::FLASH_ERROR, $exception->getMessage());
+
+            return Response::redirect('/admin/sources/' . $source->id);
+        }
+
+        $versionsPage = $this->sources->paginateVersionsForSource($source->id, $query->revisions);
+        $jobsPage = $this->queue->paginateForSource($source->id, $query->jobs);
+
+        if ($versionsPage->pageRequest->page !== $query->revisions->page
+            || $jobsPage->pageRequest->page !== $query->jobs->page) {
+            $canonical = new SourceHistoryQuery($versionsPage->pageRequest, $jobsPage->pageRequest);
+
+            return Response::redirect(QueryString::url(
+                '/admin/sources/' . $source->id,
+                $canonical->queryParameters(),
+            ));
+        }
+
+        $parameters = $query->queryParameters();
+
         return Response::html($this->views->render('sources/show', [
             ...$this->layoutData($request, $source->name),
             'source' => $source,
-            'versions' => $this->sources->versionsForSource($source->id),
-            'jobs' => $this->queue->forSource($source->id),
+            'versionsPage' => $versionsPage,
+            'jobsPage' => $jobsPage,
+            'historyUrl' => static fn (array $overrides = []): string => QueryString::url(
+                '/admin/sources/' . $source->id,
+                $parameters,
+                $overrides,
+            ),
+            'versionUrl' => static fn (int $versionId): string => QueryString::url(
+                '/admin/sources/' . $source->id . '/versions/' . $versionId,
+                $parameters,
+            ),
             'success' => $this->session->pull(self::FLASH_SUCCESS),
             'error' => $this->session->pull(self::FLASH_ERROR),
+        ], 'layouts/admin'));
+    }
+
+    public function version(Request $request): Response
+    {
+        $source = $this->sourceFromRequest($request);
+        $version = $this->versionFromRequest($request, $source);
+
+        try {
+            $historyQuery = $this->historyQueries->parse($request);
+        } catch (ValidationException) {
+            $historyQuery = $this->historyQueries->parse(new Request('GET', '/'));
+        }
+
+        return Response::html($this->views->render('sources/version', [
+            ...$this->layoutData($request, sprintf('%s revision %d', $source->name, $version->versionNumber)),
+            'source' => $source,
+            'version' => $version,
+            'backUrl' => QueryString::url(
+                '/admin/sources/' . $source->id,
+                $historyQuery->queryParameters(),
+            ),
         ], 'layouts/admin'));
     }
 
@@ -203,17 +261,7 @@ final class SourceController
     public function reprocess(Request $request): Response
     {
         $source = $this->sourceFromRequest($request);
-        $versionId = $request->route('versionId');
-
-        if (!is_string($versionId) || !ctype_digit($versionId) || (int) $versionId < 1) {
-            throw new HttpException(404, 'The requested source version was not found.', 'source_version_not_found');
-        }
-
-        $version = $this->sources->findVersionById((int) $versionId);
-
-        if ($version === null || $version->sourceId !== $source->id) {
-            throw new HttpException(404, 'The requested source version was not found.', 'source_version_not_found');
-        }
+        $version = $this->versionFromRequest($request, $source);
 
         try {
             $copy = $this->updates->reprocess($source, $version);
@@ -317,6 +365,23 @@ final class SourceController
             'error' => $error,
             'maximumUploadMegabytes' => $this->maximumUploadMegabytes,
         ], 'layouts/admin'), $status);
+    }
+
+    private function versionFromRequest(Request $request, Source $source): SourceVersion
+    {
+        $versionId = $request->route('versionId');
+
+        if (!is_string($versionId) || !ctype_digit($versionId) || (int) $versionId < 1) {
+            throw new HttpException(404, 'The requested source version was not found.', 'source_version_not_found');
+        }
+
+        $version = $this->sources->findVersionById((int) $versionId);
+
+        if (!$version instanceof SourceVersion || $version->sourceId !== $source->id) {
+            throw new HttpException(404, 'The requested source version was not found.', 'source_version_not_found');
+        }
+
+        return $version;
     }
 
     private function sourceFromRequest(Request $request): Source

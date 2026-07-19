@@ -34,7 +34,8 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Versioned URL, Markdown, and PDF source records
 - Immutable source-version origins with pending ingestion lifecycle state
 - Paginated source list with name search, source-type, availability, and latest-processing-state filters
-- Source details, metadata, and complete version history
+- Source details with independently paginated revision and processing histories
+- Dedicated revision details that load extracted text and metadata only when explicitly opened
 - Enable, disable, and soft-delete actions protected by CSRF
 - Immutable replacement uploads, URL refreshes, and reprocessing from any completed version
 - Explicit permanent deletion of versions, chunks, embeddings, jobs, and private files after soft deletion and exact-name confirmation
@@ -461,7 +462,9 @@ Available controls are:
 
 Sort columns are mapped through application allowlists rather than accepting SQL identifiers from query parameters. Result queries select only the current page, use deterministic ID tie-breakers, and run a separate filtered count query. The supporting migration adds indexes for common date, status, name, last-use, and attempt-order paths.
 
-Offset pagination is appropriate for these administrator datasets and permits numbered pages and exact totals. At very high row counts, especially if Processing history grows into millions of jobs, keyset pagination should be considered. Sorts based on derived values such as source revision count or latest processing status require joins or computed expressions and can be slower than indexed date/status ordering. Source detail version and job histories remain complete, unpaginated histories and should be revisited if individual sources accumulate unusually large numbers of revisions.
+Offset pagination is appropriate for these administrator datasets and permits numbered pages and exact totals. At very high row counts, especially if Processing history grows into millions of jobs, keyset pagination should be considered. Sorts based on derived values such as source revision count or latest processing status require joins or computed expressions and can be slower than indexed date/status ordering.
+
+Source details paginate revision and processing histories independently at 10 rows per section using `revision_page` and `job_page`. Both values remain in pagination links and revision-detail navigation. History queries select revision metadata and chunk counts but deliberately omit `source_versions.extracted_text` and `metadata_json`; those potentially large fields are loaded only for the explicitly requested revision detail. Invalid or out-of-range history pages redirect to a canonical valid URL. The source-version `(source_id, version_number)` constraint and ingestion-job `(source_version_id, created_at, id)` index support deterministic history access.
 
 ### API Activity retention maintenance
 
@@ -798,4 +801,4 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 
 ## Current milestone boundary
 
-The initial nine-milestone application scope is implemented. The dashboard data-lifecycle audit is now implemented through shared pagination/query state, the API Activity read experience, scheduled retention maintenance, confirmed filter-aware manual purging, and paginated/filterable Knowledge Base, Processing, and API Access screens. Further dashboard scaling work remains separately reviewable.
+The initial nine-milestone application scope is implemented. The dashboard data-lifecycle audit is now implemented through shared pagination/query state, the API Activity read experience, scheduled retention maintenance, confirmed filter-aware manual purging, paginated/filterable Knowledge Base, Processing, and API Access screens, and hardened source-detail histories with on-demand extracted content. Further dashboard scaling work remains separately reviewable.

@@ -16,6 +16,7 @@ use App\Services\Sources\SourceUpdateService;
 use PHPUnit\Framework\TestCase;
 use Tests\Fakes\InMemoryIngestionJobRepository;
 use Tests\Fakes\InMemorySourceRepository;
+use App\Support\Pagination\PageRequest;
 
 final class SourceUpdateServiceTest extends TestCase
 {
@@ -31,7 +32,7 @@ final class SourceUpdateServiceTest extends TestCase
         self::assertSame(1, $original->versionNumber);
         self::assertSame(2, $replacement->versionNumber);
         self::assertSame($original->originalUrl, $replacement->originalUrl);
-        self::assertCount(2, $sources->versionsForSource($source->id));
+        self::assertSame(2, $sources->paginateVersionsForSource($source->id, new PageRequest())->total);
         self::assertSame(1, $jobs->counts()['pending']);
     }
 

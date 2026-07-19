@@ -13,6 +13,7 @@ use PDO;
 use RuntimeException;
 use Throwable;
 use App\Support\Pagination\PaginatedResult;
+use App\Support\Pagination\PageRequest;
 
 final class PdoIngestionJobRepository implements IngestionJobRepositoryInterface
 {
@@ -307,14 +308,29 @@ final class PdoIngestionJobRepository implements IngestionJobRepositoryInterface
         );
     }
 
-    public function forSource(int $sourceId): array
+    public function paginateForSource(int $sourceId, PageRequest $page): PaginatedResult
     {
-        $statement = $this->connection->pdo()->prepare(
-            $this->jobSelect() . ' WHERE sv.source_id = :source_id ORDER BY j.created_at DESC, j.id DESC',
+        $pdo = $this->connection->pdo();
+        $count = $pdo->prepare(
+            'SELECT COUNT(*)' . "\n" . $this->jobFrom() . ' WHERE sv.source_id = :source_id',
+        );
+        $count->execute(['source_id' => $sourceId]);
+        $total = (int) $count->fetchColumn();
+        $page = $page->clampToTotal($total);
+        $statement = $pdo->prepare(
+            $this->jobSelect()
+            . ' WHERE sv.source_id = :source_id'
+            . ' ORDER BY j.created_at DESC, j.id DESC'
+            . ' LIMIT ' . $page->perPage
+            . ' OFFSET ' . $page->offset(),
         );
         $statement->execute(['source_id' => $sourceId]);
 
-        return array_map($this->hydrate(...), $statement->fetchAll());
+        return new PaginatedResult(
+            array_map($this->hydrate(...), $statement->fetchAll()),
+            $total,
+            $page,
+        );
     }
 
     public function counts(): array

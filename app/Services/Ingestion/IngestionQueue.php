@@ -14,6 +14,7 @@ use App\Repositories\IngestionJobRepositoryInterface;
 use InvalidArgumentException;
 use Throwable;
 use App\Support\Pagination\PaginatedResult;
+use App\Support\Pagination\PageRequest;
 
 final class IngestionQueue
 {
@@ -93,10 +94,10 @@ final class IngestionQueue
         return $this->jobs->sourceOptions();
     }
 
-    /** @return list<IngestionJob> */
-    public function forSource(int $sourceId): array
+    /** @return PaginatedResult<IngestionJob> */
+    public function paginateForSource(int $sourceId, PageRequest $page): PaginatedResult
     {
-        return $this->jobs->forSource($sourceId);
+        return $this->jobs->paginateForSource($sourceId, $page);
     }
 
     /** @return array{pending: int, processing: int, completed: int, failed: int} */

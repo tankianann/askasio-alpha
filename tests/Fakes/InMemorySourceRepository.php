@@ -15,6 +15,7 @@ use App\Domain\Sources\SourceVersion;
 use App\Repositories\SourceRepositoryInterface;
 use Closure;
 use App\Support\Pagination\PaginatedResult;
+use App\Support\Pagination\PageRequest;
 use App\Support\SortDirection;
 
 final class InMemorySourceRepository implements SourceRepositoryInterface
@@ -111,9 +112,57 @@ final class InMemorySourceRepository implements SourceRepositoryInterface
         return null;
     }
 
-    public function versionsForSource(int $sourceId): array
+    public function paginateVersionsForSource(int $sourceId, PageRequest $page): PaginatedResult
     {
-        return array_reverse($this->versions[$sourceId] ?? []);
+        $versions = array_reverse($this->versions[$sourceId] ?? []);
+        $total = count($versions);
+        $page = $page->clampToTotal($total);
+        $summaries = array_map(
+            static fn (SourceVersion $version): SourceVersion => new SourceVersion(
+                $version->id,
+                $version->sourceId,
+                $version->versionNumber,
+                $version->originalFilename,
+                $version->originalUrl,
+                $version->storedFilePath,
+                $version->contentHash,
+                $version->mimeType,
+                $version->fileSize,
+                $version->processingStatus,
+                $version->errorMessage,
+                $version->createdAt,
+                $version->processedAt,
+                $version->activatedAt,
+                $version->fileHash,
+                $version->sourceType,
+                $version->chunkCount,
+            ),
+            array_slice($versions, $page->offset(), $page->perPage),
+        );
+
+        return new PaginatedResult($summaries, $total, $page);
+    }
+
+    public function latestOriginalUrlForSource(int $sourceId): ?string
+    {
+        foreach (array_reverse($this->versions[$sourceId] ?? []) as $version) {
+            if ($version->originalUrl !== null) {
+                return $version->originalUrl;
+            }
+        }
+
+        return null;
+    }
+
+    public function replaceVersion(SourceVersion $replacement): void
+    {
+        foreach ($this->versions[$replacement->sourceId] ?? [] as $index => $version) {
+            if ($version->id === $replacement->id) {
+                $this->versions[$replacement->sourceId][$index] = $replacement;
+
+                return;
+            }
+        }
     }
 
     public function countEnabled(): int

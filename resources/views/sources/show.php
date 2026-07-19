@@ -43,14 +43,19 @@
     </div>
 </section>
 
-<?php if ($jobs === []): ?>
+<div class="result-toolbar">
+    <p><?= $jobsPage->total === 0 ? 'No processing records' : 'Showing <strong>' . $escape($jobsPage->from()) . '–' . $escape($jobsPage->to()) . '</strong> of <strong>' . $escape($jobsPage->total) . '</strong> processing records' ?></p>
+    <span>Page <?= $escape($jobsPage->pageRequest->page) ?> of <?= $escape($jobsPage->totalPages()) ?></span>
+</div>
+
+<?php if ($jobsPage->items === []): ?>
     <div class="panel compact-panel muted">No processing activity is associated with this document.</div>
 <?php else: ?>
     <div class="table-card">
         <table>
             <thead><tr><th>Activity</th><th>Revision</th><th>Status</th><th>Attempts</th><th>Available</th><th>Last error</th></tr></thead>
             <tbody>
-            <?php foreach ($jobs as $job): ?>
+            <?php foreach ($jobsPage->items as $job): ?>
                 <tr>
                     <td>#<?= $escape($job->id) ?></td>
                     <td><?= $escape($job->versionNumber) ?></td>
@@ -63,6 +68,14 @@
             </tbody>
         </table>
     </div>
+    <?php
+        $page = $jobsPage;
+        $pageParameter = 'job_page';
+        $paginationAriaLabel = 'Processing history pages';
+        $queryUrl = $historyUrl;
+        require dirname(__DIR__) . '/partials/list_pagination.php';
+        unset($page, $pageParameter, $paginationAriaLabel, $queryUrl);
+    ?>
 <?php endif; ?>
 
 <?php if (is_string($success) && $success !== ''): ?>
@@ -103,8 +116,13 @@
     </div>
 </section>
 
+<div class="result-toolbar">
+    <p><?= $versionsPage->total === 0 ? 'No revisions' : 'Showing <strong>' . $escape($versionsPage->from()) . '–' . $escape($versionsPage->to()) . '</strong> of <strong>' . $escape($versionsPage->total) . '</strong> revisions' ?></p>
+    <span>Page <?= $escape($versionsPage->pageRequest->page) ?> of <?= $escape($versionsPage->totalPages()) ?></span>
+</div>
+
 <div class="version-list">
-    <?php foreach ($versions as $version): ?>
+    <?php foreach ($versionsPage->items as $version): ?>
         <article class="panel version-card">
             <div class="version-heading">
                 <div>
@@ -134,24 +152,26 @@
             <?php if ($version->errorMessage !== null): ?>
                 <div class="alert alert-error"><?= $escape($version->errorMessage) ?></div>
             <?php endif; ?>
-            <?php if ($version->extractedText !== null): ?>
-                <details class="extraction-details">
-                    <summary>View extracted text</summary>
-                    <pre><?= $escape($version->extractedText) ?></pre>
-                </details>
-            <?php endif; ?>
-            <?php if ($version->metadata !== []): ?>
-                <details class="extraction-details">
-                    <summary>View extracted metadata</summary>
-                    <pre><?= $escape($formatJson($version->metadata)) ?></pre>
-                </details>
-            <?php endif; ?>
+            <div class="action-row">
+                <a class="button button-quiet" href="<?= $escape($versionUrl($version->id)) ?>">View revision details</a>
             <?php if (!$source->isDeleted() && !in_array($version->processingStatus->value, ['pending', 'processing'], true)): ?>
                 <form method="post" action="/admin/sources/<?= $escape($source->id) ?>/versions/<?= $escape($version->id) ?>/reprocess" data-confirm="Create a new revision from revision <?= $escape($version->versionNumber) ?> and process it again?">
                     <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
                     <button class="button button-quiet" type="submit">Reprocess as new revision</button>
                 </form>
             <?php endif; ?>
+            </div>
         </article>
     <?php endforeach; ?>
 </div>
+
+<?php if ($versionsPage->items !== []): ?>
+    <?php
+        $page = $versionsPage;
+        $pageParameter = 'revision_page';
+        $paginationAriaLabel = 'Revision history pages';
+        $queryUrl = $historyUrl;
+        require dirname(__DIR__) . '/partials/list_pagination.php';
+        unset($page, $pageParameter, $paginationAriaLabel, $queryUrl);
+    ?>
+<?php endif; ?>

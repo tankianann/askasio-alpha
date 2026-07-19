@@ -58,6 +58,7 @@ use App\Services\Sources\SourceFileStorage;
 use App\Services\Sources\SourcePermanentDeletionService;
 use App\Services\Sources\SourceUpdateService;
 use App\Services\Sources\SourceListQueryParser;
+use App\Services\Sources\SourceHistoryQueryParser;
 use App\Services\Ingestion\IngestionQueue;
 use App\Services\Ingestion\IngestionJobListQueryParser;
 use App\Services\Api\ApiRateLimiter;
@@ -186,6 +187,7 @@ $sourceController = new SourceController(
     $sourceUpdates,
     $sourceDeletion,
     new SourceListQueryParser($timezone),
+    new SourceHistoryQueryParser($timezone),
 );
 $jobController = new JobController(
     $queue,

@@ -15,6 +15,7 @@ use PHPUnit\Framework\TestCase;
 use Tests\Fakes\InMemorySourceRepository;
 use Tests\Fakes\InMemoryIngestionJobRepository;
 use App\Services\Ingestion\IngestionQueue;
+use App\Support\Pagination\PageRequest;
 
 final class SourceCreationServiceTest extends TestCase
 {
@@ -31,7 +32,7 @@ final class SourceCreationServiceTest extends TestCase
         );
 
         $source = $service->createUrl('  Refund policy  ', 'https://example.com/refunds');
-        $versions = $repository->versionsForSource($source->id);
+        $versions = $repository->paginateVersionsForSource($source->id, new PageRequest())->items;
 
         self::assertSame('Refund policy', $source->name);
         self::assertSame(SourceType::Url, $source->type);

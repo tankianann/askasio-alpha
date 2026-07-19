@@ -22,6 +22,7 @@ This document records the Milestone 9 security baseline. It is an operational ch
 - URL ingestion permits only HTTP(S), rejects local/private/reserved destinations, validates DNS results before connection, pins the validated address, disables proxy inheritance, and repeats validation after redirects.
 - Provider secrets and bearer tokens are redacted from application logs. API request records omit full questions, answers, raw IP addresses, and credentials.
 - Source activation, chunks, and embeddings commit together. A failed or older out-of-order version cannot displace the current active version.
+- Source history list queries omit extracted document text and metadata; full extracted content is loaded only on an authenticated revision-specific page and remains HTML-escaped.
 - Permanent source deletion requires prior soft deletion, exact-name confirmation, CSRF protection, and no pending/processing jobs.
 - Manual API Activity deletion requires administrator authentication, CSRF validation, a server-side short-lived scope snapshot, count review, and an exact confirmation phrase. Newer records beyond the reviewed maximum ID are excluded.
 - HTTPS responses use HSTS. Administrator responses disable caching. CSP blocks framing and limits scripts, styles, images, objects, forms, and base URLs.

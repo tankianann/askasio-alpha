@@ -10,6 +10,7 @@ use App\Domain\Sources\SourceType;
 use App\Domain\Sources\SourceVersion;
 use Closure;
 use App\Support\Pagination\PaginatedResult;
+use App\Support\Pagination\PageRequest;
 
 interface SourceRepositoryInterface
 {
@@ -25,8 +26,10 @@ interface SourceRepositoryInterface
 
     public function findVersionById(int $id): ?SourceVersion;
 
-    /** @return list<SourceVersion> */
-    public function versionsForSource(int $sourceId): array;
+    /** @return PaginatedResult<SourceVersion> */
+    public function paginateVersionsForSource(int $sourceId, PageRequest $page): PaginatedResult;
+
+    public function latestOriginalUrlForSource(int $sourceId): ?string;
 
     public function countEnabled(): int;
 

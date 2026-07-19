@@ -167,10 +167,10 @@ final class SourceUpdateService
 
     private function latestUrlOrigin(int $sourceId): string
     {
-        foreach ($this->sources->versionsForSource($sourceId) as $version) {
-            if ($version->originalUrl !== null) {
-                return $this->urls->validate($version->originalUrl);
-            }
+        $url = $this->sources->latestOriginalUrlForSource($sourceId);
+
+        if ($url !== null) {
+            return $this->urls->validate($url);
         }
 
         throw new ValidationException('This URL source has no refreshable origin URL.');
