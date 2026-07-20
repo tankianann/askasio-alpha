@@ -2,7 +2,7 @@
 
 ## Current state
 
-Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. There is no partially implemented feature milestone at this documentation baseline.
+Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. A documentation-only baseline now exists for the customer-facing chatbot; no chatbot feature code has been implemented.
 
 The application is suitable for a controlled single-administrator deployment after the operator completes the production checklist. The largest remaining architecture limit is full-corpus vector scoring in PHP. The most immediate deployment-security gap is trusted reverse-proxy handling.
 
@@ -64,7 +64,11 @@ The application is suitable for a controlled single-administrator deployment aft
 
 ## In progress
 
-No feature is in progress. This documentation consolidation is the handoff boundary for future fresh-chat development.
+### Customer-facing chatbot specification review
+
+The source brief has been reconciled with the current single-administrator, single-tenant architecture and split into a living specification under [Customer-facing chatbot](customer-facing-chatbot/README.md). The next feature step is a decision-record milestone covering publication snapshots, session-token/browser-storage design, transcript privacy/retention, per-chatbot model settings, and integration-credential architecture. No schema, API, UI, or application code should be added before that review.
+
+Trusted reverse-proxy support remains a production security dependency for reliable client-IP rate limiting when deployed behind a TLS terminator.
 
 ## Planned by priority
 
@@ -166,4 +170,3 @@ Definition of done:
 4. Direct requests cannot spoof forwarded headers.
 5. Unit and real HTTP tests cover direct HTTP/HTTPS, trusted proxy, untrusted proxy, malformed chains, and multiple-hop behavior.
 6. Apache/Nginx/load-balancer examples and rollback instructions are documented.
-

@@ -16,6 +16,7 @@ These documents are the single source of truth for future Ask Asio development. 
 | [Glossary](glossary.md) | Project terminology and where each concept appears. |
 | [Knowledge base](knowledge-base.md) | Lessons learned, package/runtime behavior, pitfalls, and performance findings. |
 | [Changelog](changelog.md) | Human-readable history organized by milestone and hardening phase. |
+| [Customer-facing chatbot](customer-facing-chatbot/README.md) | Living feature specification: product, admin UX, architecture/data, public API/widget, security/privacy, quality, and delivery plan. |
 
 ## Documentation status
 
@@ -25,6 +26,7 @@ These documents are the single source of truth for future Ask Asio development. 
 - CI and real-MySQL integration testing: complete.
 - Worker/document safety hardening: complete.
 - Provider quota enforcement: complete for authenticated chat and retrieval.
+- Customer-facing chatbot: documentation baseline complete; feature implementation has not started and awaits specification review.
 - Recommended next milestone: trusted reverse-proxy support and production scheme/IP correctness. See [Roadmap](roadmap.md#recommended-next-milestone).
 
 ## Source of truth rules
@@ -35,4 +37,3 @@ These documents are the single source of truth for future Ask Asio development. 
 4. `database/migrations/` is authoritative for the schema. Applied migrations are immutable.
 5. Tests define security- and failure-sensitive behavior and must not make real paid provider calls.
 6. Historical reviews describe the code when written; use [Roadmap](roadmap.md) for current status.
-

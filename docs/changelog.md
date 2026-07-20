@@ -2,6 +2,14 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot documentation baseline — 2026-07-20
+
+- Converted the supplied monolithic chatbot brief into a linked living specification covering product scope, admin experience, architecture/data, public API/widget/integrations, security/privacy, quality/operations, and delivery.
+- Reconciled multi-tenant assumptions with Ask Asio's actual single-administrator, single-tenant model: no placeholder tenant ownership columns or cross-tenant architecture.
+- Reframed isolation around real public boundaries: chatbot publication, assigned sources, chatbot-bound sessions, exact origins, and scoped integration credentials.
+- Aligned the target with the existing environment-configured OpenAI connection, grounded RAG pipeline, API/error conventions, rate/quota controls, repositories, admin UI, migrations, privacy contract, and test strategy.
+- Recorded unresolved architectural decisions and kept all feature implementation explicitly unstarted.
+
 ## Documentation consolidation — 2026-07-20
 
 - Consolidated architecture, decisions, API, schema, deployment, security, coding standards, developer workflow, glossary, lessons, roadmap, and project history.
@@ -130,4 +138,3 @@ Ask Asio has not adopted semantic release numbers. This history is organized by 
 
 - Created framework-free PHP 8.3 project layout and Composer configuration.
 - Added typed environment/configuration, PDO, migrations, request/response/router, middleware/error boundaries, logging, health endpoint, tests, and setup README.
-
