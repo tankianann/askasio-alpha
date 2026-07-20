@@ -14,6 +14,8 @@ final class GeneratedAnswer
         public readonly string $answer,
         public readonly array $chunks,
         public readonly array $usage,
+        public readonly ?string $model = null,
+        public readonly bool $fallback = false,
     ) {
     }
 }

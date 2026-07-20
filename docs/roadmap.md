@@ -2,7 +2,7 @@
 
 ## Current state
 
-Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestone 5 adds internal publication-bound conversation persistence, hash-only session credentials, idempotency, expiry, and retention over the administrator/publication foundation; no shared execution, preview, public API, or widget behavior exists yet.
+Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestone 6 adds one internal source-scoped preview/public executor with bounded history, fallback, safe citations, persistence, error mapping, and global quota reconciliation over the administration/conversation foundation; no preview/public route, CORS, or widget behavior exists yet.
 
 The application is suitable for a controlled single-administrator deployment after the operator completes the production checklist. The largest remaining architecture limit is full-corpus vector scoring in PHP. The most immediate deployment-security gap is trusted reverse-proxy handling.
 
@@ -66,7 +66,7 @@ The application is suitable for a controlled single-administrator deployment aft
 
 ### Customer-facing chatbot implementation
 
-The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–5 add migrations `20260720000013`–`15`, chatbot identity/drafts, mutable source/origin assignments, immutable publications, readiness/dependencies, authenticated administration, and publication-bound session/message persistence with hash-only credentials and retention. The next reviewable milestone is the shared chat execution service. Publications and conversations are still not publicly reachable.
+The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–6 add migrations `20260720000013`–`15`, chatbot identity/drafts, immutable scoped publications, authenticated administration, publication-bound session/message persistence, and shared grounded execution. The next reviewable milestone is administrator preview. Publications and conversations are still not publicly reachable.
 
 Trusted reverse-proxy support remains a production security dependency for reliable client-IP rate limiting when deployed behind a TLS terminator.
 

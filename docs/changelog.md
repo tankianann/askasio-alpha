@@ -2,6 +2,16 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot shared execution — 2026-07-20
+
+- Added one internal execution service for future administrator preview and public messaging over atomically reserved conversation turns.
+- Enforced session-bound immutable publication/provider snapshots, assigned-source retrieval, published top-K/similarity/instructions/fallback, and immediate chatbot availability.
+- Added `recent_completed_turns_v1` with a configurable 1,000-token default, complete-pair selection, deterministic oldest-turn removal, and failed/partial exclusion.
+- Added public-safe citation allowlists, separate bounded administrator diagnostics, configured no-evidence fallback without chat generation, actual usage/latency persistence, and session aggregates.
+- Reused global provider quota reservations/reconciliation for internal chatbot execution, including conservative ambiguous-failure charging and no API-key bucket pollution.
+- Centralized safe provider error mapping and citation projection while preserving the authenticated `/api/v1/chat` request/response/error contract.
+- Added unit and opt-in MySQL coverage; no preview/public route, CORS behavior, widget, streaming, or integration credential was added.
+
 ## Customer-facing chatbot conversation persistence — 2026-07-20
 
 - Added publication-bound session/message domain records and migration `20260720000015` without tenant/account/provider-credential fields.

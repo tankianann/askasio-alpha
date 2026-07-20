@@ -21,7 +21,7 @@ The initial context policy must be deterministic and bounded. Preserve recent co
 
 Message content is persisted while the session is active. Each session copies the publication's `0`, `7`, `30`, or `90` day retention choice (default `30`) so later edits do not silently alter its privacy contract.
 
-**Decision required:** select a truncation policy for v1. Simple oldest-turn removal is preferred initially. Summarization adds another provider call, new ungrounded content, cost, latency, persistence, and failure modes and should be deferred until evaluated.
+The implemented v1 policy is `recent_completed_turns_v1`: select newest complete user/assistant pairs within `RAG_CHAT_HISTORY_MAX_TOKENS` (default `1000`), return them chronologically, and omit the oldest complete pairs when over budget. Failed/partial outcomes are excluded. Summarization is deferred because it adds another provider call, ungrounded content, cost, latency, persistence, and failure modes.
 
 Record the policy/version used for an answer when needed for reproducibility. The existing heuristic token estimator remains a known limitation; quota/context safety margins must compensate until model-aware tokenization is introduced.
 

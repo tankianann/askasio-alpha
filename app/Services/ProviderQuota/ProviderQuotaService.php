@@ -64,6 +64,20 @@ final class ProviderQuotaService
         return $this->reserve($apiKeyId, 'chat', $tokens);
     }
 
+    public function reserveInstallationChat(
+        string $question,
+        int $maximumContextTokens,
+        int $maximumOutputTokens,
+    ): ProviderQuotaReservation {
+        $questionBytes = max(1, strlen($question));
+        $tokens = ($questionBytes * 2)
+            + ($maximumContextTokens * 4)
+            + $maximumOutputTokens
+            + self::PROMPT_OVERHEAD_RESERVATION_TOKENS;
+
+        return $this->reserve(0, 'chat', $tokens);
+    }
+
     /** @return array<string, int> */
     public function reconcile(
         ProviderQuotaReservation $reservation,
@@ -72,11 +86,12 @@ final class ProviderQuotaService
     ): array {
         $actualTokens = max(0, $actualTokens);
         $this->repository->reconcile($reservation->id, $actualTokens, $estimated);
-        $snapshots = $this->snapshots([$reservation->apiKeyId]);
+        $apiKeyIds = $reservation->apiKeyId > 0 ? [$reservation->apiKeyId] : [];
+        $snapshots = $this->snapshots($apiKeyIds);
         $global = $snapshots['global'];
-        $apiKey = $snapshots['api_keys'][$reservation->apiKeyId];
-        $dailyRemaining = $this->minimumRemaining($global->dailyRemaining(), $apiKey->dailyRemaining());
-        $monthlyRemaining = $this->minimumRemaining($global->monthlyRemaining(), $apiKey->monthlyRemaining());
+        $apiKey = $snapshots['api_keys'][$reservation->apiKeyId] ?? null;
+        $dailyRemaining = $this->minimumRemaining($global->dailyRemaining(), $apiKey?->dailyRemaining());
+        $monthlyRemaining = $this->minimumRemaining($global->monthlyRemaining(), $apiKey?->monthlyRemaining());
 
         return array_filter([
             'quota_charged_tokens' => $actualTokens,

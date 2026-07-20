@@ -449,7 +449,7 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface, SourceDe
         return is_array($row) ? $this->hydrateChatbot($row) : null;
     }
 
-    private function findPublicationById(int $id): ?ChatbotPublication
+    public function findPublicationById(int $id): ?ChatbotPublication
     {
         $statement = $this->connection->pdo()->prepare($this->publicationSelect() . ' WHERE cp.id = :id LIMIT 1');
         $statement->execute(['id' => $id]);

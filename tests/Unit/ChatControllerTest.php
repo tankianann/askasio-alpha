@@ -44,6 +44,10 @@ final class ChatControllerTest extends TestCase
         self::assertSame(200, $response->status());
         self::assertSame('Grounded answer [S1].', $payload['answer']);
         self::assertSame('S1', $payload['citations'][0]['reference']);
+        self::assertSame([
+            'reference', 'source_id', 'source_version_id', 'chunk_id', 'source_name',
+            'source_type', 'source_url', 'page', 'heading', 'excerpt',
+        ], array_keys($payload['citations'][0]));
         self::assertSame(18, $payload['citations'][0]['chunk_id']);
         self::assertSame('Eligibility', $payload['citations'][0]['heading']);
         self::assertSame(1, $payload['usage']['retrieved_chunks']);

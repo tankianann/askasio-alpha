@@ -26,7 +26,8 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
         DateTimeImmutable $now,
         DateTimeImmutable $expiresAt,
     ): ProviderQuotaReservation {
-        if ($apiKeyId < 1 || !in_array($operation, ['retrieve', 'chat'], true) || $tokens < 1) {
+        if ($apiKeyId < 0 || !in_array($operation, ['retrieve', 'chat'], true) || $tokens < 1
+            || ($apiKeyId === 0 && $operation !== 'chat')) {
             throw new \InvalidArgumentException('Provider quota reservation input is invalid.');
         }
 
@@ -238,12 +239,17 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
      */
     private function windows(int $apiKeyId, string $daily, string $monthly, array $limits): array
     {
-        return [
+        $windows = [
             ['scope' => 'global', 'identifier_id' => 0, 'period_type' => 'daily', 'period_start' => $daily, 'limit' => $limits['global_daily']],
             ['scope' => 'global', 'identifier_id' => 0, 'period_type' => 'monthly', 'period_start' => $monthly, 'limit' => $limits['global_monthly']],
-            ['scope' => 'api_key', 'identifier_id' => $apiKeyId, 'period_type' => 'daily', 'period_start' => $daily, 'limit' => $limits['api_key_daily']],
-            ['scope' => 'api_key', 'identifier_id' => $apiKeyId, 'period_type' => 'monthly', 'period_start' => $monthly, 'limit' => $limits['api_key_monthly']],
         ];
+
+        if ($apiKeyId > 0) {
+            $windows[] = ['scope' => 'api_key', 'identifier_id' => $apiKeyId, 'period_type' => 'daily', 'period_start' => $daily, 'limit' => $limits['api_key_daily']];
+            $windows[] = ['scope' => 'api_key', 'identifier_id' => $apiKeyId, 'period_type' => 'monthly', 'period_start' => $monthly, 'limit' => $limits['api_key_monthly']];
+        }
+
+        return $windows;
     }
 
     /** @param array{scope: string, identifier_id: int, period_type: string, period_start: string, limit: int} $window @return array<string, int|string> */
@@ -264,9 +270,12 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
         $windows = [
             ['scope' => 'global', 'identifier_id' => 0, 'period_type' => 'daily', 'period_start' => (string) $row['daily_period_start']],
             ['scope' => 'global', 'identifier_id' => 0, 'period_type' => 'monthly', 'period_start' => (string) $row['monthly_period_start']],
-            ['scope' => 'api_key', 'identifier_id' => (int) $row['api_key_id'], 'period_type' => 'daily', 'period_start' => (string) $row['daily_period_start']],
-            ['scope' => 'api_key', 'identifier_id' => (int) $row['api_key_id'], 'period_type' => 'monthly', 'period_start' => (string) $row['monthly_period_start']],
         ];
+
+        if ((int) $row['api_key_id'] > 0) {
+            $windows[] = ['scope' => 'api_key', 'identifier_id' => (int) $row['api_key_id'], 'period_type' => 'daily', 'period_start' => (string) $row['daily_period_start']];
+            $windows[] = ['scope' => 'api_key', 'identifier_id' => (int) $row['api_key_id'], 'period_type' => 'monthly', 'period_start' => (string) $row['monthly_period_start']];
+        }
         $bucket = $pdo->prepare(
             'UPDATE provider_quota_buckets
              SET reserved_tokens = GREATEST(reserved_tokens - :reserved_tokens, 0),

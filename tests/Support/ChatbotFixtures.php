@@ -13,6 +13,7 @@ final class ChatbotFixtures
         int $revision = 1,
         string $instructions = 'Answer only from the assigned Ask Asio knowledge sources.',
         string $displayName = 'Support assistant',
+        bool $citationsEnabled = true,
     ): ChatbotDraft {
         return new ChatbotDraft(
             1,
@@ -21,7 +22,7 @@ final class ChatbotFixtures
             'I could not find enough information to answer that question.',
             5,
             0.2,
-            true,
+            $citationsEnabled,
             4_000,
             40,
             30,

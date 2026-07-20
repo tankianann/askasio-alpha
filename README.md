@@ -1,6 +1,6 @@
 # Ask Asio
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening. The customer-facing chatbot now has its administrator flow plus publication-bound session/message persistence with hash-only authorization; no chatbot execution, public API, preview, or widget exists yet.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening. The customer-facing chatbot now has administration, publication-bound conversation persistence, and a shared source-scoped execution service; no chatbot preview/public route or widget exists yet.
 
 ## Implemented functionality
 
@@ -836,6 +836,7 @@ OPENAI_CHAT_MAXIMUM_RETRIES=0
 RAG_CHAT_TOP_K=5
 RAG_CHAT_MAXIMUM_TOP_K=8
 RAG_CHAT_CONTEXT_MAX_TOKENS=4000
+RAG_CHAT_HISTORY_MAX_TOKENS=1000
 RAG_CHAT_MAXIMUM_QUESTION_CHARACTERS=4000
 
 API_CHAT_RATE_LIMIT_PER_KEY=10
@@ -846,7 +847,7 @@ API_CHAT_RATE_LIMIT_PER_IP=20
 
 The chat provider defaults to zero automatic HTTP retries. This prevents an ambiguous timeout from silently repeating a potentially billable generation. API clients can retry deliberately using their own bounded policy.
 
-`RAG_CHAT_TOP_K` is the server default. Clients may request another value, but cannot exceed `RAG_CHAT_MAXIMUM_TOP_K`. After retrieval, the application adds chunks in similarity order only while they fit within `RAG_CHAT_CONTEXT_MAX_TOKENS`. The token count is a conservative local estimate; actual provider usage is returned from OpenAI separately.
+`RAG_CHAT_TOP_K` is the server default. Clients may request another value, but cannot exceed `RAG_CHAT_MAXIMUM_TOP_K`. After retrieval, the application adds chunks in similarity order only while they fit within `RAG_CHAT_CONTEXT_MAX_TOKENS`. Customer-facing chatbot execution separately admits recent completed turn pairs within `RAG_CHAT_HISTORY_MAX_TOKENS`. Token counts are conservative local estimates; actual provider usage is returned from OpenAI separately.
 
 Call chat using an active application API key:
 

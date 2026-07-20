@@ -13,6 +13,7 @@ return [
     'chat_default_top_k' => Env::int('RAG_CHAT_TOP_K', 5),
     'chat_maximum_top_k' => Env::int('RAG_CHAT_MAXIMUM_TOP_K', 8),
     'chat_context_maximum_tokens' => Env::int('RAG_CHAT_CONTEXT_MAX_TOKENS', 4000),
+    'chat_history_maximum_tokens' => Env::int('RAG_CHAT_HISTORY_MAX_TOKENS', 1000),
     'chat_maximum_question_characters' => Env::int('RAG_CHAT_MAXIMUM_QUESTION_CHARACTERS', 4000),
     'api_maximum_body_bytes' => Env::int('API_MAXIMUM_BODY_BYTES', 65536),
 ];

@@ -33,9 +33,12 @@ final class InMemoryProviderQuotaRepository implements ProviderQuotaRepositoryIn
         $windows = [
             ['key' => "global:daily:{$daily}", 'limit' => $limits['global_daily']],
             ['key' => "global:monthly:{$monthly}", 'limit' => $limits['global_monthly']],
-            ['key' => "api_key:{$apiKeyId}:daily:{$daily}", 'limit' => $limits['api_key_daily']],
-            ['key' => "api_key:{$apiKeyId}:monthly:{$monthly}", 'limit' => $limits['api_key_monthly']],
         ];
+
+        if ($apiKeyId > 0) {
+            $windows[] = ['key' => "api_key:{$apiKeyId}:daily:{$daily}", 'limit' => $limits['api_key_daily']];
+            $windows[] = ['key' => "api_key:{$apiKeyId}:monthly:{$monthly}", 'limit' => $limits['api_key_monthly']];
+        }
 
         foreach ($windows as $window) {
             $bucket = $this->buckets[$window['key']] ?? ['consumed' => 0, 'reserved' => 0];
@@ -120,9 +123,12 @@ final class InMemoryProviderQuotaRepository implements ProviderQuotaRepositoryIn
         $windows = [
             "global:daily:{$reservation['daily']}",
             "global:monthly:{$reservation['monthly']}",
-            "api_key:{$reservation['api_key_id']}:daily:{$reservation['daily']}",
-            "api_key:{$reservation['api_key_id']}:monthly:{$reservation['monthly']}",
         ];
+
+        if ($reservation['api_key_id'] > 0) {
+            $windows[] = "api_key:{$reservation['api_key_id']}:daily:{$reservation['daily']}";
+            $windows[] = "api_key:{$reservation['api_key_id']}:monthly:{$reservation['monthly']}";
+        }
 
         foreach ($windows as $window) {
             $this->buckets[$window]['reserved'] = max(

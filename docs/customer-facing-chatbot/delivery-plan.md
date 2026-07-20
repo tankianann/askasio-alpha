@@ -72,11 +72,13 @@ Outcome: authenticated/CSRF-protected chatbot navigation and routes, bounded SQL
 
 Outcome: migration `20260720000015`, publication-bound session/message records, independent 256-bit public IDs and hash-only bearer tokens, copied expiry/limit/retention policy, immutable test classification, atomic idempotency/user-turn reservation, completion/failure usage accounting, bounded expiry/purge operations, retention indexes, and unit/opt-in real-MySQL tests. No public route, browser storage, execution/provider call, preview UI, scheduler, widget, or integration credential was added. See [Conversation session and message persistence](conversation-persistence.md).
 
-### 6 — Shared chat execution service
+### 6 — Shared chat execution service (complete)
 
 - Refactor/extend current chat orchestration behind one preview/public service.
 - Enforce assigned sources, history budget, fallback, citation projection, usage, error mapping, persistence, and quota reconciliation.
 - Keep existing authenticated `/api/v1/chat` compatible unless a separate announced change is approved.
+
+Outcome: one internal preview/public execution service over the existing grounded RAG components, with immutable publication/provider validation, assigned-source retrieval, `recent_completed_turns_v1` history budgeting, configured no-evidence fallback, public-safe versus administrator citation projections, stable error mapping, message/outcome/usage persistence, and installation-wide quota reservation/reconciliation. The existing authenticated `/api/v1/chat` request/response/error behavior remains compatible and stateless. No preview/public route, CORS, widget, streaming, or integration credential was added. See [Shared chat execution service](shared-chat-execution.md).
 
 ### 7 — Admin preview
 
@@ -124,11 +126,9 @@ Outcome: migration `20260720000015`, publication-bound session/message records, 
 ## Open decisions
 
 1. Exact numeric bounds/defaults for message/session expiry and retrieval settings (set during typed validation/config implementation without changing ADR-031).
-2. Oldest-turn truncation limits; summarization remains deferred.
-3. Iframe versus Shadow DOM widget isolation.
-4. Public citation URL rules for uploaded versus URL sources.
-5. Whether trusted-proxy hardening must precede any internet deployment.
+2. Iframe versus Shadow DOM widget isolation.
+3. Whether trusted-proxy hardening must precede any internet deployment.
 
 ## First implementation recommendation
 
-After review of milestone 5, begin with milestone 6 only: the shared chat execution service. Public routes remain later milestones.
+After review of milestone 6, begin with milestone 7 only: administrator preview over draft-capable test sessions. Public routes remain later milestones.

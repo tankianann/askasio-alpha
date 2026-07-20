@@ -11,19 +11,9 @@ use App\Exceptions\ProviderQuotaExceededException;
 use App\Http\JsonRequestParser;
 use App\Http\Request;
 use App\Http\Response;
-use App\Providers\Chat\ChatAuthenticationException;
-use App\Providers\Chat\ChatConfigurationException;
-use App\Providers\Chat\ChatMalformedResponseException;
-use App\Providers\Chat\ChatProviderException;
-use App\Providers\Chat\ChatRateLimitException;
-use App\Providers\Chat\ChatTimeoutException;
-use App\Providers\Embeddings\EmbeddingAuthenticationException;
-use App\Providers\Embeddings\EmbeddingConfigurationException;
-use App\Providers\Embeddings\EmbeddingProviderException;
-use App\Providers\Embeddings\EmbeddingRateLimitException;
-use App\Providers\Embeddings\EmbeddingTimeoutException;
-use App\Providers\Embeddings\MalformedEmbeddingResponseException;
 use App\RAG\AnswerGenerator;
+use App\RAG\ChatExecutionErrorMapper;
+use App\RAG\CitationProjector;
 use App\Ingestion\Chunking\HeuristicTokenEstimator;
 use App\Services\ProviderQuota\ProviderQuotaService;
 use App\Services\ProviderQuota\ProviderUsageAccumulator;
@@ -41,6 +31,8 @@ final class ChatController
         private readonly ?ProviderUsageAccumulator $providerUsage = null,
         private readonly int $maximumContextTokens = 0,
         private readonly int $maximumOutputTokens = 0,
+        private readonly CitationProjector $citations = new CitationProjector(),
+        private readonly ChatExecutionErrorMapper $errors = new ChatExecutionErrorMapper(),
     ) {
     }
 
@@ -98,26 +90,18 @@ final class ChatController
         }
 
         try {
-            try {
-                $result = $this->answers->generate($question, $topK, [
-                    'safety_identifier' => $this->safetyIdentifier($request),
-                ]);
-            } catch (EmbeddingConfigurationException|ChatConfigurationException) {
-                throw new HttpException(503, 'The AI provider is not configured correctly.', 'provider_configuration_error');
-            } catch (EmbeddingAuthenticationException|ChatAuthenticationException) {
-                throw new HttpException(503, 'The AI provider rejected the configured credentials.', 'provider_authentication_error');
-            } catch (EmbeddingRateLimitException|ChatRateLimitException) {
-                throw new HttpException(503, 'The AI provider is temporarily rate limited.', 'provider_rate_limited');
-            } catch (EmbeddingTimeoutException|ChatTimeoutException) {
-                throw new HttpException(504, 'The AI provider request timed out.', 'provider_timeout');
-            } catch (MalformedEmbeddingResponseException|ChatMalformedResponseException) {
-                throw new HttpException(502, 'The AI provider returned an invalid response.', 'provider_invalid_response');
-            } catch (EmbeddingProviderException|ChatProviderException) {
-                throw new HttpException(502, 'The AI provider request failed.', 'provider_error');
-            }
+            $result = $this->answers->generate($question, $topK, [
+                'safety_identifier' => $this->safetyIdentifier($request),
+            ]);
         } catch (Throwable $exception) {
             if ($reservation !== null) {
                 $this->quotas?->reconcile($reservation, $reservation->reservedTokens, true);
+            }
+
+            $mapped = $this->errors->map($exception);
+
+            if ($mapped !== null) {
+                throw new HttpException($mapped->statusCode, $mapped->safeMessage, $mapped->errorCode);
             }
 
             throw $exception;
@@ -137,7 +121,7 @@ final class ChatController
         return Response::json([
             'answer' => $result->answer,
             'citations' => array_map(
-                fn (RetrievedChunk $chunk, int $index): array => $this->citation($chunk, $index),
+                fn (RetrievedChunk $chunk, int $index): array => $this->citations->legacy($chunk, $index),
                 $result->chunks,
                 array_keys($result->chunks),
             ),
@@ -182,26 +166,4 @@ final class ChatController
         return substr(hash_hmac('sha256', $identifier, $this->applicationSecret), 0, 64);
     }
 
-    /** @return array<string, mixed> */
-    private function citation(RetrievedChunk $chunk, int $index): array
-    {
-        $excerpt = preg_replace('/\s+/u', ' ', trim($chunk->content)) ?? trim($chunk->content);
-
-        if (mb_strlen($excerpt) > 280) {
-            $excerpt = rtrim(mb_substr($excerpt, 0, 279)) . '…';
-        }
-
-        return [
-            'reference' => 'S' . ($index + 1),
-            'source_id' => $chunk->sourceId,
-            'source_version_id' => $chunk->sourceVersionId,
-            'chunk_id' => $chunk->chunkId,
-            'source_name' => $chunk->sourceName,
-            'source_type' => $chunk->sourceType,
-            'source_url' => $chunk->sourceUrl,
-            'page' => $chunk->page(),
-            'heading' => $chunk->heading(),
-            'excerpt' => $excerpt,
-        ];
-    }
 }

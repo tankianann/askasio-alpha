@@ -26,6 +26,8 @@ interface ChatbotRepositoryInterface
 
     public function findActivePublication(int $chatbotId): ?ChatbotPublication;
 
+    public function findPublicationById(int $id): ?ChatbotPublication;
+
     /** @param list<int> $sourceIds @return list<ChatbotSourceReadiness> */
     public function sourceReadiness(array $sourceIds, ChatbotProviderConfiguration $provider): array;
 

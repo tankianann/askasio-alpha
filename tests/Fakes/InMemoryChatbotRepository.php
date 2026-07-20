@@ -140,6 +140,11 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
             : ($this->publications[$chatbot->activePublicationId] ?? null);
     }
 
+    public function findPublicationById(int $id): ?ChatbotPublication
+    {
+        return $this->publications[$id] ?? null;
+    }
+
     public function sourceReadiness(array $sourceIds, ChatbotProviderConfiguration $provider): array
     {
         return array_map(

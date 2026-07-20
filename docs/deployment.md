@@ -161,6 +161,7 @@ Use an absolute binary path under systemd/cron. Page timeout cannot exceed proce
 | `RAG_CHAT_TOP_K` | `5` |
 | `RAG_CHAT_MAXIMUM_TOP_K` | `8` |
 | `RAG_CHAT_CONTEXT_MAX_TOKENS` | `4000` estimated |
+| `RAG_CHAT_HISTORY_MAX_TOKENS` | `1000` estimated completed-turn history for customer-facing chatbot execution |
 | `RAG_CHAT_MAXIMUM_QUESTION_CHARACTERS` | `4000` |
 | `API_MAXIMUM_BODY_BYTES` | `65536` |
 
@@ -350,4 +351,3 @@ CI is a quality pipeline only. It does not deploy, run production migrations, ro
 - [ ] Database + filesystem backup and restore test completed.
 - [ ] CI green; no real provider calls in automated tests.
 - [ ] Representative retrieval/citation/unsupported-answer evaluation completed.
-

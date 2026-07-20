@@ -23,11 +23,40 @@ final class AnswerGenerator
     /** @param array<string, mixed> $options */
     public function generate(string $question, ?int $topK = null, array $options = []): GeneratedAnswer
     {
-        $matches = $this->retriever->retrieve($question, $topK);
+        return $this->generateConfigured(
+            $question,
+            $topK,
+            [],
+            '',
+            self::INSUFFICIENT_INFORMATION,
+            [],
+            $options,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $retrievalFilters
+     * @param list<array{role: 'user'|'assistant', content: string}> $history
+     * @param array<string, mixed> $providerOptions
+     */
+    public function generateConfigured(
+        string $question,
+        ?int $topK,
+        array $retrievalFilters,
+        string $chatbotInstructions,
+        string $fallbackMessage,
+        array $history,
+        array $providerOptions = [],
+    ): GeneratedAnswer {
+        if (trim($fallbackMessage) === '') {
+            throw new \InvalidArgumentException('A grounded fallback message is required.');
+        }
+
+        $matches = $this->retriever->retrieve($question, $topK, $retrievalFilters);
         $context = $this->context->select($matches);
 
         if ($context->chunks === []) {
-            return new GeneratedAnswer(self::INSUFFICIENT_INFORMATION, [], [
+            return new GeneratedAnswer($fallbackMessage, [], [
                 'retrieved_chunks' => 0,
                 'context_tokens' => 0,
                 'input_tokens' => 0,
@@ -35,18 +64,18 @@ final class AnswerGenerator
                 'output_tokens' => 0,
                 'reasoning_tokens' => 0,
                 'total_tokens' => 0,
-            ]);
+            ], null, true);
         }
 
-        $prompt = $this->prompts->build($question, $context->chunks);
-        $generation = $this->chat->generate($prompt->instructions, $prompt->input, $options);
+        $prompt = $this->prompts->build($question, $context->chunks, $chatbotInstructions, $history);
+        $generation = $this->chat->generate($prompt->instructions, $prompt->input, $providerOptions);
         $this->validateCitations($generation->answer, count($context->chunks));
 
         return new GeneratedAnswer($generation->answer, $context->chunks, [
             'retrieved_chunks' => count($context->chunks),
             'context_tokens' => $context->estimatedTokens,
             ...$generation->usage(),
-        ]);
+        ], $generation->model, false);
     }
 
     private function validateCitations(string $answer, int $sourceCount): void

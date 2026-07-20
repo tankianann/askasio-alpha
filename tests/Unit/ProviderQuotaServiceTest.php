@@ -73,4 +73,17 @@ final class ProviderQuotaServiceTest extends TestCase
         self::assertArrayNotHasKey('quota_daily_remaining_tokens', $usage);
         self::assertArrayNotHasKey('quota_monthly_remaining_tokens', $usage);
     }
+
+    public function testInstallationChatUsesOnlyTheSharedGlobalBudget(): void
+    {
+        $repository = new InMemoryProviderQuotaRepository();
+        $service = new ProviderQuotaService($repository, 50_000, 500_000, 1, 1, 900);
+        $reservation = $service->reserveInstallationChat('Question', 1_000, 200);
+        $usage = $service->reconcile($reservation, 25);
+
+        self::assertSame(0, $reservation->apiKeyId);
+        self::assertSame(25, $service->snapshots([])['global']->dailyConsumed);
+        self::assertSame(49_975, $usage['quota_daily_remaining_tokens']);
+        self::assertArrayNotHasKey(0, $service->snapshots([])['api_keys']);
+    }
 }

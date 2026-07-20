@@ -80,6 +80,27 @@ final class ProviderQuotaRepositoryTest extends DatabaseIntegrationTestCase
         self::assertSame(0, (int) self::$database?->query('SELECT COUNT(*) FROM provider_quota_reservations')->fetchColumn());
     }
 
+    public function testInstallationChatReservationUsesOnlyGlobalBuckets(): void
+    {
+        $repository = $this->repository();
+        $limits = [
+            'global_daily' => 1_000,
+            'global_monthly' => 5_000,
+            'api_key_daily' => 1,
+            'api_key_monthly' => 1,
+        ];
+        $now = new DateTimeImmutable('2026-07-20 12:00:00', new DateTimeZone('UTC'));
+        $reservation = $repository->reserve(0, 'chat', 100, $limits, $now, $now->modify('+15 minutes'));
+        $repository->reconcile($reservation->id, 25);
+        $usage = $repository->usage([], $now);
+
+        self::assertSame(25, $usage['global']['daily']['consumed']);
+        self::assertSame(
+            0,
+            (int) self::$database?->query("SELECT COUNT(*) FROM provider_quota_buckets WHERE scope = 'api_key'")->fetchColumn(),
+        );
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
