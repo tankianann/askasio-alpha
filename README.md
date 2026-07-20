@@ -880,3 +880,18 @@ MySQL and MariaDB may implicitly commit DDL statements. The runner uses transact
 ## Current milestone boundary
 
 The initial nine-milestone application scope and dashboard data-lifecycle audit are implemented. This includes validated shared query state, all reviewed list pagination/filtering/sorting, API Activity retention and manual purge, source-detail hardening, privacy regression coverage, documented indexes, deployment schedules, and a final MySQL query-plan review. Remaining scaling triggers are explicitly documented above rather than treated as current defects.
+
+
+# Ask Asio engineering documentation
+
+This repository is the consolidated engineering record for the standalone Ask Asio RAG application. It reflects the implemented application at source commit `61e4ed4` (`feat: enforce global and per-key provider token quotas`) and supersedes reliance on the development chat history.
+
+Start with [the documentation index](docs/README.md), then read:
+
+- [Architecture](docs/architecture.md) for system boundaries and data flows.
+- [Developer guide](docs/developer-guide.md) for setup and day-to-day work.
+- [Roadmap](docs/roadmap.md) for current status and recommended next work.
+- [Decisions](docs/decisions.md) for the reasons behind the design.
+- [Deployment](docs/deployment.md) before operating a production instance.
+
+The application code reviewed for this snapshot lives in the Ask Asio PHP repository. Paths in these documents, such as `app/RAG/Retriever.php`, are relative to that application repository.
