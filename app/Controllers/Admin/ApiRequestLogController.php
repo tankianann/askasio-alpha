@@ -128,7 +128,7 @@ final class ApiRequestLogController
             $criteria = $this->purgeRequests->parse($request, $query);
             $intent = $this->purgeIntents->create($this->purges->preview($criteria));
         } catch (ValidationException $exception) {
-            if (!isset($query) || !$query instanceof ApiRequestLogQuery) {
+            if (!isset($query)) {
                 $this->session->put(self::FLASH_ERROR, $exception->getMessage());
 
                 return Response::redirect('/admin/api-requests', 303);

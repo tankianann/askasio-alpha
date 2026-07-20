@@ -46,7 +46,6 @@ final class Router
         }
 
         $fullPath = '/' . trim($this->groupPrefix . '/' . ltrim($path, '/'), '/');
-        $fullPath = $fullPath === '' ? '/' : $fullPath;
         $routeMiddleware = [...$this->groupMiddleware, ...$middleware];
         $this->routes[] = new Route($normalizedMethods, $fullPath, Closure::fromCallable($handler), $routeMiddleware, $name);
 

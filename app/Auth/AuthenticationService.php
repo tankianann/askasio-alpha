@@ -21,7 +21,7 @@ final class AuthenticationService
     {
         $normalizedUsername = self::normalizeUsername($username);
         $admin = $this->admins->findByUsername($normalizedUsername);
-        $hash = $admin?->passwordHash ?? self::DUMMY_PASSWORD_HASH;
+        $hash = $admin instanceof AdminUser ? $admin->passwordHash : self::DUMMY_PASSWORD_HASH;
 
         if (!$this->passwordHasher->verify($password, $hash) || !$admin instanceof AdminUser) {
             return null;

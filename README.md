@@ -570,19 +570,36 @@ sudo systemctl start ragserver-worker
 sudo systemctl reload php8.3-fpm
 ```
 
-Run the PHPUnit suite in CI or before packaging the release, since production installs intentionally omit Composer development dependencies.
+Run the automated quality checks in CI or before packaging the release, since production installs intentionally omit Composer development dependencies.
 
 Keep MySQL bound to localhost or a private network, expose only required firewall ports, monitor disk usage for source uploads and private `.trash` staging, configure log rotation/retention, and alert on failed jobs or a stopped worker. URL refresh is an explicit administrator action in this release; it is not scheduled automatically.
 
-## Tests and checks
+## Tests and automated quality checks
 
-Tests do not contact a database or paid provider by default:
+The GitHub Actions workflow in `.github/workflows/quality.yml` runs on every push and pull request against PHP 8.3 and 8.4. It validates and audits Composer metadata, lints PHP files, runs PHPStan at level 5, applies every migration to an empty MySQL 8.4 database, boots the complete application, exercises representative HTTP routes through the real middleware stack, and runs the full PHPUnit suite. No test makes a paid provider request.
+
+The default local test run does not connect to a database. Database integration tests are reported as skipped unless an explicitly disposable test database is configured:
 
 ```bash
 composer test
+composer analyse
 find app bootstrap bin config database public resources tests -name '*.php' -exec php -l {} \;
 composer validate --strict
+composer audit
 ```
+
+To run the real-database migration and HTTP smoke tests locally, supply separate test credentials. `TEST_DB_DATABASE` must end in `_test`; the harness drops and recreates that complete database, then deletes it after the test class finishes. Never point these variables at a development or production database. The test account therefore needs permission to create and drop the named disposable database.
+
+```bash
+TEST_DB_HOST=127.0.0.1 \
+TEST_DB_PORT=3306 \
+TEST_DB_DATABASE=rag_app_test \
+TEST_DB_USERNAME=root \
+TEST_DB_PASSWORD=local-test-password \
+vendor/bin/phpunit tests/Integration/CleanDatabaseMigrationTest.php tests/Integration/ApplicationHttpSmokeTest.php
+```
+
+The migration test verifies that a clean schema contains every expected table and that a second migration pass is idempotent. The HTTP smoke test boots `bootstrap/app.php`, verifies database health, the root redirect, API authentication and request logging, security headers, and the JSON 404 boundary. Tests use an isolated process and do not start a web server.
 
 ## Configuration and security
 

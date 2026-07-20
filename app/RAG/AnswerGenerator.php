@@ -52,7 +52,7 @@ final class AnswerGenerator
     private function validateCitations(string $answer, int $sourceCount): void
     {
         preg_match_all('/\[S(\d+)\]/', $answer, $matches);
-        $references = $matches[1] ?? [];
+        $references = $matches[1];
 
         if ($references === []) {
             if (str_contains($answer, self::INSUFFICIENT_INFORMATION)) {

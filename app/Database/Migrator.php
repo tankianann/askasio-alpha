@@ -104,6 +104,6 @@ final class Migrator
 
         sort($files);
 
-        return array_values($files);
+        return $files;
     }
 }

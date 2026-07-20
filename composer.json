@@ -22,6 +22,7 @@
         "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {
+        "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^11.0"
     },
     "autoload": {
@@ -40,6 +41,7 @@
         "sort-packages": true
     },
     "scripts": {
+        "analyse": "phpstan analyse --no-progress",
         "create-admin": "@php bin/create-admin.php",
         "embed-chunks": "@php bin/embed-chunks.php",
         "process-jobs": "@php bin/process-jobs.php --once",

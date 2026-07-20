@@ -84,9 +84,7 @@ final class SemanticChunker implements ChunkerInterface
             $current[] = $unit;
         }
 
-        if ($current !== []) {
-            $chunks[] = implode("\n\n", $current);
-        }
+        $chunks[] = implode("\n\n", $current);
 
         return $chunks;
     }

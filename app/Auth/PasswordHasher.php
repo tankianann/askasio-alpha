@@ -4,20 +4,12 @@ declare(strict_types=1);
 
 namespace App\Auth;
 
-use RuntimeException;
-
 final class PasswordHasher
 {
     public function hash(string $password): string
     {
         $algorithm = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
-        $hash = password_hash($password, $algorithm);
-
-        if (!is_string($hash)) {
-            throw new RuntimeException('The password could not be hashed.');
-        }
-
-        return $hash;
+        return password_hash($password, $algorithm);
     }
 
     public function verify(string $password, string $hash): bool

@@ -44,12 +44,8 @@ final class NativeSessionStore implements SessionStoreInterface
             return;
         }
 
-        $secure = match ($this->secureCookieMode) {
-            'always' => true,
-            'never' => false,
-            'auto' => $requestIsSecure,
-            default => false,
-        };
+        $secure = $this->secureCookieMode === 'always'
+            || ($this->secureCookieMode === 'auto' && $requestIsSecure);
 
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
@@ -130,7 +126,7 @@ final class NativeSessionStore implements SessionStoreInterface
                 'domain' => $parameters['domain'],
                 'secure' => $parameters['secure'],
                 'httponly' => $parameters['httponly'],
-                'samesite' => $parameters['samesite'] ?? 'Lax',
+                'samesite' => $parameters['samesite'],
             ]);
         }
 
