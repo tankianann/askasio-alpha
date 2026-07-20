@@ -1,0 +1,42 @@
+[Unit]
+Description=Ask Asio ingestion worker
+Documentation=file:/var/www/ragserver/README.md
+After=network-online.target mysql.service mariadb.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/ragserver
+ExecStart=/usr/bin/php -d memory_limit=512M /var/www/ragserver/bin/worker.php
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+UMask=0027
+
+MemoryHigh=768M
+MemoryMax=1G
+TasksMax=64
+
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/ragserver/sources
+ReadWritePaths=/var/www/ragserver/storage/logs
+ReadWritePaths=/var/www/ragserver/storage/cache
+
+[Install]
+WantedBy=multi-user.target

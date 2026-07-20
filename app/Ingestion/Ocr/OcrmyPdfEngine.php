@@ -43,6 +43,10 @@ final class OcrmyPdfEngine implements PdfOcrEngineInterface
             throw new InvalidArgumentException('The OCR page timeout must be between 1 and 1800 seconds.');
         }
 
+        if ($this->pageTimeoutSeconds > $this->processTimeoutSeconds) {
+            throw new InvalidArgumentException('The OCR page timeout cannot exceed the overall OCR process timeout.');
+        }
+
         if ($this->jobs < 1 || $this->jobs > 8) {
             throw new InvalidArgumentException('OCR jobs must be between 1 and 8.');
         }

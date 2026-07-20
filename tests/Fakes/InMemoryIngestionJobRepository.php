@@ -13,6 +13,7 @@ use App\Repositories\IngestionJobRepositoryInterface;
 use App\Support\Pagination\PaginatedResult;
 use App\Support\Pagination\PageRequest;
 use App\Support\SortDirection;
+use Throwable;
 
 final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInterface
 {
@@ -26,6 +27,14 @@ final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInte
     public ?string $lastPersistedError = null;
 
     public ?int $lastRecoveryTimeout = null;
+
+    public ?Throwable $claimFailure = null;
+
+    public ?Throwable $completeFailure = null;
+
+    public ?Throwable $recoveryFailure = null;
+
+    public ?Throwable $failurePersistenceFailure = null;
 
     /** @var array{completed: int, retried: int, failed: int} */
     public array $recoveryResult = ['completed' => 0, 'retried' => 0, 'failed' => 0];
@@ -42,6 +51,10 @@ final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInte
     public function claim(string $workerId): ?IngestionJob
     {
         $this->claimCalls++;
+
+        if ($this->claimFailure instanceof Throwable) {
+            throw $this->claimFailure;
+        }
 
         foreach ($this->jobs as $id => $job) {
             if ($job->status !== JobStatus::Pending) {
@@ -64,11 +77,19 @@ final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInte
 
     public function complete(int $jobId, string $workerId): void
     {
+        if ($this->completeFailure instanceof Throwable) {
+            throw $this->completeFailure;
+        }
+
         $this->jobs[$jobId] = $this->copy($this->jobs[$jobId], status: JobStatus::Completed, reservedBy: null);
     }
 
     public function releaseForRetry(int $jobId, string $workerId, string $error, int $delaySeconds): void
     {
+        if ($this->failurePersistenceFailure instanceof Throwable) {
+            throw $this->failurePersistenceFailure;
+        }
+
         $this->lastRetryDelay = $delaySeconds;
         $this->lastPersistedError = $error;
         $this->jobs[$jobId] = $this->copy(
@@ -81,6 +102,10 @@ final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInte
 
     public function fail(int $jobId, string $workerId, string $error): void
     {
+        if ($this->failurePersistenceFailure instanceof Throwable) {
+            throw $this->failurePersistenceFailure;
+        }
+
         $this->lastPersistedError = $error;
         $this->jobs[$jobId] = $this->copy(
             $this->jobs[$jobId],
@@ -93,6 +118,10 @@ final class InMemoryIngestionJobRepository implements IngestionJobRepositoryInte
     public function recoverAbandoned(int $timeoutSeconds): array
     {
         $this->lastRecoveryTimeout = $timeoutSeconds;
+
+        if ($this->recoveryFailure instanceof Throwable) {
+            throw $this->recoveryFailure;
+        }
 
         return $this->recoveryResult;
     }

@@ -14,6 +14,7 @@ use App\Domain\Sources\SourceType;
 use App\Domain\Sources\SourceVersion;
 use App\Ingestion\ChunkerInterface;
 use App\Ingestion\DocumentIngestionProcessor;
+use App\Ingestion\DocumentSafetyLimits;
 use App\Ingestion\ExtractorRegistry;
 use App\Ingestion\PermanentIngestionException;
 use App\Ingestion\SourceExtractorInterface;
@@ -148,6 +149,85 @@ final class DocumentIngestionProcessorTest extends TestCase
         try {
             $processor->process($this->job());
         } finally {
+            self::assertFalse($repository->stored);
+        }
+    }
+
+    public function testOversizedDocumentStopsBeforeDeduplicationChunkingOrEmbedding(): void
+    {
+        $version = $this->version();
+        $repository = new class ($version) implements SourceIngestionRepositoryInterface {
+            public int $unchangedChecks = 0;
+            public bool $stored = false;
+
+            public function __construct(private readonly SourceVersion $version)
+            {
+            }
+
+            public function findVersion(int $id): ?SourceVersion
+            {
+                return $this->version;
+            }
+
+            public function storeUnchangedIfActiveMatch(SourceVersion $version, ExtractedDocument $document): bool
+            {
+                $this->unchangedChecks++;
+
+                return false;
+            }
+
+            public function storeAndActivate(SourceVersion $version, ExtractedDocument $document, array $chunks): bool
+            {
+                $this->stored = true;
+
+                return true;
+            }
+        };
+        $document = ExtractedDocument::fromSections('Large', [
+            new ExtractedSection('Large', str_repeat('x', 101)),
+        ]);
+        $extractor = new class ($document) implements SourceExtractorInterface {
+            public function __construct(private readonly ExtractedDocument $document)
+            {
+            }
+
+            public function supports(SourceVersion $version): bool
+            {
+                return true;
+            }
+
+            public function extract(SourceVersion $version): ExtractedDocument
+            {
+                return $this->document;
+            }
+        };
+        $chunker = new class implements ChunkerInterface {
+            public int $calls = 0;
+
+            public function chunk(ExtractedDocument $document): array
+            {
+                $this->calls++;
+
+                return [new Chunk(1, $document->content, 1, [])];
+            }
+        };
+        $provider = new FakeEmbeddingProvider();
+        $processor = new DocumentIngestionProcessor(
+            $repository,
+            new ExtractorRegistry([$extractor]),
+            $chunker,
+            new EmbeddingService($provider, 10),
+            new DocumentSafetyLimits(100, 10, 10),
+        );
+
+        $this->expectException(PermanentIngestionException::class);
+
+        try {
+            $processor->process($this->job());
+        } finally {
+            self::assertSame(0, $repository->unchangedChecks);
+            self::assertSame(0, $chunker->calls);
+            self::assertSame([], $provider->inputs);
             self::assertFalse($repository->stored);
         }
     }

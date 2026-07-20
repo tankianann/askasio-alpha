@@ -6,6 +6,7 @@ namespace App\Ingestion\Extractors;
 
 use App\Domain\Ingestion\ExtractedDocument;
 use App\Domain\Ingestion\ExtractedSection;
+use App\Ingestion\DocumentSafetyLimits;
 use App\Ingestion\PermanentIngestionException;
 use DOMDocument;
 use DOMElement;
@@ -14,6 +15,10 @@ use DOMXPath;
 
 final class HtmlDocumentParser
 {
+    public function __construct(private readonly ?DocumentSafetyLimits $limits = null)
+    {
+    }
+
     /** @param array<string, mixed> $metadata */
     public function parse(string $html, string $fallbackTitle, array $metadata = []): ExtractedDocument
     {
@@ -70,6 +75,7 @@ final class HtmlDocumentParser
         $blocks = [];
         $hierarchy = [];
         $sectionTitle = $title;
+        $extractedCharacters = 0;
 
         if ($nodes !== false) {
             foreach ($nodes as $node) {
@@ -82,6 +88,9 @@ final class HtmlDocumentParser
                 if ($text === '') {
                     continue;
                 }
+
+                $extractedCharacters += mb_strlen($text, 'UTF-8');
+                $this->limits?->assertExtractedCharacters($extractedCharacters);
 
                 if (preg_match('/^h([1-6])$/', strtolower($node->tagName), $match) === 1) {
                     $this->flushSection($sections, $sectionTitle, $blocks, array_values($hierarchy));
@@ -110,6 +119,7 @@ final class HtmlDocumentParser
             $text = $this->normalizeText($root->textContent);
 
             if ($text !== '') {
+                $this->limits?->assertExtractedCharacters(mb_strlen($text, 'UTF-8'));
                 $sections[] = new ExtractedSection($title, $text, [$title]);
             }
         }
@@ -118,7 +128,10 @@ final class HtmlDocumentParser
             throw new PermanentIngestionException('The HTML document contains no readable text.');
         }
 
-        return ExtractedDocument::fromSections($title, $sections, $metadata);
+        $extracted = ExtractedDocument::fromSections($title, $sections, $metadata);
+        $this->limits?->assertDocument($extracted);
+
+        return $extracted;
     }
 
     private function firstText(DOMXPath $xpath, string $query): ?string

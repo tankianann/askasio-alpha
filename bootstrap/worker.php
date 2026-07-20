@@ -6,6 +6,7 @@ use App\Database\Connection;
 use App\Ingestion\Chunking\HeuristicTokenEstimator;
 use App\Ingestion\Chunking\SemanticChunker;
 use App\Ingestion\DocumentIngestionProcessor;
+use App\Ingestion\DocumentSafetyLimits;
 use App\Ingestion\ExtractorRegistry;
 use App\Ingestion\Extractors\HtmlDocumentParser;
 use App\Ingestion\Extractors\MarkdownExtractor;
@@ -13,6 +14,7 @@ use App\Ingestion\Extractors\PdfExtractor;
 use App\Ingestion\Extractors\UrlExtractor;
 use App\Ingestion\IngestionWorker;
 use App\Ingestion\Ocr\OcrmyPdfEngine;
+use App\Ingestion\WorkerRuntimePolicy;
 use App\Logging\LoggerFactory;
 use App\Networking\SafeUrlFetcher;
 use App\Networking\UrlNetworkGuard;
@@ -70,7 +72,36 @@ if ($resolvedStoragePath === $resolvedPublicPath
     throw new RuntimeException('FILESYSTEM_PATH must be outside the public directory.');
 }
 
-$html = new HtmlDocumentParser();
+try {
+    $limits = new DocumentSafetyLimits(
+        $config->requireInt('ingestion.maximum_extracted_characters'),
+        $config->requireInt('ingestion.maximum_chunks_per_document'),
+        $config->requireInt('ingestion.maximum_pdf_pages'),
+    );
+    $runtimePolicy = new WorkerRuntimePolicy(
+        $config->requireInt('queue.abandoned_timeout_minutes') * 60,
+        $config->requireInt('ingestion.url_connect_timeout_seconds'),
+        $config->requireInt('ingestion.url_request_timeout_seconds'),
+        $config->requireInt('ingestion.url_maximum_redirects'),
+        $config->requireBool('ingestion.pdf_ocr_enabled'),
+        $config->requireInt('ingestion.pdf_ocr_process_timeout_seconds'),
+        $config->requireInt('ingestion.pdf_ocr_page_timeout_seconds'),
+        $limits->maximumChunks,
+        $config->requireInt('rag.embedding_batch_size'),
+        $config->requireInt('providers.openai.request_timeout_seconds'),
+        $config->requireInt('providers.openai.maximum_retries'),
+    );
+} catch (\InvalidArgumentException $exception) {
+    $logger->critical('Ingestion worker safety configuration is invalid.', ['exception' => $exception]);
+    throw $exception;
+}
+$logger->info('Ingestion worker safety policy configured.', [
+    'maximum_extracted_characters' => $limits->maximumExtractedCharacters,
+    'maximum_chunks_per_document' => $limits->maximumChunks,
+    'maximum_pdf_pages' => $limits->maximumPdfPages,
+    'minimum_abandoned_timeout_seconds' => $runtimePolicy->minimumAbandonedTimeoutSeconds,
+]);
+$html = new HtmlDocumentParser($limits);
 $files = new PrivateSourceFileLocator($resolvedStoragePath);
 $fetcher = new SafeUrlFetcher(
     new UrlNetworkGuard(new UrlSourceValidator()),
@@ -104,19 +135,21 @@ $processor = new DocumentIngestionProcessor(
     new PdoSourceIngestionRepository($connection),
     new ExtractorRegistry([
         new UrlExtractor($fetcher, $html),
-        new MarkdownExtractor($files, $html),
-        new PdfExtractor($files, $ocr),
+        new MarkdownExtractor($files, $html, $limits),
+        new PdfExtractor($files, $ocr, limits: $limits),
     ]),
     new SemanticChunker(
         new HeuristicTokenEstimator(),
         $config->requireInt('ingestion.chunk_size_tokens'),
         $config->requireInt('ingestion.chunk_overlap_tokens'),
         $config->requireInt('ingestion.minimum_chunk_tokens'),
+        $limits,
     ),
     new EmbeddingService(
         (new EmbeddingProviderFactory($config))->create(),
         $config->requireInt('rag.embedding_batch_size'),
     ),
+    $limits,
 );
 $worker = new IngestionWorker(
     $queue,

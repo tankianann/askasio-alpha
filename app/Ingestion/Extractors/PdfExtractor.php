@@ -9,6 +9,7 @@ use App\Domain\Ingestion\ExtractedSection;
 use App\Domain\Sources\SourceType;
 use App\Domain\Sources\SourceVersion;
 use App\Ingestion\PermanentIngestionException;
+use App\Ingestion\DocumentSafetyLimits;
 use App\Ingestion\SourceExtractorInterface;
 use App\Ingestion\Ocr\PdfOcrEngineInterface;
 use App\Services\Sources\PrivateSourceFileLocator;
@@ -20,6 +21,7 @@ final class PdfExtractor implements SourceExtractorInterface
         private readonly PrivateSourceFileLocator $files,
         private readonly ?PdfOcrEngineInterface $ocr = null,
         private readonly Parser $parser = new Parser(),
+        private readonly ?DocumentSafetyLimits $limits = null,
     ) {
     }
 
@@ -38,6 +40,7 @@ final class PdfExtractor implements SourceExtractorInterface
         $path = $this->files->locate($version->storedFilePath);
 
         [$details, $pages] = $this->parse($path, 'The PDF could not be parsed or may be encrypted.');
+        $this->limits?->assertPdfPageCount(count($pages));
 
         $filename = $version->originalFilename ?? basename($version->storedFilePath);
         $title = trim((string) ($details['Title'] ?? ''));
@@ -56,6 +59,7 @@ final class PdfExtractor implements SourceExtractorInterface
 
             try {
                 [, $ocrPages] = $this->parse($ocrResult->pdfPath, 'The OCR output PDF could not be parsed.');
+                $this->limits?->assertPdfPageCount(count($ocrPages));
                 $sections = $this->sections($ocrPages);
                 $ocrApplied = true;
                 $ocrEngine = $ocrResult->engine;
@@ -70,7 +74,7 @@ final class PdfExtractor implements SourceExtractorInterface
             }
         }
 
-        return ExtractedDocument::fromSections($title, $sections, [
+        $document = ExtractedDocument::fromSections($title, $sections, [
             'source_type' => SourceType::Pdf->value,
             'original_filename' => $filename,
             'mime_type' => $version->mimeType,
@@ -80,6 +84,9 @@ final class PdfExtractor implements SourceExtractorInterface
             'ocr_engine' => $ocrEngine,
             'ocr_languages' => $ocrLanguages,
         ]);
+        $this->limits?->assertDocument($document);
+
+        return $document;
     }
 
     /** @return array{array<string, mixed>, array<int, object>} */
@@ -98,6 +105,7 @@ final class PdfExtractor implements SourceExtractorInterface
     private function sections(array $pages): array
     {
         $sections = [];
+        $extractedCharacters = 0;
 
         foreach ($pages as $index => $page) {
             if (!method_exists($page, 'getText')) {
@@ -109,6 +117,9 @@ final class PdfExtractor implements SourceExtractorInterface
             if ($text === '') {
                 continue;
             }
+
+            $extractedCharacters += mb_strlen($text, 'UTF-8');
+            $this->limits?->assertExtractedCharacters($extractedCharacters);
 
             $pageNumber = $index + 1;
             $sections[] = new ExtractedSection(

@@ -8,6 +8,7 @@ use App\Domain\Ingestion\Chunk;
 use App\Domain\Ingestion\IngestionJob;
 use App\Providers\Embeddings\EmbeddingAuthenticationException;
 use App\Providers\Embeddings\EmbeddingConfigurationException;
+use App\Providers\Embeddings\EmbeddingProviderException;
 use App\Providers\Embeddings\EmbeddingService;
 use App\Providers\Embeddings\MalformedEmbeddingResponseException;
 use App\Repositories\SourceIngestionRepositoryInterface;
@@ -19,6 +20,7 @@ final class DocumentIngestionProcessor implements IngestionProcessorInterface
         private readonly ExtractorRegistry $extractors,
         private readonly ChunkerInterface $chunker,
         private readonly EmbeddingService $embeddings,
+        private readonly ?DocumentSafetyLimits $limits = null,
     ) {
     }
 
@@ -36,12 +38,14 @@ final class DocumentIngestionProcessor implements IngestionProcessorInterface
         }
 
         $document = $this->extractors->forVersion($version)->extract($version);
+        $this->limits?->assertDocument($document);
 
         if ($this->sources->storeUnchangedIfActiveMatch($version, $document)) {
             return;
         }
 
         $chunks = $this->chunker->chunk($document);
+        $this->limits?->assertChunkCount(count($chunks));
 
         if ($chunks === [] || array_filter($chunks, static fn (mixed $chunk): bool => !$chunk instanceof Chunk) !== []) {
             throw new PermanentIngestionException('The extracted document did not produce valid chunks.');
@@ -51,6 +55,8 @@ final class DocumentIngestionProcessor implements IngestionProcessorInterface
             $embeddedChunks = $this->embeddings->embedChunks($chunks);
         } catch (EmbeddingConfigurationException|EmbeddingAuthenticationException|MalformedEmbeddingResponseException $exception) {
             throw new PermanentIngestionException($exception->getMessage(), previous: $exception);
+        } catch (EmbeddingProviderException $exception) {
+            throw new IngestionException($exception->getMessage(), previous: $exception);
         }
 
         $this->sources->storeAndActivate($version, $document, $embeddedChunks);

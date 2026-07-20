@@ -8,6 +8,8 @@ use App\Domain\Ingestion\ExtractedDocument;
 use App\Domain\Ingestion\ExtractedSection;
 use App\Ingestion\Chunking\HeuristicTokenEstimator;
 use App\Ingestion\Chunking\SemanticChunker;
+use App\Ingestion\DocumentSafetyLimits;
+use App\Ingestion\PermanentIngestionException;
 use PHPUnit\Framework\TestCase;
 
 final class SemanticChunkerTest extends TestCase
@@ -34,5 +36,27 @@ final class SemanticChunkerTest extends TestCase
 
         $firstWords = array_slice(preg_split('/\s+/', $chunks[0]->content) ?: [], -5);
         self::assertStringContainsString(implode(' ', $firstWords), $chunks[1]->content);
+    }
+
+    public function testItStopsWhenAChunkLimitWouldBeExceeded(): void
+    {
+        $document = ExtractedDocument::fromSections('Large', [
+            new ExtractedSection('Large', implode("\n\n", array_fill(
+                0,
+                20,
+                'A deliberately long paragraph with enough words to require several separate semantic chunks.',
+            ))),
+        ]);
+        $chunker = new SemanticChunker(
+            new HeuristicTokenEstimator(),
+            50,
+            5,
+            5,
+            new DocumentSafetyLimits(10_000, 1, 10),
+        );
+
+        $this->expectException(PermanentIngestionException::class);
+        $this->expectExceptionMessage('1 chunk limit');
+        $chunker->chunk($document);
     }
 }

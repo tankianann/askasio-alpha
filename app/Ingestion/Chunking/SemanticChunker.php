@@ -8,6 +8,7 @@ use App\Domain\Ingestion\Chunk;
 use App\Domain\Ingestion\ExtractedDocument;
 use App\Domain\Ingestion\ExtractedSection;
 use App\Ingestion\ChunkerInterface;
+use App\Ingestion\DocumentSafetyLimits;
 use InvalidArgumentException;
 
 final class SemanticChunker implements ChunkerInterface
@@ -17,6 +18,7 @@ final class SemanticChunker implements ChunkerInterface
         private readonly int $targetTokens = 500,
         private readonly int $overlapTokens = 75,
         private readonly int $minimumTokens = 20,
+        private readonly ?DocumentSafetyLimits $limits = null,
     ) {
         if ($this->targetTokens < 50) {
             throw new InvalidArgumentException('Chunk size must be at least 50 tokens.');
@@ -42,6 +44,8 @@ final class SemanticChunker implements ChunkerInterface
                 if ($content === '') {
                     continue;
                 }
+
+                $this->limits?->assertChunkCount(count($chunks) + 1);
 
                 $chunks[] = new Chunk(
                     count($chunks) + 1,

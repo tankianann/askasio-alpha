@@ -60,4 +60,19 @@ final class OcrmyPdfEngineTest extends TestCase
             10 * 1024 * 1024,
         );
     }
+
+    public function testItRejectsAPageTimeoutLongerThanTheOverallProcessTimeout(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('cannot exceed');
+
+        new OcrmyPdfEngine(
+            'ocrmypdf',
+            ['eng'],
+            60,
+            61,
+            1,
+            10 * 1024 * 1024,
+        );
+    }
 }

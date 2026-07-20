@@ -65,7 +65,9 @@ Because the reviewed development tables are small, MySQL may prefer a table scan
 - Rotate provider and application API keys on a documented schedule and immediately after suspected disclosure.
 - Back up MySQL and `FILESYSTEM_PATH` together; test restoration away from production.
 - Monitor health, worker status, failed jobs, provider errors/rate limits, disk capacity, and application logs.
-- Set `JOB_ABANDONED_TIMEOUT_MINUTES` above the longest legitimate ingestion run and schedule `bin/recover-jobs.php` as a fallback.
+- Keep `JOB_ABANDONED_TIMEOUT_MINUTES` above the worker's validated worst-case OCR/embedding window and schedule `bin/recover-jobs.php` as a fallback. The worker refuses unsafe timeout combinations.
+- Keep `INGESTION_MAXIMUM_EXTRACTED_CHARACTERS`, `RAG_MAXIMUM_CHUNKS_PER_DOCUMENT`, and `PDF_MAXIMUM_PAGES` at measured, finite values. Oversized documents fail permanently before embedding or activation.
+- Install the hardened `deploy/systemd/ragserver-worker.service` unit and keep its PHP/cgroup memory ceilings and `ReadWritePaths` aligned with the deployment.
 - Choose an explicit API Activity retention period and schedule `bin/prune-api-requests.php`; align database-backup retention with the same privacy requirements.
 - Periodically record API Activity and Processing row counts, index sizes, slow-query samples, and deep-page latency; reassess retention or pagination before growth becomes operational pressure.
 - Apply OS, PHP, web server, MySQL, OCRmyPDF/Tesseract, and Composer security updates through a tested release process.

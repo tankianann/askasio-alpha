@@ -9,6 +9,7 @@ use App\Ingestion\IngestionException;
 use App\Ingestion\PermanentIngestionException;
 use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
+use InvalidArgumentException;
 
 final class SafeUrlFetcher implements UrlFetcherInterface
 {
@@ -20,6 +21,23 @@ final class SafeUrlFetcher implements UrlFetcherInterface
         private readonly int $maximumResponseBytes,
         private readonly string $userAgent,
     ) {
+        if ($this->connectionTimeoutSeconds < 1
+            || $this->requestTimeoutSeconds < 1
+            || $this->connectionTimeoutSeconds > $this->requestTimeoutSeconds) {
+            throw new InvalidArgumentException('URL connection timeout must be positive and no greater than the request timeout.');
+        }
+
+        if ($this->maximumRedirects < 0 || $this->maximumRedirects > 20) {
+            throw new InvalidArgumentException('URL redirects must be between 0 and 20.');
+        }
+
+        if ($this->maximumResponseBytes < 1024) {
+            throw new InvalidArgumentException('URL response size limit must be at least 1024 bytes.');
+        }
+
+        if (trim($this->userAgent) === '') {
+            throw new InvalidArgumentException('URL user agent must not be empty.');
+        }
     }
 
     public function fetch(string $url): FetchedPage

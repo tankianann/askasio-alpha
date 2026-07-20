@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Ingestion;
 
-use App\Domain\Ingestion\JobStatus;
 use App\Services\Ingestion\IngestionQueue;
 use Psr\Log\LoggerInterface;
 
@@ -39,7 +38,11 @@ final class IngestionWorker
             return false;
         }
 
-        $recovered = $this->queue->recoverAbandoned();
+        try {
+            $recovered = $this->queue->recoverAbandoned();
+        } catch (\Throwable $exception) {
+            $this->infrastructureFailure('recover abandoned jobs', $exception);
+        }
 
         if ($recovered['completed'] > 0 || $recovered['retried'] > 0 || $recovered['failed'] > 0) {
             $this->logger->warning('Recovered abandoned ingestion jobs.', [
@@ -48,7 +51,11 @@ final class IngestionWorker
             ]);
         }
 
-        $job = $this->queue->claim($this->workerId);
+        try {
+            $job = $this->queue->claim($this->workerId);
+        } catch (\Throwable $exception) {
+            $this->infrastructureFailure('claim a job', $exception);
+        }
 
         if ($job === null) {
             return false;
@@ -65,15 +72,13 @@ final class IngestionWorker
 
         try {
             $this->processor->process($job);
-            $this->queue->complete($job, $this->workerId);
-            $this->logger->info('Ingestion job completed.', [
-                'worker_id' => $this->workerId,
-                'job_id' => $job->id,
-                'source_version_id' => $job->sourceVersionId,
-                'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
-            ]);
-        } catch (\Throwable $exception) {
-            $status = $this->queue->retryOrFail($job, $this->workerId, $exception);
+        } catch (IngestionException $exception) {
+            try {
+                $status = $this->queue->retryOrFail($job, $this->workerId, $exception);
+            } catch (\Throwable $queueException) {
+                $this->infrastructureFailure('record a job processing failure', $queueException, $job->id);
+            }
+
             $this->logger->error('Ingestion job processing failed.', [
                 'worker_id' => $this->workerId,
                 'job_id' => $job->id,
@@ -83,7 +88,23 @@ final class IngestionWorker
                 'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
                 'exception' => $exception,
             ]);
+            return true;
+        } catch (\Throwable $exception) {
+            $this->infrastructureFailure('process a job', $exception, $job->id);
         }
+
+        try {
+            $this->queue->complete($job, $this->workerId);
+        } catch (\Throwable $exception) {
+            $this->infrastructureFailure('complete a job', $exception, $job->id);
+        }
+
+        $this->logger->info('Ingestion job completed.', [
+            'worker_id' => $this->workerId,
+            'job_id' => $job->id,
+            'source_version_id' => $job->sourceVersionId,
+            'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
+        ]);
 
         return true;
     }
@@ -115,5 +136,17 @@ final class IngestionWorker
         pcntl_async_signals(true);
         pcntl_signal(SIGTERM, $this->stop(...));
         pcntl_signal(SIGINT, $this->stop(...));
+    }
+
+    private function infrastructureFailure(string $operation, \Throwable $exception, ?int $jobId = null): never
+    {
+        $this->logger->critical('Ingestion worker encountered an infrastructure or unexpected failure and will exit.', [
+            'worker_id' => $this->workerId,
+            'operation' => $operation,
+            'job_id' => $jobId,
+            'exception' => $exception,
+        ]);
+
+        throw $exception;
     }
 }

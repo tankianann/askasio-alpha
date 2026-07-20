@@ -394,30 +394,16 @@ expose_php = Off
 
 ### Ingestion worker service
 
-A persistent systemd worker is recommended. It processes uploads immediately, survives reboots, and restarts after unexpected failures. Create `/etc/systemd/system/ragserver-worker.service`:
+A persistent systemd worker is recommended. It processes uploads immediately, survives reboots, and restarts with a fresh PHP process and database connection after unexpected or infrastructure failures. A reviewed unit is included at `deploy/systemd/ragserver-worker.service`. Its default paths assume the application is `/var/www/ragserver` and `FILESYSTEM_PATH` is `/var/lib/ragserver/sources`; edit `WorkingDirectory`, `ExecStart`, `Documentation`, and every `ReadWritePaths` entry when deploying elsewhere.
 
-```ini
-[Unit]
-Description=Ask Asio processing worker
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=www-data
-Group=www-data
-WorkingDirectory=/var/www/ragserver
-ExecStart=/usr/bin/php /var/www/ragserver/bin/worker.php
-Restart=on-failure
-RestartSec=5
-TimeoutStopSec=30
-PrivateTmp=true
-NoNewPrivileges=true
-UMask=0027
-
-[Install]
-WantedBy=multi-user.target
+```bash
+sudo install -o root -g root -m 0644 \
+    deploy/systemd/ragserver-worker.service \
+    /etc/systemd/system/ragserver-worker.service
+sudo systemd-analyze verify /etc/systemd/system/ragserver-worker.service
 ```
+
+The service gives PHP a 512 MB memory limit and constrains the complete worker cgroup—including OCR child processes—to a 768 MB soft threshold and 1 GB hard maximum. It also uses a private temporary directory, a read-only system/application view, explicit writable storage paths, and a five-restart burst limit. Tune these values only after measuring representative PDFs; keep the PHP limit below the cgroup maximum so PHP can report most memory failures before the kernel terminates the service.
 
 Enable and inspect the worker:
 
@@ -430,7 +416,11 @@ sudo journalctl -u ragserver-worker -f
 
 Begin with one worker because PDF OCR can be CPU- and memory-intensive. The worker also requires outbound HTTPS access to `api.openai.com` for embeddings. The queue supports multiple atomic workers, but additional workers should be added only after observing production resource use and provider rate limits.
 
-Each worker checks for expired reservations before claiming another job. `JOB_ABANDONED_TIMEOUT_MINUTES` must be longer than the longest legitimate URL, PDF/OCR, and embedding run. The default is 30 minutes, which is intentionally longer than the default 15-minute OCR process timeout. A separate recovery command can be run safely even when the extraction or provider pipeline is unavailable:
+Expected document and provider failures are recorded on the job and follow the configured retry policy. Unexpected processing exceptions and all failures while recovering, claiming, completing, or recording queue state are treated as infrastructure failures: the worker writes a critical log entry and exits non-zero. systemd then starts a clean process. A job left in `processing` is recovered after its reservation expires; the worker never keeps looping on a possibly broken PDO connection.
+
+Each worker validates its timeout budget before connecting to the queue. The minimum reservation covers the longest configured URL/OCR operation, the maximum permitted embedding batches and retries, and a five-minute safety margin. `JOB_ABANDONED_TIMEOUT_MINUTES` defaults to 45 minutes for the supplied limits. Increasing the chunk limit, reducing the embedding batch size, increasing provider retries/timeouts, or increasing the OCR timeout may require a longer reservation. Invalid relationships—including a URL connection timeout longer than its request timeout or an OCR page timeout longer than its overall process timeout—prevent the worker from starting.
+
+A separate recovery command can be run safely even when the extraction or provider pipeline is unavailable:
 
 ```bash
 php bin/recover-jobs.php
@@ -439,7 +429,7 @@ php bin/recover-jobs.php
 For a very low-volume installation, cron may be used instead of systemd:
 
 ```cron
-* * * * * www-data cd /var/www/ragserver && /usr/bin/flock -n storage/cache/worker.lock /usr/bin/php bin/process-jobs.php --once >/dev/null
+* * * * * www-data cd /var/www/ragserver && /usr/bin/flock -n storage/cache/worker.lock /usr/bin/php -d memory_limit=512M bin/process-jobs.php --once >/dev/null
 ```
 
 The one-shot command processes at most one available job. `flock` prevents overlapping cron invocations. Do not configure both cron and the persistent service for the initial deployment.
@@ -676,7 +666,7 @@ Worker behavior is configured through:
 JOB_MAX_ATTEMPTS=3
 JOB_RETRY_BASE_SECONDS=30
 JOB_RETRY_MAX_SECONDS=3600
-JOB_ABANDONED_TIMEOUT_MINUTES=30
+JOB_ABANDONED_TIMEOUT_MINUTES=45
 JOB_POLL_SECONDS=2
 ```
 
@@ -686,6 +676,9 @@ Extraction and chunking defaults can be tuned through:
 RAG_CHUNK_SIZE_TOKENS=500
 RAG_CHUNK_OVERLAP_TOKENS=75
 RAG_MINIMUM_CHUNK_TOKENS=20
+INGESTION_MAXIMUM_EXTRACTED_CHARACTERS=500000
+RAG_MAXIMUM_CHUNKS_PER_DOCUMENT=256
+PDF_MAXIMUM_PAGES=250
 URL_CONNECT_TIMEOUT_SECONDS=5
 URL_REQUEST_TIMEOUT_SECONDS=20
 URL_MAXIMUM_REDIRECTS=5
@@ -702,6 +695,8 @@ PDF_OCR_MAX_OUTPUT_SIZE_MB=100
 PDF_OCR_ROTATE_PAGES=true
 PDF_OCR_DESKEW=true
 ```
+
+These are hard ingestion boundaries, not display settings. Character limits are checked while HTML/PDF text is accumulated and again at the pipeline boundary. Markdown is checked before conversion, PDF page count is checked before page text extraction and again after OCR, and chunk count is checked while chunking and before embedding. Exceeding a limit produces a permanent job failure, preserves the previous active version, and makes no embedding API call. Raising a boundary increases PHP memory and provider-cost exposure and may require increasing `JOB_ABANDONED_TIMEOUT_MINUTES`.
 
 The worker first attempts native PDF text extraction. OCR starts only when the document contains no extractable text. OCRmyPDF runs as a shell-free argument-array subprocess with one worker by default, bounded per-page and whole-process timeouts, a maximum output size, and private temporary output that is removed after extraction. The searchable OCR copy is transient; the immutable original upload remains unchanged. Digital signatures may be invalidated only on that disposable OCR copy. OCR metadata is stored with the extracted source version.
 
@@ -722,7 +717,7 @@ php bin/worker.php
 The worker now extracts, chunks, embeds, stores, and activates source versions. Extraction and embedding must both succeed before a new version can replace the current active version. A cron entry can run the one-shot command for low-volume deployments, for example:
 
 ```cron
-* * * * * cd /absolute/path/to/ragserver && /usr/bin/flock -n storage/cache/worker.lock /absolute/path/to/php bin/process-jobs.php --once >/dev/null
+* * * * * cd /absolute/path/to/ragserver && /usr/bin/flock -n storage/cache/worker.lock /absolute/path/to/php -d memory_limit=512M bin/process-jobs.php --once >/dev/null
 ```
 
 For production, prefer the systemd service documented in the production deployment section. Use either systemd or cron, not both initially.
