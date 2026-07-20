@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#ffffff">
     <title><?= $escape($title) ?> · Ask Asio</title>
     <link rel="icon" href="/assets/images/ask-asio.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/assets/app.css?v=12">
+    <link rel="stylesheet" href="/assets/app.css?v=13">
     <script src="/assets/app.js?v=10" defer></script>
 </head>
 <body class="admin-body">
@@ -41,6 +41,10 @@
                 <a href="/admin/sources" <?= $currentSection === 'sources' ? 'aria-current="page"' : '' ?>>
                     <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-knowledge"></use></svg>
                     <span>Knowledge Base</span>
+                </a>
+                <a href="/admin/chatbots" <?= $currentSection === 'chatbots' ? 'aria-current="page"' : '' ?>>
+                    <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-chatbot"></use></svg>
+                    <span>Chatbots</span>
                 </a>
                 <a href="/admin/jobs" <?= $currentSection === 'jobs' ? 'aria-current="page"' : '' ?>>
                     <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-processing"></use></svg>

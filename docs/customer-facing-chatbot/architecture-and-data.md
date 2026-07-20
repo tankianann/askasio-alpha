@@ -123,28 +123,30 @@ Every publication is an immutable numbered snapshot containing the source draft 
 
 Publishing validates assigned sources through their active ready embedding-compatible versions, inserts the snapshot and child relations, and updates `chatbots.active_publication_id` in one transaction behind an unwired service. Public execution will read publications only, never mutable drafts. Published rows are append-only.
 
-### `chatbot_sessions`
+### `chatbot_sessions` (implemented)
 
 - internal ID, unique high-entropy public session ID, token hash, and safe token prefix;
 - `chatbot_id` and immutable `chatbot_publication_id`;
-- origin, bounded visitor/external reference, validated metadata JSON;
+- channel and exact normalized browser origin where applicable;
 - `is_test`, status, message count, input/output/provider token totals;
-- copied retention policy and configuration version;
+- copied message/expiry/retention policy and immutable publication binding;
 - started, last activity, absolute/idle expiry, completed, and deletion timestamps;
 - indexes for chatbot/date/status/test pagination and retention batches.
 
 Session creation returns a separate 256-bit bearer token once, stores only SHA-256 hash plus safe prefix, and authenticates it through the `Authorization` header. Browser state uses per-tab `sessionStorage`; tokens are unrecoverable and never appear in URLs/cookies/logs.
 
-### `chatbot_messages`
+### `chatbot_messages` (implemented)
 
 - internal ID and `session_id`;
 - role, content, status;
 - provider/model, latency, input/output/embedding/provider totals;
 - bounded retrieval/citation JSON, safe error code, request ID;
-- optional unique idempotency key scoped to session;
+- unique SHA-256 idempotency-key reservation scoped to session;
 - `created_at` plus indexes for chronological session reads and retention.
 
 Message content is persisted while the session is active. Retention choices are `0`, `7`, `30`, or `90` days, default `30`, measured from last activity and copied into the session. Zero-day sessions become purge-eligible on completion/expiry. Do not duplicate content in Activity or logs.
+
+Migration `20260720000015` implements both tables, publication/chatbot/message cascades, session/test/activity and expiry/retention indexes, chronological/pending message indexes, and unique idempotency/request/reply constraints. Internal services and repositories are present, but no HTTP route or execution path uses them yet.
 
 ### `chatbot_integration_credentials` (deferred milestone)
 

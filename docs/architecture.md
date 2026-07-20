@@ -6,7 +6,7 @@ Ask Asio is a standalone, single-administrator Retrieval-Augmented Generation ap
 
 The application deliberately uses PHP 8.3+, PDO, MySQL 8, Composer packages, server-rendered PHP templates, and vanilla JavaScript without an application framework. It is single-tenant today, but integration boundaries and repository/service layers make later provider or vector-store replacement possible.
 
-The customer-facing chatbot currently has an unwired domain/persistence foundation: identity, mutable drafts and source/origin assignments, immutable complete publications, active-version readiness validation, dependency protection, lifecycle validation, and bounded list projections. It has no chatbot routes, UI, sessions, or public behavior yet. See [Customer-facing chatbot source assignments and publication](customer-facing-chatbot/source-assignments-and-publication.md).
+The customer-facing chatbot now has an authenticated administrator surface plus an internal conversation-persistence boundary: publication-bound sessions/messages, hash-only bearer credentials, copied expiry/retention, and atomic idempotency/count reservations. It has no shared execution, preview, public API, or widget behavior yet. See [Conversation persistence](customer-facing-chatbot/conversation-persistence.md).
 
 ## System context
 
@@ -35,14 +35,14 @@ Only `public/` is web-accessible. Application code, `.env`, uploads, logs, cache
 | `app/Http/Middleware/` | Request IDs, security headers, sessions, admin authentication, CSRF, API authentication, rate limiting, and request audit logging. |
 | `app/Controllers/Admin/` | Thin server-rendered dashboard actions. |
 | `app/Controllers/Api/` | Health, retrieval, and grounded chat JSON endpoints. |
-| `app/Services/` | Application workflows for sources, jobs, API keys, activity retention/purge, list queries, provider quotas, and unwired chatbot domain lifecycle/configuration. |
+| `app/Services/` | Application workflows for sources, jobs, API keys, activity retention/purge, list queries, provider quotas, and chatbot lifecycle/configuration/conversation persistence. |
 | `app/Repositories/` | PDO persistence plus interfaces and allowlisted SQL query builders. Controllers do not contain raw SQL. |
 | `app/Ingestion/` | Extractor registry, URL/Markdown/PDF extraction, OCR, safety limits, semantic chunking, processing, and worker behavior. |
 | `app/Providers/` | OpenAI HTTP client and provider-independent embedding/chat interfaces. |
 | `app/RAG/` | Retrieval, cosine similarity, context selection, grounded prompting, answer validation, and embedding backfill. |
 | `resources/views/` | Escaped PHP templates with no persistence or domain workflows. |
 | `bin/` | Migrations, admin creation, workers, recovery, retention, embedding backfill, and retrieval diagnostics. |
-| `database/migrations/` | Ordered, forward-only schema history, including additive chatbot core tables. |
+| `database/migrations/` | Ordered, forward-only schema history, including additive chatbot publication and conversation tables. |
 
 ## Directory structure
 

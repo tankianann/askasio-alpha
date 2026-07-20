@@ -13,6 +13,7 @@ use App\Controllers\Admin\AuthController;
 use App\Controllers\Admin\ApiKeyController;
 use App\Controllers\Admin\ApiRequestLogController;
 use App\Controllers\Admin\DashboardController;
+use App\Controllers\Admin\ChatbotController;
 use App\Controllers\Admin\SourceController;
 use App\Controllers\Admin\JobController;
 use App\Database\Connection;
@@ -73,6 +74,15 @@ use App\Services\Api\ApiRequestLogPurgeRequestParser;
 use App\Services\Api\ApiRequestLogPurgeService;
 use App\Services\ApiKeys\ApiKeyService;
 use App\Services\ApiKeys\ApiKeyListQueryParser;
+use App\Services\Chatbots\ChatbotAdminFormParser;
+use App\Services\Chatbots\ChatbotDraftDefaults;
+use App\Services\Chatbots\ChatbotDraftValidator;
+use App\Services\Chatbots\ChatbotListQueryParser;
+use App\Services\Chatbots\ChatbotOriginNormalizer;
+use App\Services\Chatbots\ChatbotService;
+use App\Services\Chatbots\InstallationChatbotProviderConfigurationFactory;
+use App\Services\Chatbots\RandomChatbotPublicIdGenerator;
+use App\Domain\Chatbots\ChatbotProviderConfiguration;
 use App\Support\Config;
 use App\Support\ViewRenderer;
 use Dotenv\Dotenv;
@@ -167,6 +177,32 @@ $sourceUpdates = new SourceUpdateService(
     $queue,
 );
 $chatbots = new PdoChatbotRepository($connection);
+$chatbotProviderConfigured = true;
+
+try {
+    $chatbotProvider = (new InstallationChatbotProviderConfigurationFactory($config))->create();
+} catch (ConfigurationException) {
+    $chatbotProviderConfigured = false;
+    $chatbotProvider = new ChatbotProviderConfiguration(
+        'unconfigured',
+        'unconfigured',
+        'unconfigured',
+        'unconfigured',
+        null,
+    );
+}
+
+$chatbotService = new ChatbotService(
+    $chatbots,
+    new ChatbotDraftValidator(
+        $config->requireInt('rag.chat_maximum_top_k'),
+        $config->requireInt('rag.chat_maximum_question_characters'),
+    ),
+    new RandomChatbotPublicIdGenerator(),
+    $chatbotProvider,
+    new ChatbotOriginNormalizer(),
+    $chatbotProviderConfigured,
+);
 $sourceDeletion = new SourcePermanentDeletionService($sources, $sourceFileStorage, $logger, $chatbots);
 $router = new Router();
 $router->middleware(new RequestIdMiddleware());
@@ -201,6 +237,27 @@ $sourceController = new SourceController(
     $sourceDeletion,
     new SourceListQueryParser($timezone),
     new SourceHistoryQueryParser($timezone),
+);
+$chatbotController = new ChatbotController(
+    $chatbots,
+    $sources,
+    $chatbotService,
+    new ChatbotDraftDefaults(
+        $config->requireInt('rag.chat_default_top_k'),
+        (float) $config->get('rag.retrieval_minimum_similarity'),
+        $config->requireInt('rag.chat_maximum_question_characters'),
+    ),
+    new ChatbotAdminFormParser(),
+    new ChatbotListQueryParser($timezone),
+    new SourceListQueryParser($timezone),
+    $chatbotProvider,
+    $views,
+    $csrf,
+    $session,
+    $config->requireString('app.env'),
+    $chatbotProviderConfigured,
+    $config->requireInt('rag.chat_maximum_top_k'),
+    $config->requireInt('rag.chat_maximum_question_characters'),
 );
 $jobController = new JobController(
     $queue,
@@ -341,6 +398,7 @@ $registerRoutes(
     $adminAuthenticationMiddleware,
     $csrfMiddleware,
     $sourceController,
+    $chatbotController,
     $jobController,
     $apiKeyController,
     $apiRequestLogController,

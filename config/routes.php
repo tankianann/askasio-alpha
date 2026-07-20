@@ -7,6 +7,7 @@ use App\Controllers\Admin\AuthController;
 use App\Controllers\Admin\ApiKeyController;
 use App\Controllers\Admin\ApiRequestLogController;
 use App\Controllers\Admin\DashboardController;
+use App\Controllers\Admin\ChatbotController;
 use App\Controllers\Admin\SourceController;
 use App\Controllers\Admin\JobController;
 use App\Http\Middleware\AdminAuthenticationMiddleware;
@@ -29,6 +30,7 @@ return [
         AdminAuthenticationMiddleware $adminAuthenticationMiddleware,
         CsrfMiddleware $csrfMiddleware,
         SourceController $sourceController,
+        ChatbotController $chatbotController,
         JobController $jobController,
         ApiKeyController $apiKeyController,
         ApiRequestLogController $apiRequestLogController,
@@ -74,6 +76,7 @@ return [
                 $authController,
                 $dashboardController,
                 $sourceController,
+                $chatbotController,
                 $jobController,
                 $apiKeyController,
                 $apiRequestLogController,
@@ -93,6 +96,20 @@ return [
                 $router->post('/sources/{sourceId}/enable', [$sourceController, 'enable'], name: 'admin.sources.enable');
                 $router->post('/sources/{sourceId}/delete', [$sourceController, 'delete'], name: 'admin.sources.delete');
                 $router->post('/sources/{sourceId}/permanent-delete', [$sourceController, 'permanentDelete'], name: 'admin.sources.permanent_delete');
+                $router->get('/chatbots', [$chatbotController, 'index'], name: 'admin.chatbots.index');
+                $router->get('/chatbots/create', [$chatbotController, 'create'], name: 'admin.chatbots.create');
+                $router->post('/chatbots', [$chatbotController, 'store'], name: 'admin.chatbots.store');
+                $router->get('/chatbots/{chatbotId}/edit', [$chatbotController, 'edit'], name: 'admin.chatbots.edit');
+                $router->post('/chatbots/{chatbotId}', [$chatbotController, 'update'], name: 'admin.chatbots.update');
+                $router->post('/chatbots/{chatbotId}/origins', [$chatbotController, 'updateOrigins'], name: 'admin.chatbots.origins');
+                $router->post('/chatbots/{chatbotId}/sources/{sourceId}/assign', [$chatbotController, 'assignSource'], name: 'admin.chatbots.sources.assign');
+                $router->post('/chatbots/{chatbotId}/sources/{sourceId}/remove', [$chatbotController, 'removeSource'], name: 'admin.chatbots.sources.remove');
+                $router->post('/chatbots/{chatbotId}/publish', [$chatbotController, 'publish'], name: 'admin.chatbots.publish');
+                $router->post('/chatbots/{chatbotId}/disable', [$chatbotController, 'disable'], name: 'admin.chatbots.disable');
+                $router->post('/chatbots/{chatbotId}/enable', [$chatbotController, 'enable'], name: 'admin.chatbots.enable');
+                $router->post('/chatbots/{chatbotId}/archive', [$chatbotController, 'archive'], name: 'admin.chatbots.archive');
+                $router->post('/chatbots/{chatbotId}/rotate-public-id', [$chatbotController, 'rotatePublicId'], name: 'admin.chatbots.rotate_public_id');
+                $router->post('/chatbots/{chatbotId}/permanent-delete', [$chatbotController, 'permanentlyDelete'], name: 'admin.chatbots.permanent_delete');
                 $router->get('/jobs', $jobController, name: 'admin.jobs.index');
                 $router->get('/api-keys', [$apiKeyController, 'index'], name: 'admin.api_keys.index');
                 $router->get('/api-keys/create', [$apiKeyController, 'create'], name: 'admin.api_keys.create');

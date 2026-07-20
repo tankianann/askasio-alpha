@@ -24,6 +24,7 @@ final readonly class ChatbotService
         private ChatbotPublicIdGeneratorInterface $publicIds,
         private ChatbotProviderConfiguration $provider,
         private ChatbotOriginNormalizer $origins = new ChatbotOriginNormalizer(),
+        private bool $providerAvailable = true,
     ) {
         $this->validateProvider($provider);
     }
@@ -81,6 +82,10 @@ final readonly class ChatbotService
 
         [$name, $description] = $this->identity($name, $description);
 
+        if ($this->requireChatbot($id)->status === ChatbotStatus::Archived) {
+            throw new ValidationException('An archived chatbot draft cannot be changed.');
+        }
+
         return $this->chatbots->updateDraft(
             $id,
             $expectedRevision,
@@ -92,6 +97,10 @@ final readonly class ChatbotService
 
     public function publish(int $id): ChatbotPublication
     {
+        if (!$this->providerAvailable) {
+            throw new ValidationException('Configure the installation chat and embedding models before publishing.');
+        }
+
         $chatbot = $this->requireChatbot($id);
 
         if ($chatbot->status === ChatbotStatus::Archived) {
@@ -151,7 +160,11 @@ final readonly class ChatbotService
 
     public function disable(int $id): Chatbot
     {
-        $this->requireChatbot($id);
+        $chatbot = $this->requireChatbot($id);
+
+        if ($chatbot->status === ChatbotStatus::Archived) {
+            throw new ValidationException('An archived chatbot cannot be disabled.');
+        }
 
         return $this->chatbots->setStatus($id, ChatbotStatus::Disabled);
     }

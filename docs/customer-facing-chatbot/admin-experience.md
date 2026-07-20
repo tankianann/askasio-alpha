@@ -1,5 +1,9 @@
 # Admin experience
 
+## Implementation status
+
+Milestone 4 implements navigation, the chatbot list, private draft creation/editing, paginated source assignment, exact origins, publication, and immediate lifecycle actions. See [Administrator list and edit flow](admin-list-and-edit.md). Preview, conversations, analytics, integration credentials, embed code, and public behavior remain planned.
+
 ## General rules
 
 The chatbot area must use the current server-rendered dashboard, navigation, design tokens, escaped PHP views, authenticated session, and CSRF protection. Controllers remain thin; validation and workflows live in services; SQL remains in repositories.

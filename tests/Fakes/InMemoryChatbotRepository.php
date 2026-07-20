@@ -9,6 +9,9 @@ use App\Domain\Chatbots\ChatbotAssignments;
 use App\Domain\Chatbots\ChatbotDraft;
 use App\Domain\Chatbots\ChatbotListItem;
 use App\Domain\Chatbots\ChatbotListQuery;
+use App\Domain\Chatbots\ChatbotListSort;
+use App\Domain\Chatbots\ChatbotListStatus;
+use App\Domain\Chatbots\ChatbotPublicationFilter;
 use App\Domain\Chatbots\ChatbotProviderConfiguration;
 use App\Domain\Chatbots\ChatbotPublication;
 use App\Domain\Chatbots\ChatbotStatus;
@@ -20,6 +23,7 @@ use App\Exceptions\StaleChatbotDraftException;
 use App\Exceptions\UnchangedChatbotPublicationException;
 use App\Repositories\ChatbotRepositoryInterface;
 use App\Support\Pagination\PaginatedResult;
+use App\Support\SortDirection;
 use RuntimeException;
 
 final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
@@ -36,17 +40,72 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
     /** @var array<int, ChatbotSourceReadinessStatus> */
     private array $sourceStatuses = [];
 
-    public function defineSource(int $sourceId, ChatbotSourceReadinessStatus $status = ChatbotSourceReadinessStatus::Ready): void
+    /** @var array<int, string> */
+    private array $sourceNames = [];
+
+    public function defineSource(
+        int $sourceId,
+        ChatbotSourceReadinessStatus $status = ChatbotSourceReadinessStatus::Ready,
+        ?string $name = null,
+    ): void
     {
         $this->sourceStatuses[$sourceId] = $status;
+        $this->sourceNames[$sourceId] = $name ?? 'Source ' . $sourceId;
     }
 
     public function paginate(ChatbotListQuery $query): PaginatedResult
     {
-        $items = array_map(
-            fn (Chatbot $chatbot): ChatbotListItem => $this->listItem($chatbot),
-            array_values($this->chatbots),
-        );
+        $chatbots = array_values(array_filter($this->chatbots, function (Chatbot $chatbot) use ($query): bool {
+            if ($query->search !== null
+                && mb_stripos($chatbot->name, $query->search) === false
+                && mb_stripos($chatbot->publicId, $query->search) === false) {
+                return false;
+            }
+
+            if ($query->status !== ChatbotListStatus::All && $chatbot->status->value !== $query->status->value) {
+                return false;
+            }
+
+            $publication = $this->findActivePublication($chatbot->id);
+
+            if ($query->model !== null && $publication?->providerConfiguration->chatModel !== $query->model) {
+                return false;
+            }
+
+            if ($query->sourceSearch !== null) {
+                $matchesSource = false;
+
+                foreach ($chatbot->assignments->sourceIds as $sourceId) {
+                    if (mb_stripos($this->sourceNames[$sourceId] ?? '', $query->sourceSearch) !== false) {
+                        $matchesSource = true;
+                        break;
+                    }
+                }
+
+                if (!$matchesSource) {
+                    return false;
+                }
+            }
+
+            return match ($query->publication) {
+                ChatbotPublicationFilter::All => true,
+                ChatbotPublicationFilter::Draft => !$chatbot->isPublished(),
+                ChatbotPublicationFilter::Published => $chatbot->isPublished(),
+            };
+        }));
+        $direction = $query->direction === SortDirection::Ascending ? 1 : -1;
+        usort($chatbots, function (Chatbot $left, Chatbot $right) use ($query, $direction): int {
+            $comparison = match ($query->sort) {
+                ChatbotListSort::Updated => strcmp($left->updatedAt, $right->updatedAt),
+                ChatbotListSort::Name => strcasecmp($left->name, $right->name),
+                ChatbotListSort::Status => strcmp($left->status->value, $right->status->value),
+                ChatbotListSort::Publication => ($this->findActivePublication($left->id)?->publicationNumber ?? 0)
+                    <=> ($this->findActivePublication($right->id)?->publicationNumber ?? 0),
+            };
+
+            return ($comparison !== 0 ? $comparison : $left->id <=> $right->id) * $direction;
+        });
+        $items = array_map(fn (Chatbot $chatbot): ChatbotListItem => $this->listItem($chatbot), $chatbots);
         $page = $query->pagination->clampToTotal(count($items));
 
         return new PaginatedResult(
@@ -79,6 +138,19 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
         return $chatbot?->activePublicationId === null
             ? null
             : ($this->publications[$chatbot->activePublicationId] ?? null);
+    }
+
+    public function sourceReadiness(array $sourceIds, ChatbotProviderConfiguration $provider): array
+    {
+        return array_map(
+            fn (int $sourceId): ChatbotSourceReadiness => new ChatbotSourceReadiness(
+                $sourceId,
+                $this->sourceNames[$sourceId] ?? 'Source ' . $sourceId,
+                $this->sourceStatuses[$sourceId] ?? ChatbotSourceReadinessStatus::Missing,
+                isset($this->sourceStatuses[$sourceId]) ? $sourceId * 10 : null,
+            ),
+            $sourceIds,
+        );
     }
 
     public function create(string $publicId, string $name, ?string $description, ChatbotDraft $draft): Chatbot
@@ -198,15 +270,7 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
             );
         }
 
-        $readiness = array_map(
-            fn (int $sourceId): ChatbotSourceReadiness => new ChatbotSourceReadiness(
-                $sourceId,
-                'Source ' . $sourceId,
-                $this->sourceStatuses[$sourceId] ?? ChatbotSourceReadinessStatus::Missing,
-                isset($this->sourceStatuses[$sourceId]) ? $sourceId * 10 : null,
-            ),
-            $assignments->sourceIds,
-        );
+        $readiness = $this->sourceReadiness($assignments->sourceIds, $provider);
 
         foreach ($readiness as $source) {
             if (!$source->isReady()) {

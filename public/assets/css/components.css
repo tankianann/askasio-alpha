@@ -19,6 +19,12 @@
     transform: translateY(-1px);
 }
 
+.button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+}
+
 .button-primary {
     color: #fff;
     background: var(--accent);
@@ -267,7 +273,10 @@ tbody tr:last-child td {
 .form-group input[type="text"],
 .form-group input[type="url"],
 .form-group input[type="datetime-local"],
-.form-group input[type="file"] {
+.form-group input[type="file"],
+.form-group input[type="number"],
+.form-group textarea,
+.form-group select {
     width: 100%;
     min-height: 3.05rem;
     padding: 0.72rem 0.9rem;
@@ -278,13 +287,75 @@ tbody tr:last-child td {
     transition: border-color var(--transition), box-shadow var(--transition);
 }
 
+.form-group textarea {
+    min-height: 6rem;
+    resize: vertical;
+    line-height: 1.55;
+}
+
+.form-group select {
+    appearance: auto;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.form-grid-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.form-panel fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.form-panel h3 {
+    margin: 0 0 1.25rem;
+    padding-top: 0.25rem;
+    font-size: 1.05rem;
+}
+
+.form-panel .form-actions + h3,
+.form-panel .form-group + h3,
+.form-panel .form-grid + h3 {
+    margin-top: 1.75rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--line);
+}
+
+.checkbox-group {
+    align-content: center;
+    min-height: 4.7rem;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.checkbox-group input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--accent);
+}
+
 .form-stack input:hover,
-.form-group input:hover {
+.form-group input:hover,
+.form-group textarea:hover,
+.form-group select:hover {
     border-color: #aebdca;
 }
 
 .form-stack input:focus,
-.form-group input:focus {
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
     border-color: var(--accent);
     outline: 0;
     box-shadow: 0 0 0 4px var(--accent-ring);

@@ -2,6 +2,23 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot conversation persistence — 2026-07-20
+
+- Added publication-bound session/message domain records and migration `20260720000015` without tenant/account/provider-credential fields.
+- Added independent 256-bit public session IDs and bearer tokens with only a safe prefix and SHA-256 token hash persisted.
+- Copied message/idle/absolute/`0|7|30|90` retention policy into each session with immutable production/test classification, status, counts, usage, and retention indexes.
+- Added transactional session locks, unique idempotency/request/reply constraints, deterministic in-progress/replay/conflict behavior, atomic user-turn counts, and assistant outcome/usage accounting.
+- Added bounded expiry/purge primitives, terminal retention calculation, cascading deletion, unit tests, opt-in real-MySQL tests, and deployment/forward-repair documentation.
+- Added no route, public endpoint, CORS/browser storage, execution/provider call, preview UI, widget, scheduler, or integration credential.
+
+## Customer-facing chatbot administrator flow — 2026-07-20
+
+- Added authenticated/CSRF-protected chatbot navigation, paginated list, private draft creation, and bounded edit sections.
+- Added server-side status/publication/model/source filters, allowlisted sorting, canonical pages, and safe filtered/unfiltered states.
+- Added a paginated source picker with active-version readiness, exact-origin editing, publication, enable/disable, public-ID rotation, archive, and confirmed deletion controls.
+- Added safe provider-unconfigured behavior that preserves draft access while blocking publication and hiding credentials.
+- Added controller/query/form/lifecycle tests and living-spec documentation; no migration or public chatbot behavior was added.
+
 ## Customer-facing chatbot source assignments/publication — 2026-07-20
 
 - Added mutable draft source/origin relations sharing the draft's optimistic revision and immutable publication source/origin snapshots.

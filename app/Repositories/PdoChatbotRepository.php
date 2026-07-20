@@ -84,6 +84,11 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface, SourceDe
         return is_array($row) ? $this->hydratePublication($row) : null;
     }
 
+    public function sourceReadiness(array $sourceIds, ChatbotProviderConfiguration $provider): array
+    {
+        return $this->resolveSourceReadiness($this->connection->pdo(), $sourceIds, $provider, false);
+    }
+
     public function create(string $publicId, string $name, ?string $description, ChatbotDraft $draft): Chatbot
     {
         return $this->transaction(function (PDO $pdo) use ($publicId, $name, $description, $draft): Chatbot {
@@ -269,7 +274,7 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface, SourceDe
                 );
             }
 
-            $readiness = $this->sourceReadiness($pdo, $assignments->sourceIds, $provider, true);
+            $readiness = $this->resolveSourceReadiness($pdo, $assignments->sourceIds, $provider, true);
 
             $hasUnreadySource = false;
 
@@ -577,7 +582,7 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface, SourceDe
     }
 
     /** @param list<int> $sourceIds @return list<ChatbotSourceReadiness> */
-    private function sourceReadiness(
+    private function resolveSourceReadiness(
         PDO $pdo,
         array $sourceIds,
         ChatbotProviderConfiguration $provider,

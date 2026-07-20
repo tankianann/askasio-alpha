@@ -107,6 +107,13 @@ final class ChatbotServiceTest extends TestCase
         self::assertSame(ChatbotStatus::Active, $service->enable($chatbot->id)->status);
         self::assertSame(ChatbotStatus::Archived, $service->archive($chatbot->id)->status);
 
+        try {
+            $service->disable($chatbot->id);
+            self::fail('An archived chatbot must not return to a disabled state.');
+        } catch (ValidationException) {
+            self::assertSame(ChatbotStatus::Archived, $repository->findById($chatbot->id)?->status);
+        }
+
         $service->permanentlyDelete($chatbot->id);
         self::assertNull($repository->findById($chatbot->id));
     }

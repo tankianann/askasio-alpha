@@ -19,6 +19,9 @@ erDiagram
     CHATBOTS ||--|| CHATBOT_DRAFTS : edits
     CHATBOTS ||--o{ CHATBOT_PUBLICATIONS : publishes
     CHATBOTS o|--o| CHATBOT_PUBLICATIONS : active_publication
+    CHATBOTS ||--o{ CHATBOT_SESSIONS : owns
+    CHATBOT_PUBLICATIONS ||--o{ CHATBOT_SESSIONS : binds
+    CHATBOT_SESSIONS ||--o{ CHATBOT_MESSAGES : contains
 ```
 
 The API Activity and provider-quota relationships to API keys are deliberately logical rather than foreign-key constrained where historical numeric correlation must survive key deletion.
@@ -128,6 +131,16 @@ This table is not publicly reachable yet. Publication source readiness is implem
 
 Immutable authorized-scope children of a numbered publication. They cascade only when publication history is permanently deleted. Source lookup indexes support dependency reporting; source foreign keys restrict deletion so publication history cannot silently lose its scope.
 
+### `chatbot_sessions`
+
+Publication-bound conversation identity and lifecycle. Each row stores a unique 256-bit public ID, only the SHA-256 hash and safe prefix of a separate 256-bit bearer token, chatbot/publication ownership, channel/origin, immutable production/test classification, status, user-turn count, copied message/expiry/retention limits, usage totals, and activity/expiry/terminal/purge timestamps. There is no tenant/account field.
+
+Indexes support hash/public-ID lookup, chatbot/test/activity queries, publication dependencies, idle and absolute expiry batches, and purge-eligibility batches. Sessions cascade only with permanent chatbot/publication deletion or explicit/retention deletion.
+
+### `chatbot_messages`
+
+Durable user turns and assistant outcomes. Rows store role/status, bounded content and its hash, session-scoped idempotency-key hash, request UUID, actual provider/model/latency/usage, bounded retrieval/citation JSON, safe failure code, and chronological/completion timestamps. Unique constraints enforce one reservation per session/idempotency key, one role/request pair, and one assistant reply per user message. Messages cascade with their session.
+
 ## Critical transactional boundaries
 
 - Source/version creation and ingestion-job insertion are one transaction.
@@ -140,6 +153,9 @@ Immutable authorized-scope children of a numbered publication. They cascade only
 - Chatbot identity edits and optimistic draft revision updates are one transaction.
 - Chatbot assignment replacement locks identity/draft, replaces source/origin relations, and increments the common optimistic revision atomically.
 - Chatbot publication locks identity/draft, verifies assignments and active-version readiness, inserts an immutable numbered snapshot plus relation rows, and updates the active pointer atomically.
+- Chatbot session creation locks and copies one active immutable publication's limits, expiry, retention, and origin scope; no mutable draft is read.
+- User-turn acceptance locks the session and atomically reserves idempotency, enforces expiry/count limits, inserts the pending message, increments the count, and advances activity.
+- Assistant completion/failure and session usage/activity aggregates commit together; bounded expiry/purge batches use `SKIP LOCKED`.
 - Permanent source deletion checks chatbot draft/active/history dependencies before staging files or deleting rows.
 - Permanent chatbot deletion requires archive, clears the cyclic active pointer, then cascades drafts/publications.
 
@@ -167,6 +183,7 @@ Current migration history:
 | `20260720000012` | Atomic provider quota buckets/reservations. |
 | `20260720000013` | Chatbot identity, mutable validated drafts, and immutable core publications. |
 | `20260720000014` | Mutable chatbot source/origin assignments and immutable publication scope snapshots. |
+| `20260720000015` | Publication-bound chatbot sessions/messages, hash-only authorization, idempotency, expiry, usage, and retention indexes. |
 
 ## Index and query guidance
 
@@ -177,7 +194,7 @@ Current migration history:
 | API keys | unique secret hash, status/expiry, creation/name/last-use order. |
 | API Activity | unique request ID, creation, key+creation, status+creation, endpoint+creation, duration+creation. |
 | Quotas | unique scope/identifier/period, expiry status for active reservations. |
-| Chatbots | unique public ID, status+updated, updated, name, unique publication number, chatbot+publication time, source-to-draft/publication dependency lookups. |
+| Chatbots | unique public/session IDs and token hash, status+updated, updated, name, unique publication number, chatbot+publication time, source dependencies, session test/activity, expiry, retention, message chronology/idempotency/pending outcomes. |
 
 Admin result queries filter before pagination, select only display columns, use allowlisted sort expressions, and include deterministic ID tie-breakers. Offset pagination is appropriate for the single administrator and exact totals, but deep offsets and `COUNT(*)` become expensive at very large row counts.
 
@@ -191,7 +208,8 @@ Run `ANALYZE TABLE` after large imports and use `EXPLAIN ANALYZE` with productio
 - Quota period buckets: retained; expected growth is small per key/day/month but currently has no purge command.
 - Sources, versions, chunks, files, and their jobs: retained through soft deletion and erased only by permanent source deletion.
 - Ingestion jobs not tied to permanently deleted sources: no age-based retention yet.
-- Chatbot drafts/publications: retained until confirmed permanent chatbot deletion; no sessions/messages exist yet.
+- Chatbot drafts/publications: retained until confirmed permanent chatbot deletion.
+- Chatbot conversations: content persists while active; copied `0|7|30|90` retention begins at terminal state and is measured from last activity. Eligible hard deletion cascades messages. Maintenance/UI wiring is not implemented yet.
 - Backups have an independent lifecycle.
 
 ## Scaling limits and future changes

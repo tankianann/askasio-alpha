@@ -12,6 +12,7 @@ use App\Domain\Chatbots\ChatbotListQuery;
 use App\Domain\Chatbots\ChatbotProviderConfiguration;
 use App\Domain\Chatbots\ChatbotPublication;
 use App\Domain\Chatbots\ChatbotStatus;
+use App\Domain\Chatbots\ChatbotSourceReadiness;
 use App\Support\Pagination\PaginatedResult;
 
 interface ChatbotRepositoryInterface
@@ -24,6 +25,9 @@ interface ChatbotRepositoryInterface
     public function findByPublicId(string $publicId): ?Chatbot;
 
     public function findActivePublication(int $chatbotId): ?ChatbotPublication;
+
+    /** @param list<int> $sourceIds @return list<ChatbotSourceReadiness> */
+    public function sourceReadiness(array $sourceIds, ChatbotProviderConfiguration $provider): array;
 
     public function create(string $publicId, string $name, ?string $description, ChatbotDraft $draft): Chatbot;
 

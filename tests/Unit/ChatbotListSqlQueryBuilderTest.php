@@ -24,6 +24,8 @@ final class ChatbotListSqlQueryBuilderTest extends TestCase
             ChatbotPublicationFilter::Published,
             ChatbotListSort::Publication,
             SortDirection::Ascending,
+            'gpt-test-chat',
+            'Handbook',
         );
         $builder = new ChatbotListSqlQueryBuilder();
         $where = $builder->where($query);
@@ -31,9 +33,12 @@ final class ChatbotListSqlQueryBuilderTest extends TestCase
         self::assertStringContainsString('LOCATE(:search_name, c.name)', $where['sql']);
         self::assertStringContainsString('c.status = :status', $where['sql']);
         self::assertStringContainsString('c.active_publication_id IS NOT NULL', $where['sql']);
+        self::assertStringContainsString('cp.chat_model = :chat_model', $where['sql']);
+        self::assertStringContainsString('chatbot_draft_sources filter_cds', $where['sql']);
         self::assertSame("Support%'", $where['parameters']['search_name']);
+        self::assertSame('gpt-test-chat', $where['parameters']['chat_model']);
+        self::assertSame('Handbook', $where['parameters']['source_name']);
         self::assertStringNotContainsString("Support%'", $where['sql']);
         self::assertSame(' ORDER BY cp.publication_number ASC, c.id ASC', $builder->orderBy($query));
     }
 }
-

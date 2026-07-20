@@ -43,6 +43,8 @@ final class CleanDatabaseMigrationTest extends DatabaseIntegrationTestCase
             'chatbot_publications',
             'chatbot_publication_origins',
             'chatbot_publication_sources',
+            'chatbot_messages',
+            'chatbot_sessions',
             'chatbots',
             'ingestion_jobs',
             'provider_quota_buckets',

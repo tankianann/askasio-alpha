@@ -267,6 +267,28 @@
     padding: 1.25rem;
 }
 
+.chatbot-form {
+    max-width: 68rem;
+}
+
+.chatbot-metadata {
+    margin-bottom: 2rem;
+}
+
+.source-picker,
+.lifecycle-panel {
+    max-width: none;
+    margin-top: 1.25rem;
+}
+
+.compact-empty {
+    padding: 2rem;
+}
+
+.compact-empty h3 {
+    margin: 0 0 0.35rem;
+}
+
 .error-cell {
     max-width: 24rem;
     overflow-wrap: anywhere;
@@ -704,6 +726,8 @@
 
     .status-grid,
     .choice-grid,
+    .form-grid,
+    .form-grid-three,
     .metadata-panel,
     .definition-grid,
     .metric-grid {

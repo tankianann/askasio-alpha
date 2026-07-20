@@ -29,6 +29,21 @@ final class ChatbotListSqlQueryBuilder
             $parameters['status'] = $query->status->value;
         }
 
+        if ($query->model !== null) {
+            $clauses[] = 'cp.chat_model = :chat_model';
+            $parameters['chat_model'] = $query->model;
+        }
+
+        if ($query->sourceSearch !== null) {
+            $clauses[] = 'EXISTS (
+                SELECT 1
+                FROM chatbot_draft_sources filter_cds
+                INNER JOIN sources filter_s ON filter_s.id = filter_cds.source_id
+                WHERE filter_cds.chatbot_id = c.id AND LOCATE(:source_name, filter_s.name) > 0
+            )';
+            $parameters['source_name'] = $query->sourceSearch;
+        }
+
         match ($query->publication) {
             ChatbotPublicationFilter::All => null,
             ChatbotPublicationFilter::Draft => $clauses[] = 'c.active_publication_id IS NULL',
@@ -54,4 +69,3 @@ final class ChatbotListSqlQueryBuilder
         return sprintf(' ORDER BY %s %s, c.id %s', $column, $direction, $direction);
     }
 }
-

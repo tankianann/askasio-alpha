@@ -58,15 +58,19 @@ Outcome: migration `20260720000013`, chatbot domain records/enums, mutable valid
 
 Outcome: migration `20260720000014`, mutable normalized draft source/origin relations on the shared optimistic revision, immutable publication relation snapshots, assignment-inclusive hashes, active-version ready/model/dimension validation, atomic publication activation, source dependency/deletion protection, and unit/opt-in real-MySQL scope tests. No chatbot route, UI, session, public API, widget, or provider credential storage was added. See [Source assignments and publication](source-assignments-and-publication.md).
 
-### 4 — Admin list and create/edit flow
+### 4 — Admin list and create/edit flow (complete)
 
 - Add navigation, paginated list, filters/sort, bounded form sections, validation, lifecycle actions, and safe empty/error states.
 - Keep unsupported settings out of the UI.
 
-### 5 — Conversation sessions/messages
+Outcome: authenticated/CSRF-protected chatbot navigation and routes, bounded SQL pagination/search/status/publication/model/source filters, allowlisted sorting, private draft creation, validated configuration sections, paginated source picker, origin editing, publication and lifecycle controls, provider-degraded behavior, safe empty/error states, and controller/query tests. No migration, public chatbot endpoint, session, preview, widget, conversation UI, analytics, or credential storage was added. See [Administrator list and edit flow](admin-list-and-edit.md).
+
+### 5 — Conversation sessions/messages (complete)
 
 - Add session/message persistence, 256-bit hash-only authorization tokens, publication binding, copied `0|7|30|90` retention, expiry/status/counts, test classification, idempotency reservation, concurrency protection, migrations, and retention indexes.
 - Do not expose a public endpoint yet.
+
+Outcome: migration `20260720000015`, publication-bound session/message records, independent 256-bit public IDs and hash-only bearer tokens, copied expiry/limit/retention policy, immutable test classification, atomic idempotency/user-turn reservation, completion/failure usage accounting, bounded expiry/purge operations, retention indexes, and unit/opt-in real-MySQL tests. No public route, browser storage, execution/provider call, preview UI, scheduler, widget, or integration credential was added. See [Conversation session and message persistence](conversation-persistence.md).
 
 ### 6 — Shared chat execution service
 
@@ -127,4 +131,4 @@ Outcome: migration `20260720000014`, mutable normalized draft source/origin rela
 
 ## First implementation recommendation
 
-After review of milestone 3, begin with milestone 4 only: the administrator list and bounded create/edit/publication workflow over the implemented service boundary. Sessions and public routes remain later milestones.
+After review of milestone 5, begin with milestone 6 only: the shared chat execution service. Public routes remain later milestones.
