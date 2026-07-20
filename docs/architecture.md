@@ -6,6 +6,8 @@ Ask Asio is a standalone, single-administrator Retrieval-Augmented Generation ap
 
 The application deliberately uses PHP 8.3+, PDO, MySQL 8, Composer packages, server-rendered PHP templates, and vanilla JavaScript without an application framework. It is single-tenant today, but integration boundaries and repository/service layers make later provider or vector-store replacement possible.
 
+The customer-facing chatbot currently has a domain/persistence foundation only: identity, mutable drafts, immutable core publications, lifecycle validation, and bounded list projections. It has no routes, UI, sessions, source/origin assignments, or public behavior yet. See [Customer-facing chatbot core persistence](customer-facing-chatbot/core-domain-persistence.md).
+
 ## System context
 
 ```mermaid
@@ -33,14 +35,14 @@ Only `public/` is web-accessible. Application code, `.env`, uploads, logs, cache
 | `app/Http/Middleware/` | Request IDs, security headers, sessions, admin authentication, CSRF, API authentication, rate limiting, and request audit logging. |
 | `app/Controllers/Admin/` | Thin server-rendered dashboard actions. |
 | `app/Controllers/Api/` | Health, retrieval, and grounded chat JSON endpoints. |
-| `app/Services/` | Application workflows for sources, jobs, API keys, activity retention/purge, list queries, and provider quotas. |
+| `app/Services/` | Application workflows for sources, jobs, API keys, activity retention/purge, list queries, provider quotas, and unwired chatbot domain lifecycle/configuration. |
 | `app/Repositories/` | PDO persistence plus interfaces and allowlisted SQL query builders. Controllers do not contain raw SQL. |
 | `app/Ingestion/` | Extractor registry, URL/Markdown/PDF extraction, OCR, safety limits, semantic chunking, processing, and worker behavior. |
 | `app/Providers/` | OpenAI HTTP client and provider-independent embedding/chat interfaces. |
 | `app/RAG/` | Retrieval, cosine similarity, context selection, grounded prompting, answer validation, and embedding backfill. |
 | `resources/views/` | Escaped PHP templates with no persistence or domain workflows. |
 | `bin/` | Migrations, admin creation, workers, recovery, retention, embedding backfill, and retrieval diagnostics. |
-| `database/migrations/` | Ordered, forward-only schema history. |
+| `database/migrations/` | Ordered, forward-only schema history, including additive chatbot core tables. |
 
 ## Directory structure
 
@@ -229,4 +231,3 @@ The production baseline is Apache + PHP-FPM for web requests, MySQL 8 on a priva
 4. Replace heuristic token estimation with a model-aware tokenizer and add an evaluation harness before threshold/chunker changes.
 5. Multi-tenancy requires schema-level ownership (`tenant_id`/`account_id`) on every resource and cannot be added only at the controller layer.
 6. If asynchronous workloads expand beyond ingestion, generalize the MySQL queue carefully rather than introducing Redis prematurely.
-

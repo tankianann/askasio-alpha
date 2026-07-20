@@ -16,6 +16,9 @@ erDiagram
     API_KEYS o|--o{ API_REQUEST_LOGS : correlates
     API_KEYS o|--o{ PROVIDER_QUOTA_BUCKETS : "logical identifier"
     API_KEYS o|--o{ PROVIDER_QUOTA_RESERVATIONS : "logical identifier"
+    CHATBOTS ||--|| CHATBOT_DRAFTS : edits
+    CHATBOTS ||--o{ CHATBOT_PUBLICATIONS : publishes
+    CHATBOTS o|--o| CHATBOT_PUBLICATIONS : active_publication
 ```
 
 The API Activity and provider-quota relationships to API keys are deliberately logical rather than foreign-key constrained where historical numeric correlation must survive key deletion.
@@ -99,6 +102,24 @@ Transient pre-provider-call reservations containing ID, API-key ID, operation, r
 
 The schema retains nullable actual/status/reconciled fields from its initial design although current finalization deletes rows; a future forward migration may simplify them after compatibility review.
 
+### `chatbots`
+
+Single-installation chatbot identity and immediate lifecycle control: unique high-entropy public ID, internal name/description, `active|disabled|archived` status, nullable active-publication pointer, and UTC timestamps. A null pointer means unpublished. No tenant/account/provider-secret fields exist.
+
+Indexes support status/updated, updated, name, and unique public-ID access. The active pointer is added after the publication table exists and uses `ON DELETE SET NULL`.
+
+### `chatbot_drafts`
+
+One mutable draft per chatbot with schema version, optimistic revision, normalized grounding/session/privacy settings, validated presentation/appearance JSON, and timestamp. It cascades with chatbot identity. Checks enforce positive limits, `0..1` similarity, expiry ordering, citation boolean, and `0|7|30|90` retention.
+
+Draft writes compare the expected revision and increment it atomically, preventing stale administrator forms from overwriting newer work.
+
+### `chatbot_publications`
+
+Immutable numbered core configuration snapshots. Each copies the complete validated draft, canonical configuration hash, source draft revision, and effective installation chat/embedding provider/model/dimensions. `(chatbot_id, publication_number)` is unique; records cascade only with permanent chatbot deletion.
+
+This core table is not publicly reachable yet. Source/origin snapshot relations and readiness/configuration-staleness validation arrive before any public execution.
+
 ## Critical transactional boundaries
 
 - Source/version creation and ingestion-job insertion are one transaction.
@@ -107,6 +128,10 @@ The schema retains nullable actual/status/reconciled fields from its initial des
 - API Activity manual/scheduled purges use a database advisory lock and bounded deletes.
 - Quota reservation locks all applicable global/key period buckets and inserts a transient reservation atomically.
 - Quota reconciliation adjusts reserved/consumed counts and deletes the reservation atomically.
+- Chatbot identity plus initial draft creation is one transaction.
+- Chatbot identity edits and optimistic draft revision updates are one transaction.
+- Core chatbot publication locks identity/draft, verifies revision, inserts an immutable numbered snapshot, and updates the active pointer atomically.
+- Permanent chatbot deletion requires archive, clears the cyclic active pointer, then cascades drafts/publications.
 
 ## Migration policy
 
@@ -130,6 +155,7 @@ Current migration history:
 | `20260719000010` | Dashboard list indexes. |
 | `20260719000011` | Per-source job-history index. |
 | `20260720000012` | Atomic provider quota buckets/reservations. |
+| `20260720000013` | Chatbot identity, mutable validated drafts, and immutable core publications. |
 
 ## Index and query guidance
 
@@ -140,6 +166,7 @@ Current migration history:
 | API keys | unique secret hash, status/expiry, creation/name/last-use order. |
 | API Activity | unique request ID, creation, key+creation, status+creation, endpoint+creation, duration+creation. |
 | Quotas | unique scope/identifier/period, expiry status for active reservations. |
+| Chatbots | unique public ID, status+updated, updated, name, unique publication number, chatbot+publication time. |
 
 Admin result queries filter before pagination, select only display columns, use allowlisted sort expressions, and include deterministic ID tie-breakers. Offset pagination is appropriate for the single administrator and exact totals, but deep offsets and `COUNT(*)` become expensive at very large row counts.
 
@@ -153,6 +180,7 @@ Run `ANALYZE TABLE` after large imports and use `EXPLAIN ANALYZE` with productio
 - Quota period buckets: retained; expected growth is small per key/day/month but currently has no purge command.
 - Sources, versions, chunks, files, and their jobs: retained through soft deletion and erased only by permanent source deletion.
 - Ingestion jobs not tied to permanently deleted sources: no age-based retention yet.
+- Chatbot drafts/publications: retained until confirmed permanent chatbot deletion; no sessions/messages exist yet.
 - Backups have an independent lifecycle.
 
 ## Scaling limits and future changes
@@ -166,4 +194,3 @@ Other triggers:
 - Consider denormalizing `source_id` onto jobs only if per-source history query plans become material.
 - Add query-embedding caching to reduce repeat provider calls.
 - Review `max_allowed_packet`, InnoDB buffer sizing, JSON footprint, and extracted-text duplication for large corpora.
-

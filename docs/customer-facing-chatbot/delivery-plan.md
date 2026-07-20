@@ -43,11 +43,13 @@ Deliverable: documentation only.
 
 Outcome: ADRs 027–031 and [Vertical-slice design](vertical-slice-design.md) establish immutable publication snapshots, hash-only per-tab session tokens, bounded transcript retention/hard deletion, separate integration credentials, normalized settings, and installation-wide model selection. No migration was created.
 
-### 2 — Core chatbot domain and persistence
+### 2 — Core chatbot domain and persistence (complete)
 
 - Add chatbot identity and mutable draft persistence, public ID generation/rotation, optimistic draft revisions, repository/service validation, list projections, migrations, and tests.
 - Use the installation provider/model; do not add provider credential storage.
 - Document schema, publication behavior, migration, and forward repair.
+
+Outcome: migration `20260720000013`, chatbot domain records/enums, mutable validated drafts with optimistic revision, immutable core publications, installation provider/model snapshots, `cb_` public ID rotation, PDO/in-memory repositories, lifecycle service, bounded list projections, and unit/real-MySQL tests. No route, UI, bootstrap wiring, source/origin relation, session, or provider credential storage was added. See [Core domain and persistence](core-domain-persistence.md).
 
 ### 3 — Source assignments and publication
 
@@ -123,4 +125,4 @@ Outcome: ADRs 027–031 and [Vertical-slice design](vertical-slice-design.md) es
 
 ## First implementation recommendation
 
-After review of ADRs 027–031 and the vertical-slice design, begin with milestone 2 only: chatbot identity and mutable draft persistence. Publication activation belongs to milestone 3, and sessions/public routes remain later milestones. No migration should begin until the decisions from milestone 1 are approved.
+After review of milestone 2, begin with milestone 3 only: mutable source/origin assignments plus immutable publication relations and readiness/configuration-staleness validation. Sessions and public routes remain later milestones.

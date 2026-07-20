@@ -92,9 +92,11 @@ The invariant must be tested at repository, service, and HTTP levels: a session 
 - `failed`: safe failure category recorded; partial assistant text is not treated as complete.
 - `cancelled`: reserved for explicitly supported cancellation/stream interruption.
 
-## Proposed schema
+## Current and proposed schema
 
 This schema is intentionally single-tenant. It contains no `tenant_id`, `account_id`, `workspace_id`, `created_by`, or `updated_by` because there is one administrator and no ownership boundary those columns could enforce.
+
+Milestone 2 implements `chatbots`, `chatbot_drafts`, and core `chatbot_publications`. Relation/session/message/credential tables below remain planned.
 
 ### `chatbots`
 
@@ -105,21 +107,21 @@ This schema is intentionally single-tenant. It contains no `tenant_id`, `account
 | `name`, `description` | Internal administration fields. |
 | `status` | Immediate availability: `active`, `disabled`, or `archived`. |
 | `active_publication_id` | Nullable pointer to the only production configuration. |
-| `created_at`, `updated_at`, `deleted_at` | UTC lifecycle timestamps. |
+| `created_at`, `updated_at`, `archived_at` | UTC lifecycle timestamps. |
 
 Draft/published state is derived from the active pointer rather than mixed into `status`.
 
-### `chatbot_drafts` and draft relations
+### `chatbot_drafts` (implemented) and draft relations (planned)
 
 The one-to-one draft stores a schema version, optimistic revision, normalized runtime/security/privacy fields, validated presentation/appearance JSON, and update timestamp. Mutable `chatbot_draft_sources` and `chatbot_draft_origins` relations have unique `(chatbot_id, source_id)` and `(chatbot_id, normalized_origin)` constraints.
 
 Frequently filtered, constrained, or security-critical settings are normalized. Only bounded presentation/appearance values use schema-versioned JSON. No source content or embeddings are duplicated.
 
-### `chatbot_publications` and publication relations
+### `chatbot_publications` (core implemented) and publication relations (planned)
 
-Every publication is an immutable numbered snapshot containing the source draft revision, configuration schema/hash, all normalized settings, bounded presentation/appearance JSON, effective installation provider/chat/embedding model metadata, and publication time. `chatbot_publication_sources` and `chatbot_publication_origins` freeze the authorized relations for that version.
+Every publication is an immutable numbered snapshot containing the source draft revision, configuration schema/hash, all normalized settings, bounded presentation/appearance JSON, effective installation chat/embedding provider/model metadata, and publication time. The core snapshot and active pointer are implemented. Planned `chatbot_publication_sources` and `chatbot_publication_origins` will freeze the authorized relations for that version.
 
-Publishing inserts the snapshot and child rows and updates `chatbots.active_publication_id` in one transaction. Public execution reads these tables only, never mutable drafts. Published rows are append-only.
+Core publishing currently inserts the snapshot and updates `chatbots.active_publication_id` in one transaction behind an unwired service. Milestone 3 adds child relation inserts/readiness checks to that transaction. Public execution will read publications only, never mutable drafts. Published rows are append-only.
 
 ### `chatbot_sessions`
 

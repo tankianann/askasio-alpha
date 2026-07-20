@@ -123,17 +123,17 @@ Server integrations use a later, separate credential aggregate. Its authenticati
 
 Browser sessions and integration credentials are different layers: a trusted integration credential authorizes creating/acting for scoped chatbot sessions, while each resulting session still has server-owned chatbot/publication identity and conversation limits. Provider quotas always retain an installation-wide gate; per-integration accounting is added without weakening that gate.
 
-## First implementation seam
+## First implementation seam (completed)
 
-Milestone 2 should implement only the configuration aggregate and persistence contracts needed for draft identity:
+Milestone 2 implements the configuration aggregate and persistence contracts needed for draft identity plus the core append-only publication table:
 
 - chatbot identity and mutable draft;
 - validated normalized/JSON settings value objects;
 - public ID generation/rotation;
 - repository projections and optimistic draft revision;
-- no publication activation, session, public API, or widget yet.
+- core publication activation exists only behind an unwired service; no source/origin snapshots, session, public API, or widget exists yet.
 
-Milestone 3 then adds immutable publication/source/origin snapshots and the active pointer. This keeps migrations and reviews bounded while conforming to the end-to-end design.
+Milestone 3 adds mutable and immutable source/origin relations to the publication transaction and validates readiness/configuration staleness before any public use. This keeps migrations and reviews bounded while conforming to the end-to-end design.
 
 ## Acceptance checks before migration work
 
@@ -142,4 +142,3 @@ Milestone 3 then adds immutable publication/source/origin snapshots and the acti
 - Exact numeric configuration defaults/bounds are proposed and reviewed in the implementation milestone.
 - Every public read is demonstrably rooted at `active_publication_id`, never mutable draft state.
 - No table introduces tenant/account/workspace ownership or database-stored provider secrets.
-

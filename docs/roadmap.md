@@ -2,7 +2,7 @@
 
 ## Current state
 
-Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. A documentation-only baseline now exists for the customer-facing chatbot; no chatbot feature code has been implemented.
+Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestone 2 now provides an unwired core domain/persistence foundation; no chatbot HTTP, UI, session, source-assignment, or public behavior exists yet.
 
 The application is suitable for a controlled single-administrator deployment after the operator completes the production checklist. The largest remaining architecture limit is full-corpus vector scoring in PHP. The most immediate deployment-security gap is trusted reverse-proxy handling.
 
@@ -64,9 +64,9 @@ The application is suitable for a controlled single-administrator deployment aft
 
 ## In progress
 
-### Customer-facing chatbot specification review
+### Customer-facing chatbot implementation
 
-The source brief has been reconciled with the current single-administrator, single-tenant architecture and split into a living specification under [Customer-facing chatbot](customer-facing-chatbot/README.md). ADRs 027–031 and the vertical-slice design now settle publication snapshots, session-token/browser-storage design, transcript privacy/retention, model settings, and integration-credential architecture. After review, the next feature step is chatbot identity and mutable draft persistence only. No schema, API, UI, or application code has been added yet.
+The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestone 2 adds migration `20260720000013`, chatbot identity/drafts/core publications, optimistic concurrency, lifecycle/public-ID services, installation provider/model snapshots, bounded list projections, and unit/real-MySQL tests. The next reviewable milestone is source/origin associations and complete publication readiness/configuration-staleness enforcement. Current core publications are not routed or public-release ready.
 
 Trusted reverse-proxy support remains a production security dependency for reliable client-IP rate limiting when deployed behind a TLS terminator.
 

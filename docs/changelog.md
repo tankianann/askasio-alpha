@@ -2,6 +2,14 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot core domain/persistence — 2026-07-20
+
+- Added chatbot identity, mutable schema-versioned drafts with optimistic revision, immutable numbered core publications, and active-publication lifecycle.
+- Added strict runtime/privacy/presentation/appearance validation, canonical configuration hashes, installation provider/model snapshots, and no provider credential storage.
+- Added 256-bit `cb_` public ID generation/rotation, enable/disable/archive/permanent-delete guards, and unchanged-publication rejection.
+- Added PDO repository transactions, bounded/parameterized list projections, migration `20260720000013`, unit tests, and opt-in real-MySQL repository/migration coverage.
+- Kept all chatbot routes, UI, bootstrap wiring, source/origin relations, sessions, and public behavior out of scope; documented migration deployment and forward repair.
+
 ## Customer-facing chatbot documentation baseline — 2026-07-20
 
 - Converted the supplied monolithic chatbot brief into a linked living specification covering product scope, admin experience, architecture/data, public API/widget/integrations, security/privacy, quality/operations, and delivery.
