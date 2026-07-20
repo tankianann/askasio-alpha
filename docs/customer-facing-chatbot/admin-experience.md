@@ -34,7 +34,7 @@ Duplicate creates a new draft with a new public ID and no conversation history. 
 
 Show the installation provider, effective chat model, embedding model, and safe configuration-health state. Do not show a raw key, last four characters, or named credential selector because the current provider key is environment configuration rather than a stored record.
 
-If per-chatbot chat-model selection is allowed, values must come from a server allowlist compatible with the implemented provider. Embedding model/dimensions remain installation-wide because source chunks are built with that configuration.
+The initial release has no model selector. Chat and embedding models are installation-wide and read-only in this form. A publication records the effective provider/model metadata; if environment configuration later differs, the public chatbot becomes configuration-stale until the administrator reviews and republishes it.
 
 ### Knowledge
 
@@ -64,7 +64,7 @@ General-knowledge answers outside assigned sources are deferred. Enabling them w
 - idle/absolute session expiry;
 - maximum messages per session;
 - maximum message characters no higher than server/provider bounds;
-- retention period and whether message content is stored;
+- retention period (`0`, `7`, `30`, or `90` days; default `30`), with an explanation that content is temporarily persisted for every active multi-turn session;
 - visitor restart control.
 
 ### Appearance
@@ -86,10 +86,10 @@ Initial settings should remain intentionally small: display name, launcher label
 The lifecycle is:
 
 ```text
-draft -> published/enabled <-> disabled -> archived/deleted (if approved)
+unpublished draft -> active with publication <-> disabled -> archived -> permanently deleted
 ```
 
-Saving a draft never makes it public. Before publication, the service must validate:
+Draft/publication state and immediate availability are distinct: a chatbot is unpublished when `active_publication_id` is null; `active`, `disabled`, and `archived` control whether an existing publication may be used. Saving a draft never makes it public. Before publication, the service must validate:
 
 - installation provider configuration is usable;
 - selected model is supported;
@@ -99,7 +99,7 @@ Saving a draft never makes it public. Before publication, the service must valid
 - rate/session/retention/privacy settings are internally consistent;
 - client-visible configuration contains no secret or server-only field.
 
-Publishing should create an immutable validated configuration snapshot or equivalent versioned representation. Edits to a published chatbot remain draft changes until deliberately republished; the currently published version must remain stable. **Decision required:** confirm snapshot tables versus version columns plus serialized validated configuration before the publication milestone.
+Publishing creates an immutable numbered configuration snapshot plus immutable source and origin relations, then atomically updates `active_publication_id`. Edits to a published chatbot remain mutable draft changes until deliberately republished; the active publication remains stable. Published snapshots are append-only. Historical reactivation requires current validation and an auditable action.
 
 Rotating a public ID invalidates the prior ID immediately and requires updating embed code. Rotation must not change the internal chatbot ID or erase sessions.
 
@@ -132,5 +132,4 @@ Do not display authorization headers, secrets, raw system prompts, chain of thou
 
 Retention applies to chatbot sessions/messages independently of the existing API Activity retention. Manual purge must use the established safe pattern: authoritative preview count, validated scope, CSRF, exact confirmation phrase, short-lived server-side intent, maximum reviewed record boundary, advisory lock, bounded deletes, and audit log.
 
-Purge scopes should include one chatbot, one session, an age/date range, test traffic, or all eligible conversations. New records created after preview must not be swept accidentally. Backups retain purged data until their own expiry and the UI/docs must say so.
-
+Purge scopes should include one chatbot, one session, an age/date range, test traffic, or all eligible conversations. New records created after preview must not be swept accidentally. Purge hard-deletes sessions and cascades messages. Visitor restart only completes a session; authenticated visitor deletion is a separate hard-delete action. Backups retain purged data until their own expiry and the UI/docs must say so.

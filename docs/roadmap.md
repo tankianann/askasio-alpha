@@ -66,7 +66,7 @@ The application is suitable for a controlled single-administrator deployment aft
 
 ### Customer-facing chatbot specification review
 
-The source brief has been reconciled with the current single-administrator, single-tenant architecture and split into a living specification under [Customer-facing chatbot](customer-facing-chatbot/README.md). The next feature step is a decision-record milestone covering publication snapshots, session-token/browser-storage design, transcript privacy/retention, per-chatbot model settings, and integration-credential architecture. No schema, API, UI, or application code should be added before that review.
+The source brief has been reconciled with the current single-administrator, single-tenant architecture and split into a living specification under [Customer-facing chatbot](customer-facing-chatbot/README.md). ADRs 027–031 and the vertical-slice design now settle publication snapshots, session-token/browser-storage design, transcript privacy/retention, model settings, and integration-credential architecture. After review, the next feature step is chatbot identity and mutable draft persistence only. No schema, API, UI, or application code has been added yet.
 
 Trusted reverse-proxy support remains a production security dependency for reliable client-IP rate limiting when deployed behind a TLS terminator.
 

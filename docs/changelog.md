@@ -9,6 +9,7 @@ Ask Asio has not adopted semantic release numbers. This history is organized by 
 - Reframed isolation around real public boundaries: chatbot publication, assigned sources, chatbot-bound sessions, exact origins, and scoped integration credentials.
 - Aligned the target with the existing environment-configured OpenAI connection, grounded RAG pipeline, API/error conventions, rate/quota controls, repositories, admin UI, migrations, privacy contract, and test strategy.
 - Recorded unresolved architectural decisions and kept all feature implementation explicitly unstarted.
+- Added ADRs 027–031 and an end-to-end vertical-slice design: immutable publication snapshots, 256-bit hash-only per-tab session tokens, active-session transcript storage with 30-day default bounded retention, hard-delete semantics, separate scoped integration credentials, normalized critical settings, and installation-wide model selection.
 
 ## Documentation consolidation — 2026-07-20
 

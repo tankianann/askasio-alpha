@@ -19,12 +19,12 @@ A chatbot is a configured public assistant. It has:
 - an internal numeric ID and a separate high-entropy public ID;
 - name and internal description;
 - draft/published lifecycle and enabled/disabled availability;
-- selected chat model from the installation's supported provider configuration;
+- effective installation chat model recorded in each publication (read-only in v1);
 - one or more explicitly assigned knowledge sources;
 - server-only instructions, fallback behavior, and retrieval settings;
 - welcome, starter-question, input, citation, and appearance settings;
 - origin, rate-limit, session, storage, and retention settings;
-- a monotonically increasing configuration version and audit timestamps.
+- a mutable draft plus monotonically numbered immutable publications and audit timestamps.
 
 Multiple chatbots may share a knowledge source. A chatbot must never retrieve from an unassigned source, even though all sources have the same administrator.
 
@@ -39,6 +39,8 @@ The current application has one installation-level OpenAI connection configured 
 
 Named, database-stored provider connections require a separate decision covering encryption, key management, rotation, dependency checks, and migration. They are not implied by this feature's first release.
 
+The initial release also has no per-chatbot model selector. Publication records the effective installation provider/chat/embedding model metadata. If environment configuration changes, the active publication is considered configuration-stale and must be reviewed and republished before new public execution.
+
 ### Knowledge assignment
 
 A chatbot has an explicit many-to-many relationship with existing `sources`. Only enabled, non-deleted sources with a ready compatible active version may contribute chunks at request time. Publication should fail when grounding is required and none of the assigned sources is ready.
@@ -47,13 +49,13 @@ Rebuilding a source must preserve the existing active version behavior: the prio
 
 ### Chat session
 
-A session is one visitor conversation with one chatbot. It has a non-guessable public identifier or token, server-side chatbot ownership, creation/last-activity/expiry timestamps, production/test classification, origin, status, message count, bounded approved metadata, and usage aggregates.
+A session is one visitor conversation with one chatbot publication. It has a non-secret opaque public identifier plus a separate hash-only 256-bit bearer token, creation/last-activity/expiry timestamps, production/test classification, origin, status, message count, copied retention policy, bounded approved metadata, and usage aggregates.
 
 An optional external user reference may be accepted only from an authenticated server integration. Browser callers must not assert trusted identity or arbitrary metadata.
 
 ### Chat message
 
-A message records the session, role, bounded content when storage is enabled, status, model, latency, usage, retrieval/citation metadata, safe error code, request ID, and timestamp. It must never record or return provider secrets, hidden chain of thought, authorization headers, or an unrestricted copy of internal prompts.
+A message records the session, role, bounded content, status, actual model, latency, usage, retrieval/citation metadata, safe error code, request ID, and timestamp. Content is required while a multi-turn session is active and is purged after the session's `0`, `7`, `30`, or `90` day policy (default `30`). It must never record or return provider secrets, hidden chain of thought, authorization headers, or an unrestricted copy of internal prompts.
 
 ## Users and stories
 
@@ -121,4 +123,3 @@ The first release should include:
 ## Success criteria
 
 The feature succeeds when an administrator can publish an explicitly source-scoped chatbot, an allowed website can hold a bounded conversation and receive cited grounded answers, a disallowed origin or invalid session cannot use it, secrets never reach the client, stored conversations obey retention, and the same configured behavior is observable in admin preview and public use.
-

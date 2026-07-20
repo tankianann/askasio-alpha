@@ -14,7 +14,7 @@ No feature code begins until the documentation baseline and open decisions for t
 | Provider credentials | One OpenAI key/model in environment | Initial chatbots reuse installation provider; named credential storage is deferred. |
 | RAG | Stateless grounded `/api/v1/chat`; `conversation_id` rejected | Extract/shared execution carefully; add session behavior without duplicating RAG. |
 | Public browser access | Existing API keys and no CORS | Add a separate public namespace, origin policy, session tokens, and abuse controls. |
-| API keys | Hash-only broad server keys | Decide whether scoped integration credentials extend or remain separate from `api_keys`. |
+| API keys | Hash-only broad server keys | Scoped chatbot integration credentials are a separate hash-only resource; existing keys remain compatible. |
 | Quotas | Global/per-API-key daily/monthly provider tokens | Add chatbot/session/integration dimensions without weakening atomic reservation. |
 | Conversation data | Not stored; Activity explicitly excludes content | Create an explicit transcript privacy/retention model; do not change Activity silently. |
 | Streaming | Not implemented; Apache/PHP-FPM baseline | Non-streaming first; streaming requires a later infrastructure decision. |
@@ -32,7 +32,7 @@ No feature code begins until the documentation baseline and open decisions for t
 
 Deliverable: documentation only.
 
-### 1 — Decision records and vertical-slice design
+### 1 — Decision records and vertical-slice design (complete)
 
 - Decide publication snapshot/version representation.
 - Decide session bearer token/hash and browser storage.
@@ -41,17 +41,17 @@ Deliverable: documentation only.
 - Decide initial chatbot settings schema and model selection policy.
 - Add accepted material decisions to `docs/decisions.md`.
 
-No migration until these decisions are approved.
+Outcome: ADRs 027–031 and [Vertical-slice design](vertical-slice-design.md) establish immutable publication snapshots, hash-only per-tab session tokens, bounded transcript retention/hard deletion, separate integration credentials, normalized settings, and installation-wide model selection. No migration was created.
 
 ### 2 — Core chatbot domain and persistence
 
-- Add chatbots, draft/public lifecycle, public ID generation/rotation, repository/service validation, list projections, migrations, and tests.
+- Add chatbot identity and mutable draft persistence, public ID generation/rotation, optimistic draft revisions, repository/service validation, list projections, migrations, and tests.
 - Use the installation provider/model; do not add provider credential storage.
 - Document schema, publication behavior, migration, and forward repair.
 
 ### 3 — Source assignments and publication
 
-- Add the chatbot/source relation, ready/compatible validation, dependency queries, transactional draft edits/publication, and source-scope tests.
+- Add mutable draft source/origin relations, immutable publication/source/origin snapshots, active-publication pointer, ready/compatible validation, dependency queries, transactional publication, and source-scope tests.
 - Preserve existing active-version semantics.
 
 ### 4 — Admin list and create/edit flow
@@ -61,7 +61,7 @@ No migration until these decisions are approved.
 
 ### 5 — Conversation sessions/messages
 
-- Add session/message persistence, hashed authorization tokens, expiry/status/counts, test classification, idempotency reservation, concurrency protection, migrations, and retention indexes.
+- Add session/message persistence, 256-bit hash-only authorization tokens, publication binding, copied `0|7|30|90` retention, expiry/status/counts, test classification, idempotency reservation, concurrency protection, migrations, and retention indexes.
 - Do not expose a public endpoint yet.
 
 ### 6 — Shared chat execution service
@@ -94,7 +94,7 @@ No migration until these decisions are approved.
 
 ### 12 — Scoped server integration credentials
 
-- Add separate or extended credential model per approved ADR, chatbot scope relation, one-time secret, hash verification, lifecycle UI, middleware, limits, usage, API examples, and tests.
+- Add the separate credential model from ADR-030, chatbot scope relation, one-time secret, hash verification, lifecycle UI, middleware, limits, usage, API examples, and tests.
 - A packaged WordPress plugin remains deferred.
 
 ### 13 — Analytics and operational readiness
@@ -115,19 +115,12 @@ No migration until these decisions are approved.
 
 ## Open decisions
 
-1. Published snapshot tables versus a validated versioned JSON snapshot.
-2. Exact chatbot statuses and archive/permanent-delete semantics.
-3. Session token format/hash, transport header, expiry, and browser storage.
-4. Default transcript storage and retention; public close versus erasure.
-5. Oldest-turn truncation limits and whether summaries remain deferred.
-6. Per-chatbot chat model override allowlist versus installation model only.
-7. Which settings require normalized columns versus validated JSON.
-8. Separate integration credential type/prefix versus scoped extension of `api_keys`.
-9. Iframe versus Shadow DOM widget isolation.
-10. Public citation URL rules for uploaded versus URL sources.
-11. Whether trusted-proxy hardening must precede any internet deployment.
+1. Exact numeric bounds/defaults for message/session expiry and retrieval settings (set during typed validation/config implementation without changing ADR-031).
+2. Oldest-turn truncation limits; summarization remains deferred.
+3. Iframe versus Shadow DOM widget isolation.
+4. Public citation URL rules for uploaded versus URL sources.
+5. Whether trusted-proxy hardening must precede any internet deployment.
 
 ## First implementation recommendation
 
-After review of this documentation baseline, begin with milestone 1 only: settle and record the publication, session-token, privacy, and credential decisions. Those choices determine the schema and public security model; starting migrations or UI first would make later correction expensive.
-
+After review of ADRs 027–031 and the vertical-slice design, begin with milestone 2 only: chatbot identity and mutable draft persistence. Publication activation belongs to milestone 3, and sessions/public routes remain later milestones. No migration should begin until the decisions from milestone 1 are approved.

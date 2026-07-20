@@ -6,6 +6,7 @@ This directory is the living specification for Ask Asio's customer-facing chatbo
 
 - Specification status: proposed for implementation review.
 - Implementation status: not started.
+- Decision milestone: ADRs 027–031 recorded; vertical-slice design complete and awaiting review.
 - Product boundary: one installation, one administrator, one tenant/account.
 - Current baseline: environment-configured OpenAI provider, shared knowledge-source catalog, grounded `/api/v1/chat`, hash-only application API keys, and no conversation persistence or browser CORS support.
 
@@ -18,6 +19,7 @@ Requirements use **must** for release requirements, **should** for preferred beh
 | [Product and scope](product-and-scope.md) | Product model, users, stories, release scope, deferrals, and success criteria. |
 | [Admin experience](admin-experience.md) | Dashboard screens, configuration, preview, publication, conversations, and destructive actions. |
 | [Architecture and data](architecture-and-data.md) | Existing foundations, target flow, service boundaries, lifecycle, and proposed schema. |
+| [Vertical-slice design](vertical-slice-design.md) | Accepted decisions combined into the draft/publication/session persistence and execution shape. |
 | [Public API and integrations](public-api-and-integrations.md) | Browser API, session/message contracts, widget, CORS, WordPress, and server-to-server access. |
 | [Security and privacy](security-and-privacy.md) | Trust boundaries, resource scoping, abuse controls, secrets, retention, and content safety. |
 | [Quality and operations](quality-and-operations.md) | Grounding, reliability, observability, caching, test strategy, deployment, and definition of done. |
@@ -62,4 +64,3 @@ The original feature brief used multi-tenant language. This living specification
 | tenant deletion workflow | administrator-initiated chatbot/conversation purge plus installation backup retention |
 
 This is not merely a wording change: adding tenant columns now would create a misleading partial multi-tenant model without a real tenant identity, authentication boundary, or globally enforced query scope.
-

@@ -19,6 +19,8 @@ The feature may make fallback wording configurable, but it must not weaken the n
 
 The initial context policy must be deterministic and bounded. Preserve recent completed user/assistant turns up to an explicit history budget; never include another session, failed/partial assistant output as authoritative history, internal diagnostics, or unapproved metadata.
 
+Message content is persisted while the session is active. Each session copies the publication's `0`, `7`, `30`, or `90` day retention choice (default `30`) so later edits do not silently alter its privacy contract.
+
 **Decision required:** select a truncation policy for v1. Simple oldest-turn removal is preferred initially. Summarization adds another provider call, new ungrounded content, cost, latency, persistence, and failure modes and should be deferred until evaluated.
 
 Record the policy/version used for an answer when needed for reproducibility. The existing heuristic token estimator remains a known limitation; quota/context safety margins must compensate until model-aware tokenization is introduced.
@@ -81,6 +83,8 @@ Do not store tenant ID because no tenant record exists. Estimated monetary cost 
 Structured logs should support request/chatbot/session correlation without content leakage. Useful operational measures are sessions/messages per chatbot, success and fallback rates, provider/retrieval failures, p50/p95 latency, token usage, rate/quota events, expired sessions, and widget initialization errors.
 
 The current application has no metrics exporter. Initial observability may use Monolog, API Activity/conversation tables, provider quota buckets, dashboard summaries, health, and database/system monitoring. Deployment docs must distinguish implemented metrics from desired future metrics.
+
+The initial provider/model is installation-wide and read-only per ADR-031. Publication stores the effective provider/chat/embedding metadata; monitoring must surface configuration-stale publications after an environment model change so the administrator can review and republish them.
 
 ## Test strategy
 
@@ -176,4 +180,3 @@ Before release, document how to diagnose by request ID:
 - Growing lists and maintenance operations are bounded.
 - Unit, static analysis, real-DB, HTTP, security, widget, and end-to-end gates pass without paid calls.
 - Release, monitoring, troubleshooting, rollback/forward-fix, limitations, and deferred work are documented.
-

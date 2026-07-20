@@ -11,7 +11,7 @@ POST   /api/public/v1/chatbots/{public_chatbot_id}/sessions/{session_id}/message
 DELETE /api/public/v1/chatbots/{public_chatbot_id}/sessions/{session_id}
 ```
 
-The session ID path shape is illustrative until the session-token design is approved. A combined first-message/session endpoint may be chosen if it improves atomicity without obscuring the contract.
+The public session ID is a non-secret routing identifier. Every message/delete request additionally sends the separate session bearer token in `Authorization`; neither value is accepted from a query string. A combined first-message/session endpoint may be chosen later only through a compatible documented addition.
 
 All endpoints must:
 
@@ -71,9 +71,24 @@ The server must:
 3. Enforce IP/chatbot creation limits and provider-budget preconditions where relevant.
 4. Validate and whitelist bounded metadata.
 5. Create a server-owned session tied to exactly one chatbot with idle and absolute expiry.
-6. Return a client-safe session identifier plus secret/token design approved before implementation.
+6. Generate a non-secret public session ID and a separate 256-bit random bearer token; store only the token SHA-256 hash and safe prefix.
+7. Return the ID and plaintext token once with idle/absolute expiry information.
 
 A browser cannot supply a trusted external-user ID. An authenticated server integration may supply an allowlisted bounded reference, but Ask Asio treats it as an opaque correlation value, not as proof of identity beyond that integration.
+
+The widget places `{session_id, session_token}` in per-tab `sessionStorage`. Loss of the token is not recoverable and starts a new session.
+
+Example response (shown once):
+
+```json
+{
+  "session_id": "cs_public_opaque",
+  "session_token": "<one-time-256-bit-bearer-token>",
+  "idle_expires_at": "2026-07-20T12:30:00Z",
+  "absolute_expires_at": "2026-07-20T20:00:00Z",
+  "request_id": "019f..."
+}
+```
 
 ## Sending a message
 
@@ -96,6 +111,14 @@ Before provider access, the server validates:
 - IP, session, chatbot, and credential rate limits;
 - global/key provider token budget reservation;
 - idempotency key syntax and prior outcome.
+
+The request uses:
+
+```http
+Authorization: Bearer <one-time-session-token>
+```
+
+The token must resolve to the same session, chatbot, publication version, and origin/integration context represented by the request.
 
 The shared execution service then persists/stages the user message according to storage policy, retrieves only assigned sources, applies the relevance threshold, returns fallback without generation when evidence is absent, generates and validates a cited answer otherwise, records bounded diagnostics/usage, and reconciles the quota reservation.
 
@@ -125,7 +148,7 @@ Public usage must be deliberately minimal; token counts, quota values, cost, sim
 
 ## Session deletion or restart
 
-`DELETE` must authenticate the session, be idempotent, and stop further messages. **Decision required:** choose whether it immediately hard-deletes stored content, marks the session completed for retention, or provides separate restart and erasure actions. The public UI must not promise legal erasure semantics that backups or configured retention cannot meet.
+Restart and erasure are distinct. Restart marks the current session completed and creates a new session; the old conversation follows its configured retention. Authenticated `DELETE` hard-deletes the live session and cascades its messages. It returns an empty `204`; unknown/already-deleted credentials receive the same response so client-visible retry is idempotent and does not enumerate sessions. The UI must state that live deletion does not erase unexpired backups or independent content-free Activity records.
 
 ## Error codes
 
@@ -181,7 +204,7 @@ Accessibility minimums are semantic controls, visible focus, complete keyboard o
 
 ## Browser storage
 
-Store only the session token/ID and minimal UI state. Never store provider/integration credentials, internal prompts, full transcripts, or diagnostics in browser storage. **Decision required:** prefer `sessionStorage` for lower persistence unless product continuity across tabs/restarts is required; document expiry, cross-tab behavior, restart, and privacy impact before widget implementation.
+Store only the session ID/token and minimal UI state in `sessionStorage`, namespaced by Ask Asio API origin and chatbot public ID. Same-tab reload resumes; a new tab starts independently; closing the tab or clearing storage loses the token and causes a new session. Never use cookies or `localStorage`, and never store provider/integration credentials, internal prompts, full transcripts, or diagnostics in browser storage.
 
 ## Origin and CORS behavior
 
@@ -202,5 +225,4 @@ Trusted credential requirements:
 - apply credential/chatbot/IP/provider limits and safe usage logs;
 - never permit admin endpoints, raw retrieval outside assigned chatbot sources, or provider-key recovery.
 
-Existing `rag_live_` keys may be extended only after deciding whether their broad retrieve/chat capability is compatible with chatbot-specific scopes. Creating a separate prefix/type is safer by default because the trust and permissions differ.
-
+Existing `rag_live_` keys remain unchanged and cannot authenticate chatbot integration routes. Chatbot integration credentials are a separate resource/type with a distinct prefix and middleware because their trust and permissions differ. They reuse one-time secret and hash-only implementation patterns without sharing the table or broad retrieve/chat capabilities.

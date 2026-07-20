@@ -228,3 +228,62 @@ This is a compact ADR register. Status is **Accepted** unless otherwise noted. N
 
 **Trade-off.** Repeated query embeddings are not cached, and queue/vector scaling will eventually require specialized infrastructure.
 
+## ADR-027 — Publish chatbots through immutable configuration snapshots
+
+**Context.** A public chatbot must not change merely because the administrator edits a draft. Source assignments, origins, prompts, limits, presentation, provider/model identity, and privacy settings must represent one coherent reviewed configuration.
+
+**Decision.** Keep mutable draft configuration and draft source/origin relations separate from immutable publication records. Publishing transactionally inserts a complete numbered publication plus immutable source/origin relations, then points `chatbots.active_publication_id` at it. Public and production-session execution reads only that active publication. Published rows are append-only; rollback means activating a previously valid publication through a new audited action, never editing history. Disabling is an immediate control on the chatbot identity and does not mutate the snapshot.
+
+**Alternatives.** Read mutable chatbot rows directly; store one mutable published JSON document; copy only a version number while continuing to read mutable relations.
+
+**Why.** An explicit snapshot gives deterministic public behavior, atomic publication, safe draft editing, historical diagnosis, cache invalidation, and a stable configuration version for sessions and usage.
+
+**Trade-offs and implications.** Publication duplicates bounded configuration and relation rows. Schema and services must distinguish draft from published projections. Provider/model values are recorded in the snapshot; if the installation provider/model changes, an older publication becomes configuration-stale and must be reviewed and republished before new public execution.
+
+## ADR-028 — Authorize browser sessions with hash-only bearer tokens stored per tab
+
+**Context.** A public chatbot ID is not a secret, and a server-generated session identifier alone must not authorize reading, messaging, or deletion. Cookie authentication would complicate cross-origin embedding and CSRF behavior.
+
+**Decision.** Session creation returns a non-secret opaque public session ID and a separate 256-bit random bearer token exactly once. Store only the token's SHA-256 hash and a safe prefix; authenticate it in the `Authorization: Bearer` header and compare the resolved hash in constant time. Bind the record to one chatbot, published configuration version, origin or integration context, status, idle expiry, and absolute expiry. The widget stores the public ID and token in `sessionStorage`, namespaced by Ask Asio API origin and chatbot public ID. Reloading the same tab resumes; a new tab starts independently; closing the tab discards client state. Tokens never use URLs, cookies, `localStorage`, or server logs.
+
+**Alternatives.** Public session ID as authority; cookies; JWT/self-contained sessions; `localStorage` persistence.
+
+**Why.** Opaque hash-only tokens match the existing API-key security pattern, support immediate server revocation, avoid query/referrer leakage, and minimize browser persistence without introducing cross-site cookies or a JWT key lifecycle.
+
+**Trade-offs and implications.** The authorization header causes CORS preflight. Lost tokens are unrecoverable and create a fresh session. Multi-tab continuity is deliberately not provided. A repeated delete for an already-erased/unknown token returns the same empty `204` response to avoid enumeration while preserving client-visible idempotence.
+
+## ADR-029 — Persist active conversation content and purge it after a bounded retention period
+
+**Context.** Multi-turn grounding and administrator conversation review require message history, but API Activity deliberately is not a transcript and conversation content increases privacy impact.
+
+**Decision.** Persist bounded user and assistant message content while a session is active. The initial chatbot retention choices are `0`, `7`, `30`, or `90` days, defaulting to `30`; this is a normalized published setting. Retention is measured from last activity. `0` means content remains available only for the active session and becomes purge-eligible as soon as the session completes or expires; it does not mean the server can provide multi-turn chat without temporary persistence. Scheduled retention and administrator purge hard-delete sessions and cascade messages in bounded, advisory-locked batches. Public restart completes the old session and creates a new one; it is not erasure. An authenticated public delete is a distinct hard-delete operation and returns `204` without promising deletion from unexpired backups. API Activity and operational logs retain only their existing content-free records.
+
+**Alternatives.** Never persist content; retain indefinitely; soft-delete transcripts; make restart synonymous with erasure.
+
+**Why.** This supports coherent multi-turn behavior and useful administration while giving a finite privacy default, an immediate visitor erasure path for live data, and unambiguous UI semantics.
+
+**Trade-offs and implications.** Active sessions necessarily hold sensitive content even with zero-day retention. Hard deletion reduces recovery/audit capability. Backup retention must be disclosed separately. Archiving a chatbot disables it but does not bypass each conversation's retention; confirmed permanent chatbot deletion hard-deletes remaining sessions/messages and other dependent chatbot records.
+
+## ADR-030 — Keep chatbot integration credentials separate from general API keys
+
+**Context.** Existing `rag_live_` keys can call broad `/api/v1/retrieve` and `/api/v1/chat` endpoints and participate in API-key quota buckets. A chatbot integration needs narrower public-chatbot/session permissions and explicit chatbot scopes.
+
+**Decision.** Add a distinct `chatbot_integration_credentials` resource and chatbot-scope relation in its later milestone. Use a credential-type-specific plaintext prefix, 256 random bits, one-time display, safe prefix plus SHA-256 hash storage, expiry/revocation/last-use metadata, and dedicated authentication middleware. A credential can act only on explicitly related chatbots and cannot call general retrieve/chat or admin endpoints. Browser widget sessions never receive an integration credential. Reuse security/service patterns from API keys, but do not overload or widen the existing `api_keys` table.
+
+**Alternatives.** Add nullable scope/type columns to `api_keys`; use existing broad keys unchanged; share the OpenAI provider key with integrations.
+
+**Why.** Separate credential types preserve least privilege and existing API compatibility, avoid complex nullable scope semantics, and make accidental cross-use visibly invalid.
+
+**Trade-offs and implications.** Authentication and administration have two related credential resources. Provider-quota accounting must support integration credentials as a distinct subject while retaining installation-wide limits. Rotation replaces rather than reveals a secret.
+
+## ADR-031 — Normalize runtime/security chatbot settings and keep model selection installation-wide
+
+**Context.** Flexible JSON is convenient for presentation, but query, security, privacy, and execution settings require constraints and indexes. The current provider factory exposes one environment-configured OpenAI chat model and one installation-wide embedding configuration; it has no model catalog or per-chatbot credential connection.
+
+**Decision.** Normalize server-critical draft/publication fields: instructions, fallback, top-K, minimum similarity, citation flag, message-character limit, messages-per-session, idle/absolute expiry, retention days, privacy notice/disclosure, and effective provider/chat/embedding model metadata. Store allowed origins and source assignments in relation tables. Use schema-versioned, validated JSON only for bounded presentation and appearance values such as welcome text, starter questions, placeholder, accent, theme, position, and size. The first release has no model selector: every chatbot uses the installation's configured OpenAI chat model and embedding model/dimensions. A publication records those effective values and public execution rejects a stale provider/model snapshot until the administrator republishes against current configuration.
+
+**Alternatives.** Put every setting in one JSON column; normalize all presentation fields; allow arbitrary per-chatbot model strings; add database-stored provider credentials now.
+
+**Why.** Normalization gives enforceable bounds and operational queries where correctness matters, while small validated JSON documents avoid needless columns for low-risk presentation data. Installation-wide models reflect actual implemented provider capabilities and prevent a misleading selector.
+
+**Trade-offs and implications.** Adding a new critical setting requires a forward migration and publication-schema update. Environment model changes require explicit chatbot review/republish. Per-chatbot models or provider connections remain a future ADR and migration, not a compatible form-field addition.

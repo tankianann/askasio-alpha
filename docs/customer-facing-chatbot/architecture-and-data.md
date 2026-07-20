@@ -23,7 +23,7 @@ The feature must not create a parallel retriever, prompt builder, provider clien
 | Chatbot repository | Bounded projections and transactional persistence. |
 | Conversation service/repositories | Create/validate sessions, persist messages/usage, enforce expiry/count/retention. |
 | Chat execution service | Shared preview/public orchestration: validate config, retrieve assigned sources, ground/generate/fallback, persist outcome, reconcile quota. |
-| Public chatbot controllers | Client-safe configuration, session creation, message submission, deletion/restart if approved. |
+| Public chatbot controllers | Client-safe configuration, session creation, message submission, restart/completion, and authenticated hard deletion. |
 | Origin middleware/policy | Normalize and match exact configured origins; add CORS response behavior. |
 | Integration credential middleware | Authenticate hash-only secrets and enforce chatbot scopes for server calls. |
 | Widget assets | Versioned isolated client consuming only public schemas. |
@@ -71,10 +71,11 @@ The invariant must be tested at repository, service, and HTTP levels: a session 
 
 ### Chatbot
 
-- `draft`: not publicly resolvable; preview allowed to the administrator.
-- `published`: has a validated active public configuration.
-- `disabled`: public config/session/message calls fail safely; admin preview remains possible.
-- `archived` or soft-deleted: excluded from normal lists and public use; exact behavior requires approval.
+- unpublished: `active_publication_id` is null; preview of the mutable draft is allowed to the administrator.
+- active: may be used publicly when an active publication exists and provider/model health matches its snapshot.
+- disabled: public config/session/message calls fail safely; admin preview remains possible.
+- archived: excluded from normal lists and public use; retained conversations follow their copied retention policy.
+- permanently deleted: confirmed hard deletion of the chatbot and remaining dependent live records; backups remain separate.
 
 ### Session
 
@@ -82,7 +83,7 @@ The invariant must be tested at repository, service, and HTTP levels: a session 
 - `completed`: visitor restart/close or server completion; no more messages.
 - `expired`: server detects expiry; no more messages.
 - `blocked`: abuse/policy decision; no more messages.
-- `purged`: normally represented by hard deletion rather than a durable status unless audit requirements justify a tombstone.
+- purged: represented by hard deletion rather than a durable conversation tombstone; content-free Activity may remain independently.
 
 ### Message
 
@@ -102,36 +103,35 @@ This schema is intentionally single-tenant. It contains no `tenant_id`, `account
 | `id` | Internal bigint primary key. |
 | `public_id` | Unique high-entropy opaque identifier, rotatable. |
 | `name`, `description` | Internal administration fields. |
-| `status` | Draft/published/disabled/archive decision. |
-| `chat_model` | Nullable/allowlisted override; otherwise installation model. |
-| `system_instructions` | Server-only bounded instructions. |
-| `fallback_message` | Bounded grounded fallback. |
-| `configuration_json` | Validated flexible settings not used for critical filtering. |
-| `configuration_version` | Monotonic version for publication/cache invalidation. |
-| `published_at`, `created_at`, `updated_at`, `deleted_at` | UTC lifecycle timestamps. |
+| `status` | Immediate availability: `active`, `disabled`, or `archived`. |
+| `active_publication_id` | Nullable pointer to the only production configuration. |
+| `created_at`, `updated_at`, `deleted_at` | UTC lifecycle timestamps. |
 
-Frequently filtered, constrained, or security-critical settings should be normalized rather than buried in JSON. Publication state may require separate draft/published snapshots.
+Draft/published state is derived from the active pointer rather than mixed into `status`.
 
-### `chatbot_knowledge_sources`
+### `chatbot_drafts` and draft relations
 
-- `chatbot_id` foreign key;
-- `source_id` foreign key;
-- `created_at`;
-- unique `(chatbot_id, source_id)`;
-- indexes supporting source dependency checks and chatbot execution lookups.
+The one-to-one draft stores a schema version, optimistic revision, normalized runtime/security/privacy fields, validated presentation/appearance JSON, and update timestamp. Mutable `chatbot_draft_sources` and `chatbot_draft_origins` relations have unique `(chatbot_id, source_id)` and `(chatbot_id, normalized_origin)` constraints.
 
-No duplicated source content or embeddings are stored. Deletion behavior must not silently delete a source when an association is removed.
+Frequently filtered, constrained, or security-critical settings are normalized. Only bounded presentation/appearance values use schema-versioned JSON. No source content or embeddings are duplicated.
+
+### `chatbot_publications` and publication relations
+
+Every publication is an immutable numbered snapshot containing the source draft revision, configuration schema/hash, all normalized settings, bounded presentation/appearance JSON, effective installation provider/chat/embedding model metadata, and publication time. `chatbot_publication_sources` and `chatbot_publication_origins` freeze the authorized relations for that version.
+
+Publishing inserts the snapshot and child rows and updates `chatbots.active_publication_id` in one transaction. Public execution reads these tables only, never mutable drafts. Published rows are append-only.
 
 ### `chatbot_sessions`
 
-- internal ID and unique high-entropy public session ID/token hash;
-- `chatbot_id`;
+- internal ID, unique high-entropy public session ID, token hash, and safe token prefix;
+- `chatbot_id` and immutable `chatbot_publication_id`;
 - origin, bounded visitor/external reference, validated metadata JSON;
 - `is_test`, status, message count, input/output/provider token totals;
+- copied retention policy and configuration version;
 - started, last activity, absolute/idle expiry, completed, and deletion timestamps;
 - indexes for chatbot/date/status/test pagination and retention batches.
 
-**Decision required:** opaque bearer session token stored as a hash is preferred to exposing a durable identifier alone. Specify token rotation/recovery and browser storage before implementation.
+Session creation returns a separate 256-bit bearer token once, stores only SHA-256 hash plus safe prefix, and authenticates it through the `Authorization` header. Browser state uses per-tab `sessionStorage`; tokens are unrecoverable and never appear in URLs/cookies/logs.
 
 ### `chatbot_messages`
 
@@ -142,25 +142,25 @@ No duplicated source content or embeddings are stored. Deletion behavior must no
 - optional unique idempotency key scoped to session;
 - `created_at` plus indexes for chronological session reads and retention.
 
-When message-content storage is disabled, retain only the minimum operational record approved by the privacy design; do not store content in a second audit table.
+Message content is persisted while the session is active. Retention choices are `0`, `7`, `30`, or `90` days, default `30`, measured from last activity and copied into the session. Zero-day sessions become purge-eligible on completion/expiry. Do not duplicate content in Activity or logs.
 
 ### `chatbot_integration_credentials` (deferred milestone)
 
 - internal ID, name, safe prefix, unique secret hash;
 - status, last-used, expiry, created/revoked timestamps.
 
-A relation such as `chatbot_integration_credential_scopes(credential_id, chatbot_id)` is preferred over JSON chatbot IDs for enforceable referential integrity. These credentials are distinct from both the environment provider key and existing general `rag_live_` API keys unless a deliberate extension of `api_keys` is approved.
+`chatbot_integration_credential_scopes(credential_id, chatbot_id)` provides enforceable referential scope. These credentials are a distinct resource from both the environment provider key and existing general `rag_live_` API keys; they reuse hash-only patterns but cannot authenticate general retrieve/chat or admin routes.
 
 ## Transaction boundaries
 
-- Create/update draft plus source assignments must either fully commit or leave the prior draft unchanged.
-- Publish validation plus activation of a configuration version must be atomic.
+- Create/update draft plus source/origin assignments and optimistic revision must either fully commit or leave the prior draft unchanged.
+- Inserting an immutable publication, its source/origin rows, and activating its pointer must be atomic.
 - Session message-count reservation/idempotency and user-message acceptance must prevent concurrent limit bypass.
 - Assistant outcome, usage, citations, and session totals should commit together.
 - Retention/manual purge uses advisory locks and bounded transactions.
 - Public-ID rotation must atomically invalidate the prior mapping.
+- Public/administrator purge hard-deletes sessions and cascades messages; restart only completes a session.
 
 ## Migration policy
 
 Use ordered forward migrations and never edit an applied migration. Test clean migration and a second idempotent pass against disposable MySQL. Because MySQL DDL may auto-commit, every milestone with schema changes needs backup, deployment order, and forward-repair notes; reversible `down()` methods are not a substitute for that plan.
-

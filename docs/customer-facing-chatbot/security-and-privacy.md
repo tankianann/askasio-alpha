@@ -59,7 +59,7 @@ Citation syntax validation does not prove factual faithfulness. Release evaluati
 
 Chatbot public IDs must be random, non-sequential, unique, and rotatable. Rotation is immediate and auditable. Do not derive them from internal IDs, names, domains, or timestamps alone.
 
-Session authorization should use a high-entropy bearer token whose stored representation is hashed. Token comparison must be constant-time after indexed hash lookup. Bind the server record to one chatbot, origin/integration context where appropriate, idle/absolute expiry, and status. Do not trust a client-created session ID.
+Session authorization uses a separate 256-bit bearer token whose stored representation is a SHA-256 hash plus safe prefix. Token comparison is constant-time after indexed hash lookup. Bind the server record to one chatbot, immutable publication, origin/integration context, idle/absolute expiry, and status. The public session ID is non-secret and never authorizes a request by itself.
 
 URLs can leak through history, logs, and referrers. Prefer session secrets in an authorization header or body/header design rather than a query string. The final design must account for browser CORS and widget isolation.
 
@@ -116,10 +116,11 @@ Do not duplicate full messages, prompts, chunks, or answers across conversation,
 
 ## Retention and deletion
 
-- Every published chatbot has a validated retention/storage policy.
+- Every publication has a retention choice of `0`, `7`, `30`, or `90` days, default `30`; each session copies that policy so later edits do not silently change it.
+- Message content is persisted for active multi-turn sessions. Zero-day retention means purge immediately after completion/expiry, not no temporary storage.
 - Expired data is deleted in bounded, restartable batches under an advisory lock.
 - Manual purge requires authenticated administrator, CSRF, reviewed scope/count, explicit confirmation, and audit logging.
-- Public restart/close semantics must be distinct from administrator purge/erasure semantics.
+- Public restart completes the old session without erasure. Authenticated public delete and administrator purge hard-delete live sessions/messages; both are distinct from backup expiry.
 - Define cascade behavior for chatbot deletion, sessions, messages, associations, integration scopes, and cached public config before migrations.
 - Backups have independent retention and may contain data already removed from live tables.
 - Installation removal is an operational database/filesystem/backup action, not a tenant-deletion feature.
@@ -142,4 +143,3 @@ Operational logs may include request ID, internal chatbot/session/credential num
 - SQL/filter injection and stored/reflected XSS;
 - unsafe Markdown/link/citation rendering;
 - redaction and error-boundary leakage.
-
