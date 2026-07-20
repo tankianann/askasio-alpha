@@ -14,7 +14,7 @@ Implemented boundaries:
 - normalized runtime/privacy settings and validated presentation/appearance JSON;
 - repository/service validation, bounded list projections, migration, and tests.
 
-Core publication is not public-release readiness. Until milestone 3 freezes source/origin relations and validates source readiness, no controller or public execution path may expose these publications.
+Milestone 3 now completes source/origin snapshots and publication readiness. See [Source assignments and publication](source-assignments-and-publication.md). No controller or public execution path exposes publications yet.
 
 ## Code map
 
@@ -73,7 +73,7 @@ Append-only core snapshot with:
 
 Publishing locks identity and draft, rechecks the active configuration hash inside that lock, verifies the expected revision, inserts the next immutable snapshot, and updates `active_publication_id` in one transaction. Publishing does not re-enable a disabled chatbot. Both service and locked repository transaction reject unchanged republishing; the service also rejects archived publication. Editing a draft never mutates the active publication.
 
-Milestone 3 will add draft/publication source and origin relations to this transaction before any public use.
+Milestone 3 adds draft/publication source and origin relations to this transaction before any public use.
 
 ## Lifecycle and deletion
 
@@ -101,7 +101,7 @@ Search is parameterized across name and public ID. Status and draft/published fi
 
 No provider key or connection ID is stored. `InstallationChatbotProviderConfigurationFactory` reads the existing typed `providers.chat_provider`, `providers.embedding_provider`, and OpenAI model/dimension settings. `ChatbotService` snapshots only these names/dimensions during publication.
 
-The OpenAI secret remains environment/process configuration. Per-chatbot credential/model selection remains out of scope. Milestone 3/public execution must compare snapshot metadata with current installation configuration and surface configuration-stale publications.
+The OpenAI secret remains environment/process configuration. Per-chatbot credential/model selection remains out of scope. Milestone 3 validates assigned source embeddings against current installation metadata; later public execution must also compare the publication snapshot with runtime installation configuration and surface configuration-stale publications.
 
 ## Migration and deployment
 

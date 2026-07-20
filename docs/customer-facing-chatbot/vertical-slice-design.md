@@ -123,7 +123,7 @@ Server integrations use a later, separate credential aggregate. Its authenticati
 
 Browser sessions and integration credentials are different layers: a trusted integration credential authorizes creating/acting for scoped chatbot sessions, while each resulting session still has server-owned chatbot/publication identity and conversation limits. Provider quotas always retain an installation-wide gate; per-integration accounting is added without weakening that gate.
 
-## First implementation seam (completed)
+## First persistence seams (completed)
 
 Milestone 2 implements the configuration aggregate and persistence contracts needed for draft identity plus the core append-only publication table:
 
@@ -131,9 +131,9 @@ Milestone 2 implements the configuration aggregate and persistence contracts nee
 - validated normalized/JSON settings value objects;
 - public ID generation/rotation;
 - repository projections and optimistic draft revision;
-- core publication activation exists only behind an unwired service; no source/origin snapshots, session, public API, or widget exists yet.
+- core publication activation exists only behind an unwired service.
 
-Milestone 3 adds mutable and immutable source/origin relations to the publication transaction and validates readiness/configuration staleness before any public use. This keeps migrations and reviews bounded while conforming to the end-to-end design.
+Milestone 3 adds mutable and immutable source/origin relations to the publication transaction, assignment-inclusive hashes, active-version source readiness, and deletion dependency protection. Runtime configuration-staleness validation remains part of the later public execution boundary. No session, public API, or widget exists yet.
 
 ## Acceptance checks before migration work
 

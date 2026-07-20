@@ -13,9 +13,9 @@ final readonly class ChatbotPublication
         public int $sourceDraftRevision,
         public string $configurationHash,
         public ChatbotDraft $configuration,
+        public ChatbotAssignments $assignments,
         public ChatbotProviderConfiguration $providerConfiguration,
         public string $publishedAt,
     ) {
     }
 }
-

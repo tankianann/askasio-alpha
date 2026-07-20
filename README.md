@@ -1,6 +1,6 @@
 # Ask Asio
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening. The unwired customer-facing chatbot foundation now includes mutable source/origin assignments and immutable publication snapshots; no chatbot HTTP or public UI exists yet.
 
 ## Implemented functionality
 
@@ -652,7 +652,7 @@ Every replacement, URL refresh, and reprocessing request creates a new immutable
 
 Use **Refresh URL** for URL sources, **Upload replacement** for Markdown/PDF sources, or **Reprocess as new version** on a completed version. Only one pending or processing job may be created for a source through the administrator workflow at a time.
 
-Soft deletion disables retrieval but preserves all records and files. Permanent deletion is available only after soft deletion and requires typing the source name exactly. It removes the source, all versions, chunks/embeddings, ingestion jobs, and its private source directory. Permanent deletion is irreversible and is blocked while a job is pending or processing. Take a verified backup before using it when retention is required.
+Soft deletion disables retrieval but preserves all records and files. Permanent deletion is available only after soft deletion and requires typing the source name exactly. It removes the source, all versions, chunks/embeddings, ingestion jobs, and its private source directory. Permanent deletion is irreversible and is blocked while a job is pending/processing or the source remains in a chatbot draft/publication history. Take a verified backup before using it when retention is required.
 
 `FILESYSTEM_PATH` must resolve outside `public/`; the application refuses to start if it points into the web root. The default is:
 

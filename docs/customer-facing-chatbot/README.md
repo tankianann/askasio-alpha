@@ -5,7 +5,7 @@
 This directory is the living specification for Ask Asio's customer-facing chatbot feature. It establishes the documentation baseline before feature code is written.
 
 - Specification status: proposed for implementation review.
-- Implementation status: milestone 2 core domain/persistence complete; no HTTP/UI/public behavior is wired.
+- Implementation status: milestone 3 source assignments/publication complete; no chatbot HTTP/UI/session/public behavior is wired.
 - Decision milestone: ADRs 027–031 recorded; vertical-slice design complete and awaiting review.
 - Product boundary: one installation, one administrator, one tenant/account.
 - Current baseline: environment-configured OpenAI provider, shared knowledge-source catalog, grounded `/api/v1/chat`, hash-only application API keys, and no conversation persistence or browser CORS support.
@@ -21,6 +21,7 @@ Requirements use **must** for release requirements, **should** for preferred beh
 | [Architecture and data](architecture-and-data.md) | Existing foundations, target flow, service boundaries, lifecycle, and proposed schema. |
 | [Vertical-slice design](vertical-slice-design.md) | Accepted decisions combined into the draft/publication/session persistence and execution shape. |
 | [Core domain and persistence](core-domain-persistence.md) | Implemented milestone 2 schema, lifecycle, validation, projections, migration, tests, and forward repair. |
+| [Source assignments and publication](source-assignments-and-publication.md) | Implemented milestone 3 mutable assignments, immutable scope snapshots, active-version readiness, dependencies, migration, and tests. |
 | [Public API and integrations](public-api-and-integrations.md) | Browser API, session/message contracts, widget, CORS, WordPress, and server-to-server access. |
 | [Security and privacy](security-and-privacy.md) | Trust boundaries, resource scoping, abuse controls, secrets, retention, and content safety. |
 | [Quality and operations](quality-and-operations.md) | Grounding, reliability, observability, caching, test strategy, deployment, and definition of done. |

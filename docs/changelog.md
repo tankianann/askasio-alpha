@@ -2,6 +2,15 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot source assignments/publication — 2026-07-20
+
+- Added mutable draft source/origin relations sharing the draft's optimistic revision and immutable publication source/origin snapshots.
+- Added strict origin canonicalization, assignment-inclusive configuration hashes, and atomic snapshot creation/activation.
+- Preserved source active-version semantics while validating enabled, non-deleted, active-ready, embedding-model/dimension-compatible sources.
+- Added draft/active/history dependency queries and blocked permanent source deletion with administrator-safe chatbot details.
+- Added migration `20260720000014`, unit coverage, opt-in real-MySQL publication/scope/migration coverage, and deployment/forward-repair documentation.
+- Kept chatbot routes, UI, sessions, public APIs, widgets, and provider credential storage out of scope.
+
 ## Customer-facing chatbot core domain/persistence — 2026-07-20
 
 - Added chatbot identity, mutable schema-versioned drafts with optimistic revision, immutable numbered core publications, and active-publication lifecycle.

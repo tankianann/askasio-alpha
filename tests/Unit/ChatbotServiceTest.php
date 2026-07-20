@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Domain\Chatbots\ChatbotStatus;
+use App\Domain\Chatbots\ChatbotSourceReadinessStatus;
 use App\Exceptions\StaleChatbotDraftException;
 use App\Exceptions\ValidationException;
 use App\Services\Chatbots\ChatbotDraftValidator;
@@ -19,6 +20,7 @@ final class ChatbotServiceTest extends TestCase
     public function testItCreatesUpdatesAndPublishesImmutableConfiguration(): void
     {
         $repository = new InMemoryChatbotRepository();
+        $repository->defineSource(1);
         $service = $this->service($repository, ['cb_first', 'cb_rotated']);
         $chatbot = $service->create('  Website support  ', '  Internal description  ', ChatbotFixtures::draft());
 
@@ -27,6 +29,16 @@ final class ChatbotServiceTest extends TestCase
         self::assertSame(1, $chatbot->draft->revision);
         self::assertFalse($chatbot->isPublished());
 
+        $assigned = $service->updateAssignments(
+            $chatbot->id,
+            1,
+            [1, 1],
+            ['https://EXAMPLE.com:443/', 'https://example.com'],
+        );
+        self::assertSame(2, $assigned->draft->revision);
+        self::assertSame([1], $assigned->assignments->sourceIds);
+        self::assertSame(['https://example.com'], $assigned->assignments->origins);
+
         $first = $service->publish($chatbot->id);
         self::assertSame(1, $first->publicationNumber);
         self::assertSame('gpt-test-chat', $first->providerConfiguration->chatModel);
@@ -34,12 +46,12 @@ final class ChatbotServiceTest extends TestCase
 
         $updated = $service->updateDraft(
             $chatbot->id,
-            1,
+            2,
             'Website support',
             null,
             ChatbotFixtures::draft(displayName: 'Updated assistant'),
         );
-        self::assertSame(2, $updated->draft->revision);
+        self::assertSame(3, $updated->draft->revision);
         self::assertSame('Support assistant', $first->configuration->presentation['display_name']);
 
         $second = $service->publish($chatbot->id);
@@ -55,8 +67,10 @@ final class ChatbotServiceTest extends TestCase
     public function testItRejectsDuplicatePublicationAndStaleDraftUpdate(): void
     {
         $repository = new InMemoryChatbotRepository();
+        $repository->defineSource(1);
         $service = $this->service($repository, ['cb_first']);
         $chatbot = $service->create('Support', null, ChatbotFixtures::draft());
+        $service->updateAssignments($chatbot->id, 1, [1], ['https://example.com']);
         $service->publish($chatbot->id);
 
         try {
@@ -66,7 +80,7 @@ final class ChatbotServiceTest extends TestCase
             self::assertTrue(true);
         }
 
-        $service->updateDraft($chatbot->id, 1, 'Support', null, ChatbotFixtures::draft(displayName: 'New'));
+        $service->updateDraft($chatbot->id, 2, 'Support', null, ChatbotFixtures::draft(displayName: 'New'));
 
         $this->expectException(StaleChatbotDraftException::class);
         $service->updateDraft($chatbot->id, 1, 'Support', null, ChatbotFixtures::draft(displayName: 'Stale'));
@@ -75,6 +89,7 @@ final class ChatbotServiceTest extends TestCase
     public function testLifecycleRequiresPublicationAndArchiveBeforeDeletion(): void
     {
         $repository = new InMemoryChatbotRepository();
+        $repository->defineSource(1);
         $service = $this->service($repository, ['cb_first']);
         $chatbot = $service->create('Support', null, ChatbotFixtures::draft());
         $service->disable($chatbot->id);
@@ -86,6 +101,7 @@ final class ChatbotServiceTest extends TestCase
             self::assertTrue(true);
         }
 
+        $service->updateAssignments($chatbot->id, 1, [1], ['https://example.com']);
         $service->publish($chatbot->id);
         self::assertSame(ChatbotStatus::Disabled, $repository->findById($chatbot->id)?->status);
         self::assertSame(ChatbotStatus::Active, $service->enable($chatbot->id)->status);
@@ -93,6 +109,53 @@ final class ChatbotServiceTest extends TestCase
 
         $service->permanentlyDelete($chatbot->id);
         self::assertNull($repository->findById($chatbot->id));
+    }
+
+    public function testPublicationRejectsUnreadySourcesAndKeepsDraftMutable(): void
+    {
+        $repository = new InMemoryChatbotRepository();
+        $repository->defineSource(7, ChatbotSourceReadinessStatus::EmbeddingIncompatible);
+        $service = $this->service($repository, ['cb_first']);
+        $chatbot = $service->create('Support', null, ChatbotFixtures::draft());
+        $updated = $service->updateAssignments($chatbot->id, 1, [7], ['https://example.com']);
+
+        self::assertSame(2, $updated->draft->revision);
+        self::assertNull($updated->activePublicationId);
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('embedding incompatible');
+        $service->publish($chatbot->id);
+    }
+
+    public function testAssignmentRejectsUnknownSourcesAsValidationFailure(): void
+    {
+        $repository = new InMemoryChatbotRepository();
+        $service = $this->service($repository, ['cb_first']);
+        $chatbot = $service->create('Support', null, ChatbotFixtures::draft());
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('existing sources');
+        $service->updateAssignments($chatbot->id, 1, [999], ['https://example.com']);
+    }
+
+    public function testEachPublicationFreezesOnlyItsOwnAssignedSources(): void
+    {
+        $repository = new InMemoryChatbotRepository();
+        $repository->defineSource(1);
+        $repository->defineSource(2);
+        $service = $this->service($repository, ['cb_first', 'cb_second']);
+        $first = $service->create('First', null, ChatbotFixtures::draft());
+        $second = $service->create('Second', null, ChatbotFixtures::draft());
+        $service->updateAssignments($first->id, 1, [1], ['https://first.example.com']);
+        $service->updateAssignments($second->id, 1, [2], ['https://second.example.com']);
+
+        $firstPublication = $service->publish($first->id);
+        $secondPublication = $service->publish($second->id);
+
+        self::assertSame([1], $firstPublication->assignments->sourceIds);
+        self::assertSame([2], $secondPublication->assignments->sourceIds);
+        self::assertNotContains(2, $firstPublication->assignments->sourceIds);
+        self::assertNotContains(1, $secondPublication->assignments->sourceIds);
     }
 
     public function testRandomGeneratorProducesOpaquePublicIdentifier(): void

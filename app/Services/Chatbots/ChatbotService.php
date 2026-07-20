@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Chatbots;
 
 use App\Domain\Chatbots\Chatbot;
+use App\Domain\Chatbots\ChatbotAssignments;
 use App\Domain\Chatbots\ChatbotDraft;
 use App\Domain\Chatbots\ChatbotProviderConfiguration;
 use App\Domain\Chatbots\ChatbotPublication;
 use App\Domain\Chatbots\ChatbotStatus;
 use App\Exceptions\ValidationException;
+use App\Exceptions\ChatbotPublicationReadinessException;
+use App\Exceptions\InvalidChatbotSourceAssignmentException;
 use App\Exceptions\UnchangedChatbotPublicationException;
 use App\Repositories\ChatbotRepositoryInterface;
 
@@ -20,8 +23,37 @@ final readonly class ChatbotService
         private ChatbotDraftValidator $drafts,
         private ChatbotPublicIdGeneratorInterface $publicIds,
         private ChatbotProviderConfiguration $provider,
+        private ChatbotOriginNormalizer $origins = new ChatbotOriginNormalizer(),
     ) {
         $this->validateProvider($provider);
+    }
+
+    /** @param list<int> $sourceIds @param list<string> $origins */
+    public function updateAssignments(
+        int $id,
+        int $expectedRevision,
+        array $sourceIds,
+        array $origins,
+    ): Chatbot {
+        if ($id < 1 || $expectedRevision < 1) {
+            throw new \InvalidArgumentException('Valid chatbot and draft revision identifiers are required.');
+        }
+
+        $chatbot = $this->requireChatbot($id);
+
+        if ($chatbot->status === ChatbotStatus::Archived) {
+            throw new ValidationException('An archived chatbot draft cannot be changed.');
+        }
+
+        try {
+            return $this->chatbots->replaceDraftAssignments(
+                $id,
+                $expectedRevision,
+                new ChatbotAssignments($this->normalizeSourceIds($sourceIds), $this->origins->normalizeMany($origins)),
+            );
+        } catch (InvalidChatbotSourceAssignmentException $exception) {
+            throw new ValidationException($exception->getMessage(), previous: $exception);
+        }
     }
 
     public function create(string $name, ?string $description, ChatbotDraft $draft): Chatbot
@@ -67,7 +99,11 @@ final readonly class ChatbotService
         }
 
         $draft = $this->drafts->validateAndNormalize($chatbot->draft);
-        $configurationHash = $this->configurationHash($draft, $this->provider);
+        if ($chatbot->assignments->sourceIds === [] || $chatbot->assignments->origins === []) {
+            throw new ValidationException('Publishing requires at least one assigned source and one allowed origin.');
+        }
+
+        $configurationHash = $this->configurationHash($draft, $chatbot->assignments, $this->provider);
         $active = $this->chatbots->findActivePublication($id);
 
         if ($active instanceof ChatbotPublication && hash_equals($active->configurationHash, $configurationHash)) {
@@ -79,11 +115,26 @@ final readonly class ChatbotService
                 $id,
                 $chatbot->draft->revision,
                 $draft,
+                $chatbot->assignments,
                 $this->provider,
                 $configurationHash,
             );
-        } catch (UnchangedChatbotPublicationException $exception) {
+        } catch (UnchangedChatbotPublicationException|InvalidChatbotSourceAssignmentException $exception) {
             throw new ValidationException($exception->getMessage(), previous: $exception);
+        } catch (ChatbotPublicationReadinessException $exception) {
+            $failures = array_map(
+                static fn ($source): string => sprintf(
+                    '%s (%s)',
+                    $source->sourceName ?? 'source #' . $source->sourceId,
+                    str_replace('_', ' ', $source->status->value),
+                ),
+                array_values(array_filter($exception->sources, static fn ($source): bool => !$source->isReady())),
+            );
+
+            throw new ValidationException(
+                'Assigned sources are not publishable: ' . implode(', ', $failures) . '.',
+                previous: $exception,
+            );
         }
     }
 
@@ -201,11 +252,35 @@ final readonly class ChatbotService
 
     private function configurationHash(
         ChatbotDraft $draft,
+        ChatbotAssignments $assignments,
         ChatbotProviderConfiguration $provider,
     ): string {
         return hash('sha256', json_encode(
-            ['draft' => $draft->configuration(), 'provider' => $provider->configuration()],
+            [
+                'draft' => $draft->configuration(),
+                'assignments' => $assignments->configuration(),
+                'provider' => $provider->configuration(),
+            ],
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         ));
+    }
+
+    /** @param list<int> $sourceIds @return list<int> */
+    private function normalizeSourceIds(array $sourceIds): array
+    {
+        if (count($sourceIds) > 100) {
+            throw new ValidationException('A chatbot may use at most 100 sources.');
+        }
+
+        foreach ($sourceIds as $sourceId) {
+            if (!is_int($sourceId) || $sourceId < 1) {
+                throw new ValidationException('Assigned source IDs must be positive integers.');
+            }
+        }
+
+        $sourceIds = array_values(array_unique($sourceIds));
+        sort($sourceIds, SORT_NUMERIC);
+
+        return $sourceIds;
     }
 }

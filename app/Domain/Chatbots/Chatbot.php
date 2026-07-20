@@ -14,6 +14,7 @@ final readonly class Chatbot
         public ChatbotStatus $status,
         public ?int $activePublicationId,
         public ChatbotDraft $draft,
+        public ChatbotAssignments $assignments,
         public string $createdAt,
         public string $updatedAt,
         public ?string $archivedAt,
@@ -25,4 +26,3 @@ final readonly class Chatbot
         return $this->activePublicationId !== null;
     }
 }
-

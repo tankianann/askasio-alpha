@@ -51,10 +51,12 @@ Outcome: ADRs 027–031 and [Vertical-slice design](vertical-slice-design.md) es
 
 Outcome: migration `20260720000013`, chatbot domain records/enums, mutable validated drafts with optimistic revision, immutable core publications, installation provider/model snapshots, `cb_` public ID rotation, PDO/in-memory repositories, lifecycle service, bounded list projections, and unit/real-MySQL tests. No route, UI, bootstrap wiring, source/origin relation, session, or provider credential storage was added. See [Core domain and persistence](core-domain-persistence.md).
 
-### 3 — Source assignments and publication
+### 3 — Source assignments and publication (complete)
 
 - Add mutable draft source/origin relations, immutable publication/source/origin snapshots, active-publication pointer, ready/compatible validation, dependency queries, transactional publication, and source-scope tests.
 - Preserve existing active-version semantics.
+
+Outcome: migration `20260720000014`, mutable normalized draft source/origin relations on the shared optimistic revision, immutable publication relation snapshots, assignment-inclusive hashes, active-version ready/model/dimension validation, atomic publication activation, source dependency/deletion protection, and unit/opt-in real-MySQL scope tests. No chatbot route, UI, session, public API, widget, or provider credential storage was added. See [Source assignments and publication](source-assignments-and-publication.md).
 
 ### 4 — Admin list and create/edit flow
 
@@ -125,4 +127,4 @@ Outcome: migration `20260720000013`, chatbot domain records/enums, mutable valid
 
 ## First implementation recommendation
 
-After review of milestone 2, begin with milestone 3 only: mutable source/origin assignments plus immutable publication relations and readiness/configuration-staleness validation. Sessions and public routes remain later milestones.
+After review of milestone 3, begin with milestone 4 only: the administrator list and bounded create/edit/publication workflow over the implemented service boundary. Sessions and public routes remain later milestones.

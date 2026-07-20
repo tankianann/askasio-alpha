@@ -6,12 +6,18 @@ namespace App\Repositories;
 
 use App\Database\Connection;
 use App\Domain\Chatbots\Chatbot;
+use App\Domain\Chatbots\ChatbotAssignments;
 use App\Domain\Chatbots\ChatbotDraft;
 use App\Domain\Chatbots\ChatbotListItem;
 use App\Domain\Chatbots\ChatbotListQuery;
 use App\Domain\Chatbots\ChatbotProviderConfiguration;
 use App\Domain\Chatbots\ChatbotPublication;
 use App\Domain\Chatbots\ChatbotStatus;
+use App\Domain\Chatbots\ChatbotSourceDependency;
+use App\Domain\Chatbots\ChatbotSourceReadiness;
+use App\Domain\Chatbots\ChatbotSourceReadinessStatus;
+use App\Exceptions\ChatbotPublicationReadinessException;
+use App\Exceptions\InvalidChatbotSourceAssignmentException;
 use App\Exceptions\StaleChatbotDraftException;
 use App\Exceptions\UnchangedChatbotPublicationException;
 use App\Support\Pagination\PaginatedResult;
@@ -19,7 +25,7 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
-final class PdoChatbotRepository implements ChatbotRepositoryInterface
+final class PdoChatbotRepository implements ChatbotRepositoryInterface, SourceDependencyRepositoryInterface
 {
     private readonly ChatbotListSqlQueryBuilder $listQueries;
 
@@ -165,10 +171,56 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface
         });
     }
 
+    public function replaceDraftAssignments(
+        int $id,
+        int $expectedRevision,
+        ChatbotAssignments $assignments,
+    ): Chatbot {
+        return $this->transaction(function (PDO $pdo) use ($id, $expectedRevision, $assignments): Chatbot {
+            $this->lockChatbot($pdo, $id);
+            $draft = $pdo->prepare(
+                'SELECT revision FROM chatbot_drafts WHERE chatbot_id = :chatbot_id FOR UPDATE',
+            );
+            $draft->execute(['chatbot_id' => $id]);
+
+            if ((int) $draft->fetchColumn() !== $expectedRevision) {
+                throw new StaleChatbotDraftException('The chatbot draft was changed by another request.');
+            }
+
+            $this->validateAssignableSources($pdo, $assignments->sourceIds);
+            $stored = $this->draftAssignments($pdo, $id);
+
+            if ($stored->configuration() === $assignments->configuration()) {
+                return $this->requireReload($id, 'unchanged assignment update');
+            }
+
+            $pdo->prepare('DELETE FROM chatbot_draft_sources WHERE chatbot_id = :chatbot_id')
+                ->execute(['chatbot_id' => $id]);
+            $pdo->prepare('DELETE FROM chatbot_draft_origins WHERE chatbot_id = :chatbot_id')
+                ->execute(['chatbot_id' => $id]);
+            $this->insertDraftAssignments($pdo, $id, $assignments);
+            $revision = $pdo->prepare(
+                'UPDATE chatbot_drafts SET revision = revision + 1, updated_at = UTC_TIMESTAMP(6)
+                 WHERE chatbot_id = :chatbot_id AND revision = :expected_revision',
+            );
+            $revision->execute(['chatbot_id' => $id, 'expected_revision' => $expectedRevision]);
+
+            if ($revision->rowCount() !== 1) {
+                throw new StaleChatbotDraftException('The chatbot draft was changed by another request.');
+            }
+
+            $pdo->prepare('UPDATE chatbots SET updated_at = UTC_TIMESTAMP(6) WHERE id = :id')
+                ->execute(['id' => $id]);
+
+            return $this->requireReload($id, 'assignment update');
+        });
+    }
+
     public function publish(
         int $id,
         int $expectedDraftRevision,
         ChatbotDraft $draft,
+        ChatbotAssignments $assignments,
         ChatbotProviderConfiguration $provider,
         string $configurationHash,
     ): ChatbotPublication {
@@ -176,6 +228,7 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface
             $id,
             $expectedDraftRevision,
             $draft,
+            $assignments,
             $provider,
             $configurationHash,
         ): ChatbotPublication {
@@ -202,6 +255,33 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface
 
             if ((int) $draftLock->fetchColumn() !== $expectedDraftRevision) {
                 throw new StaleChatbotDraftException('The chatbot draft changed before it could be published.');
+            }
+
+            $storedAssignments = $this->draftAssignments($pdo, $id);
+
+            if ($storedAssignments->configuration() !== $assignments->configuration()) {
+                throw new StaleChatbotDraftException('The chatbot source or origin assignments changed before publication.');
+            }
+
+            if ($assignments->sourceIds === [] || $assignments->origins === []) {
+                throw new InvalidChatbotSourceAssignmentException(
+                    'Publishing requires at least one assigned source and one allowed origin.',
+                );
+            }
+
+            $readiness = $this->sourceReadiness($pdo, $assignments->sourceIds, $provider, true);
+
+            $hasUnreadySource = false;
+
+            foreach ($readiness as $source) {
+                if (!$source->isReady()) {
+                    $hasUnreadySource = true;
+                    break;
+                }
+            }
+
+            if ($hasUnreadySource) {
+                throw new ChatbotPublicationReadinessException($readiness);
             }
 
             $next = $pdo->prepare(
@@ -244,6 +324,7 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface
                 'embedding_dimensions' => $provider->embeddingDimensions,
             ]);
             $publicationId = (int) $pdo->lastInsertId();
+            $this->insertPublicationAssignments($pdo, $publicationId, $assignments);
             $activate = $pdo->prepare(
                 "UPDATE chatbots
                  SET active_publication_id = :publication_id, updated_at = UTC_TIMESTAMP(6)
@@ -258,6 +339,60 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface
 
             return $publication;
         });
+    }
+
+    /** @return list<ChatbotSourceDependency> */
+    public function sourceDependencies(int $sourceId): array
+    {
+        $statement = $this->connection->pdo()->prepare(<<<'SQL'
+            SELECT c.id, c.name,
+                   EXISTS(
+                       SELECT 1 FROM chatbot_draft_sources cds
+                       WHERE cds.chatbot_id = c.id AND cds.source_id = :draft_source_id
+                   ) AS in_draft,
+                   EXISTS(
+                       SELECT 1 FROM chatbot_publication_sources active_cps
+                       WHERE active_cps.publication_id = c.active_publication_id
+                         AND active_cps.source_id = :active_source_id
+                   ) AS in_active_publication,
+                   (
+                       SELECT COUNT(*)
+                       FROM chatbot_publications history_cp
+                       INNER JOIN chatbot_publication_sources history_cps
+                           ON history_cps.publication_id = history_cp.id
+                       WHERE history_cp.chatbot_id = c.id
+                         AND history_cps.source_id = :history_source_id
+                   ) AS publication_count
+            FROM chatbots c
+            WHERE EXISTS(
+                SELECT 1 FROM chatbot_draft_sources any_cds
+                WHERE any_cds.chatbot_id = c.id AND any_cds.source_id = :any_draft_source_id
+            ) OR EXISTS(
+                SELECT 1
+                FROM chatbot_publications any_cp
+                INNER JOIN chatbot_publication_sources any_cps ON any_cps.publication_id = any_cp.id
+                WHERE any_cp.chatbot_id = c.id AND any_cps.source_id = :any_publication_source_id
+            )
+            ORDER BY c.name ASC, c.id ASC
+            SQL);
+        $statement->execute([
+            'draft_source_id' => $sourceId,
+            'active_source_id' => $sourceId,
+            'history_source_id' => $sourceId,
+            'any_draft_source_id' => $sourceId,
+            'any_publication_source_id' => $sourceId,
+        ]);
+
+        return array_map(
+            static fn (array $row): ChatbotSourceDependency => new ChatbotSourceDependency(
+                (int) $row['id'],
+                (string) $row['name'],
+                (bool) $row['in_draft'],
+                (bool) $row['in_active_publication'],
+                (int) $row['publication_count'],
+            ),
+            $statement->fetchAll(),
+        );
     }
 
     public function rotatePublicId(int $id, string $publicId): Chatbot
@@ -336,6 +471,176 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface
              )',
         );
         $statement->execute(['chatbot_id' => $chatbotId, ...$this->draftValues($draft)]);
+    }
+
+    /** @param list<int> $sourceIds */
+    private function validateAssignableSources(PDO $pdo, array $sourceIds): void
+    {
+        if ($sourceIds === []) {
+            return;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($sourceIds), '?'));
+        $statement = $pdo->prepare(
+            "SELECT id FROM sources WHERE id IN ($placeholders) AND deleted_at IS NULL FOR SHARE",
+        );
+        $statement->execute($sourceIds);
+        $found = array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));
+        sort($found, SORT_NUMERIC);
+
+        if ($found !== $sourceIds) {
+            throw new InvalidChatbotSourceAssignmentException(
+                'Draft source assignments must reference existing, non-deleted sources.',
+            );
+        }
+    }
+
+    private function insertDraftAssignments(PDO $pdo, int $chatbotId, ChatbotAssignments $assignments): void
+    {
+        $source = $pdo->prepare(
+            'INSERT INTO chatbot_draft_sources (chatbot_id, source_id) VALUES (:chatbot_id, :source_id)',
+        );
+
+        foreach ($assignments->sourceIds as $sourceId) {
+            $source->execute(['chatbot_id' => $chatbotId, 'source_id' => $sourceId]);
+        }
+
+        $origin = $pdo->prepare(
+            'INSERT INTO chatbot_draft_origins (chatbot_id, normalized_origin)
+             VALUES (:chatbot_id, :normalized_origin)',
+        );
+
+        foreach ($assignments->origins as $normalizedOrigin) {
+            $origin->execute(['chatbot_id' => $chatbotId, 'normalized_origin' => $normalizedOrigin]);
+        }
+    }
+
+    private function insertPublicationAssignments(
+        PDO $pdo,
+        int $publicationId,
+        ChatbotAssignments $assignments,
+    ): void {
+        $source = $pdo->prepare(
+            'INSERT INTO chatbot_publication_sources (publication_id, source_id)
+             VALUES (:publication_id, :source_id)',
+        );
+
+        foreach ($assignments->sourceIds as $sourceId) {
+            $source->execute(['publication_id' => $publicationId, 'source_id' => $sourceId]);
+        }
+
+        $origin = $pdo->prepare(
+            'INSERT INTO chatbot_publication_origins (publication_id, normalized_origin)
+             VALUES (:publication_id, :normalized_origin)',
+        );
+
+        foreach ($assignments->origins as $normalizedOrigin) {
+            $origin->execute(['publication_id' => $publicationId, 'normalized_origin' => $normalizedOrigin]);
+        }
+    }
+
+    private function draftAssignments(PDO $pdo, int $chatbotId): ChatbotAssignments
+    {
+        $sources = $pdo->prepare(
+            'SELECT source_id FROM chatbot_draft_sources WHERE chatbot_id = :chatbot_id ORDER BY source_id',
+        );
+        $sources->execute(['chatbot_id' => $chatbotId]);
+        $origins = $pdo->prepare(
+            'SELECT normalized_origin FROM chatbot_draft_origins
+             WHERE chatbot_id = :chatbot_id ORDER BY normalized_origin',
+        );
+        $origins->execute(['chatbot_id' => $chatbotId]);
+
+        return new ChatbotAssignments(
+            array_map('intval', $sources->fetchAll(PDO::FETCH_COLUMN)),
+            array_map('strval', $origins->fetchAll(PDO::FETCH_COLUMN)),
+        );
+    }
+
+    private function publicationAssignments(PDO $pdo, int $publicationId): ChatbotAssignments
+    {
+        $sources = $pdo->prepare(
+            'SELECT source_id FROM chatbot_publication_sources
+             WHERE publication_id = :publication_id ORDER BY source_id',
+        );
+        $sources->execute(['publication_id' => $publicationId]);
+        $origins = $pdo->prepare(
+            'SELECT normalized_origin FROM chatbot_publication_origins
+             WHERE publication_id = :publication_id ORDER BY normalized_origin',
+        );
+        $origins->execute(['publication_id' => $publicationId]);
+
+        return new ChatbotAssignments(
+            array_map('intval', $sources->fetchAll(PDO::FETCH_COLUMN)),
+            array_map('strval', $origins->fetchAll(PDO::FETCH_COLUMN)),
+        );
+    }
+
+    /** @param list<int> $sourceIds @return list<ChatbotSourceReadiness> */
+    private function sourceReadiness(
+        PDO $pdo,
+        array $sourceIds,
+        ChatbotProviderConfiguration $provider,
+        bool $lock,
+    ): array {
+        if ($sourceIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($sourceIds), '?'));
+        $lockClause = $lock ? ' FOR SHARE' : '';
+        $statement = $pdo->prepare(<<<SQL
+            SELECT s.id, s.name, s.status, s.deleted_at, s.active_version_id,
+                   sv.processing_status,
+                   EXISTS(
+                       SELECT 1 FROM source_chunks sc
+                       WHERE sc.source_version_id = s.active_version_id
+                         AND sc.embedding IS NOT NULL
+                         AND sc.embedding_model = ?
+                         AND sc.embedding_dimensions IS NOT NULL
+                         AND sc.embedding_dimensions > 0
+                         AND (? IS NULL OR sc.embedding_dimensions = ?)
+                   ) AS compatible_embedding
+            FROM sources s
+            LEFT JOIN source_versions sv ON sv.id = s.active_version_id
+            WHERE s.id IN ($placeholders)
+            ORDER BY s.id
+            $lockClause
+            SQL);
+        $statement->execute([
+            $provider->embeddingModel,
+            $provider->embeddingDimensions,
+            $provider->embeddingDimensions,
+            ...$sourceIds,
+        ]);
+        $rows = [];
+
+        foreach ($statement->fetchAll() as $row) {
+            $rows[(int) $row['id']] = $row;
+        }
+
+        $readiness = [];
+
+        foreach ($sourceIds as $sourceId) {
+            $row = $rows[$sourceId] ?? null;
+            $status = match (true) {
+                !is_array($row) => ChatbotSourceReadinessStatus::Missing,
+                $row['deleted_at'] !== null => ChatbotSourceReadinessStatus::Deleted,
+                $row['status'] !== 'enabled' => ChatbotSourceReadinessStatus::Disabled,
+                $row['active_version_id'] === null => ChatbotSourceReadinessStatus::NoActiveVersion,
+                $row['processing_status'] !== 'ready' => ChatbotSourceReadinessStatus::ActiveVersionNotReady,
+                !(bool) $row['compatible_embedding'] => ChatbotSourceReadinessStatus::EmbeddingIncompatible,
+                default => ChatbotSourceReadinessStatus::Ready,
+            };
+            $readiness[] = new ChatbotSourceReadiness(
+                $sourceId,
+                is_array($row) ? (string) $row['name'] : null,
+                $status,
+                is_array($row) && $row['active_version_id'] !== null ? (int) $row['active_version_id'] : null,
+            );
+        }
+
+        return $readiness;
     }
 
     /** @return array<string, int|string|null> */
@@ -435,14 +740,17 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface
     /** @param array<string, mixed> $row */
     private function hydrateChatbot(array $row): Chatbot
     {
+        $id = (int) $row['id'];
+
         return new Chatbot(
-            (int) $row['id'],
+            $id,
             (string) $row['public_id'],
             (string) $row['name'],
             isset($row['description']) ? (string) $row['description'] : null,
             ChatbotStatus::from((string) $row['status']),
             isset($row['active_publication_id']) ? (int) $row['active_publication_id'] : null,
             $this->hydrateDraft($row, (int) $row['revision'], isset($row['draft_updated_at']) ? (string) $row['draft_updated_at'] : null),
+            $this->draftAssignments($this->connection->pdo(), $id),
             (string) $row['created_at'],
             (string) $row['updated_at'],
             isset($row['archived_at']) ? (string) $row['archived_at'] : null,
@@ -471,13 +779,16 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface
     /** @param array<string, mixed> $row */
     private function hydratePublication(array $row): ChatbotPublication
     {
+        $id = (int) $row['id'];
+
         return new ChatbotPublication(
-            (int) $row['id'],
+            $id,
             (int) $row['chatbot_id'],
             (int) $row['publication_number'],
             (int) $row['source_draft_revision'],
             (string) $row['configuration_hash'],
             $this->hydrateDraft($row, (int) $row['source_draft_revision'], null),
+            $this->publicationAssignments($this->connection->pdo(), $id),
             new ChatbotProviderConfiguration(
                 (string) $row['chat_provider'],
                 (string) $row['chat_model'],

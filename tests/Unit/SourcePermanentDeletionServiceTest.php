@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Chatbots\ChatbotSourceDependency;
 use App\Domain\Sources\SourceType;
 use App\Exceptions\ValidationException;
 use App\Services\Sources\SourceFileStorage;
 use App\Services\Sources\SourcePermanentDeletionService;
+use App\Repositories\SourceDependencyRepositoryInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Tests\Fakes\InMemorySourceRepository;
@@ -78,6 +80,30 @@ final class SourcePermanentDeletionServiceTest extends TestCase
         $this->expectExceptionMessage('Soft-delete');
 
         $this->service($sources)->delete($source, 'Current handbook');
+    }
+
+    public function testItReportsChatbotDependenciesBeforeTouchingFiles(): void
+    {
+        $sources = new InMemorySourceRepository();
+        $source = $sources->createSource('Assigned handbook', SourceType::Markdown);
+        $sources->softDelete($source->id);
+        $dependencies = new class implements SourceDependencyRepositoryInterface {
+            public function sourceDependencies(int $sourceId): array
+            {
+                return [new ChatbotSourceDependency(9, 'Website support', true, true, 2)];
+            }
+        };
+        $service = new SourcePermanentDeletionService(
+            $sources,
+            new SourceFileStorage($this->storageRoot),
+            new NullLogger(),
+            $dependencies,
+        );
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Website support (2 publications)');
+
+        $service->delete($source, 'Assigned handbook');
     }
 
     private function service(InMemorySourceRepository $sources): SourcePermanentDeletionService

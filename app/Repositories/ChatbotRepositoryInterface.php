@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Domain\Chatbots\Chatbot;
+use App\Domain\Chatbots\ChatbotAssignments;
 use App\Domain\Chatbots\ChatbotDraft;
 use App\Domain\Chatbots\ChatbotListItem;
 use App\Domain\Chatbots\ChatbotListQuery;
@@ -34,10 +35,17 @@ interface ChatbotRepositoryInterface
         ChatbotDraft $draft,
     ): Chatbot;
 
+    public function replaceDraftAssignments(
+        int $id,
+        int $expectedRevision,
+        ChatbotAssignments $assignments,
+    ): Chatbot;
+
     public function publish(
         int $id,
         int $expectedDraftRevision,
         ChatbotDraft $draft,
+        ChatbotAssignments $assignments,
         ChatbotProviderConfiguration $provider,
         string $configurationHash,
     ): ChatbotPublication;
@@ -48,4 +56,3 @@ interface ChatbotRepositoryInterface
 
     public function permanentlyDelete(int $id): void;
 }
-

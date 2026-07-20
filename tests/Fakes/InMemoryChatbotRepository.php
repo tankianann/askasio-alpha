@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace Tests\Fakes;
 
 use App\Domain\Chatbots\Chatbot;
+use App\Domain\Chatbots\ChatbotAssignments;
 use App\Domain\Chatbots\ChatbotDraft;
 use App\Domain\Chatbots\ChatbotListItem;
 use App\Domain\Chatbots\ChatbotListQuery;
 use App\Domain\Chatbots\ChatbotProviderConfiguration;
 use App\Domain\Chatbots\ChatbotPublication;
 use App\Domain\Chatbots\ChatbotStatus;
+use App\Domain\Chatbots\ChatbotSourceReadiness;
+use App\Domain\Chatbots\ChatbotSourceReadinessStatus;
+use App\Exceptions\ChatbotPublicationReadinessException;
+use App\Exceptions\InvalidChatbotSourceAssignmentException;
 use App\Exceptions\StaleChatbotDraftException;
 use App\Exceptions\UnchangedChatbotPublicationException;
 use App\Repositories\ChatbotRepositoryInterface;
@@ -27,6 +32,14 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
 
     private int $nextChatbotId = 1;
     private int $nextPublicationId = 1;
+
+    /** @var array<int, ChatbotSourceReadinessStatus> */
+    private array $sourceStatuses = [];
+
+    public function defineSource(int $sourceId, ChatbotSourceReadinessStatus $status = ChatbotSourceReadinessStatus::Ready): void
+    {
+        $this->sourceStatuses[$sourceId] = $status;
+    }
 
     public function paginate(ChatbotListQuery $query): PaginatedResult
     {
@@ -86,9 +99,48 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
             ChatbotStatus::Active,
             null,
             $storedDraft,
+            new ChatbotAssignments([], []),
             $now,
             $now,
             null,
+        );
+    }
+
+    public function replaceDraftAssignments(
+        int $id,
+        int $expectedRevision,
+        ChatbotAssignments $assignments,
+    ): Chatbot {
+        $chatbot = $this->requireChatbot($id);
+
+        if ($chatbot->draft->revision !== $expectedRevision) {
+            throw new StaleChatbotDraftException('The chatbot draft was changed by another request.');
+        }
+
+        foreach ($assignments->sourceIds as $sourceId) {
+            if (!isset($this->sourceStatuses[$sourceId])) {
+                throw new InvalidChatbotSourceAssignmentException('Draft source assignments must reference existing sources.');
+            }
+        }
+
+        if ($chatbot->assignments->configuration() === $assignments->configuration()) {
+            return $chatbot;
+        }
+
+        $now = '2026-07-20 00:01:00.000000';
+
+        return $this->chatbots[$id] = new Chatbot(
+            $chatbot->id,
+            $chatbot->publicId,
+            $chatbot->name,
+            $chatbot->description,
+            $chatbot->status,
+            $chatbot->activePublicationId,
+            $this->draftWithRevision($chatbot->draft, $expectedRevision + 1, $now),
+            $assignments,
+            $chatbot->createdAt,
+            $now,
+            $chatbot->archivedAt,
         );
     }
 
@@ -115,6 +167,7 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
             $chatbot->status,
             $chatbot->activePublicationId,
             $this->draftWithRevision($draft, $expectedRevision + 1, $now),
+            $chatbot->assignments,
             $chatbot->createdAt,
             $now,
             $chatbot->archivedAt,
@@ -125,6 +178,7 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
         int $id,
         int $expectedDraftRevision,
         ChatbotDraft $draft,
+        ChatbotAssignments $assignments,
         ChatbotProviderConfiguration $provider,
         string $configurationHash,
     ): ChatbotPublication {
@@ -132,6 +186,32 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
 
         if ($chatbot->draft->revision !== $expectedDraftRevision) {
             throw new StaleChatbotDraftException('The chatbot draft changed before publication.');
+        }
+
+        if ($chatbot->assignments->configuration() !== $assignments->configuration()) {
+            throw new StaleChatbotDraftException('The chatbot assignments changed before publication.');
+        }
+
+        if ($assignments->sourceIds === [] || $assignments->origins === []) {
+            throw new InvalidChatbotSourceAssignmentException(
+                'Publishing requires at least one assigned source and one allowed origin.',
+            );
+        }
+
+        $readiness = array_map(
+            fn (int $sourceId): ChatbotSourceReadiness => new ChatbotSourceReadiness(
+                $sourceId,
+                'Source ' . $sourceId,
+                $this->sourceStatuses[$sourceId] ?? ChatbotSourceReadinessStatus::Missing,
+                isset($this->sourceStatuses[$sourceId]) ? $sourceId * 10 : null,
+            ),
+            $assignments->sourceIds,
+        );
+
+        foreach ($readiness as $source) {
+            if (!$source->isReady()) {
+                throw new ChatbotPublicationReadinessException($readiness);
+            }
         }
 
         $active = $this->findActivePublication($id);
@@ -158,6 +238,7 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
             $expectedDraftRevision,
             $configurationHash,
             $this->draftWithRevision($draft, $expectedDraftRevision, null),
+            $assignments,
             $provider,
             '2026-07-20 00:02:00.000000',
         );
@@ -170,6 +251,7 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
             $chatbot->status,
             $publicationId,
             $chatbot->draft,
+            $chatbot->assignments,
             $chatbot->createdAt,
             '2026-07-20 00:02:00.000000',
             $chatbot->archivedAt,
@@ -255,6 +337,7 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
             $status ?? $chatbot->status,
             $chatbot->activePublicationId,
             $chatbot->draft,
+            $chatbot->assignments,
             $chatbot->createdAt,
             '2026-07-20 00:03:00.000000',
             $archivedAt,

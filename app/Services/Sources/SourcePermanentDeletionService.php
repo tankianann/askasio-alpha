@@ -7,6 +7,7 @@ namespace App\Services\Sources;
 use App\Domain\Sources\Source;
 use App\Exceptions\ValidationException;
 use App\Repositories\SourceRepositoryInterface;
+use App\Repositories\SourceDependencyRepositoryInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -16,6 +17,7 @@ final class SourcePermanentDeletionService
         private readonly SourceRepositoryInterface $sources,
         private readonly SourceFileStorage $storage,
         private readonly LoggerInterface $logger,
+        private readonly ?SourceDependencyRepositoryInterface $dependencies = null,
     ) {
     }
 
@@ -41,6 +43,25 @@ final class SourcePermanentDeletionService
 
                 if ($this->sources->hasInFlightJobs($locked->id)) {
                     throw new ValidationException('Wait for pending or processing source jobs before permanent deletion.');
+                }
+
+                $dependencies = $this->dependencies?->sourceDependencies($locked->id) ?? [];
+
+                if ($dependencies !== []) {
+                    $names = array_map(
+                        static fn ($dependency): string => sprintf(
+                            '%s (%d publication%s)',
+                            $dependency->chatbotName,
+                            $dependency->publicationCount,
+                            $dependency->publicationCount === 1 ? '' : 's',
+                        ),
+                        $dependencies,
+                    );
+
+                    throw new ValidationException(
+                        'Remove this source from dependent chatbots before permanent deletion: '
+                        . implode(', ', $names) . '.',
+                    );
                 }
 
                 $staged = $this->storage->stageSourceDirectory($locked->id);

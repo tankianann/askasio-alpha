@@ -6,7 +6,7 @@ Ask Asio is a standalone, single-administrator Retrieval-Augmented Generation ap
 
 The application deliberately uses PHP 8.3+, PDO, MySQL 8, Composer packages, server-rendered PHP templates, and vanilla JavaScript without an application framework. It is single-tenant today, but integration boundaries and repository/service layers make later provider or vector-store replacement possible.
 
-The customer-facing chatbot currently has a domain/persistence foundation only: identity, mutable drafts, immutable core publications, lifecycle validation, and bounded list projections. It has no routes, UI, sessions, source/origin assignments, or public behavior yet. See [Customer-facing chatbot core persistence](customer-facing-chatbot/core-domain-persistence.md).
+The customer-facing chatbot currently has an unwired domain/persistence foundation: identity, mutable drafts and source/origin assignments, immutable complete publications, active-version readiness validation, dependency protection, lifecycle validation, and bounded list projections. It has no chatbot routes, UI, sessions, or public behavior yet. See [Customer-facing chatbot source assignments and publication](customer-facing-chatbot/source-assignments-and-publication.md).
 
 ## System context
 

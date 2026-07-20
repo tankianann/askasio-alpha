@@ -114,11 +114,19 @@ One mutable draft per chatbot with schema version, optimistic revision, normaliz
 
 Draft writes compare the expected revision and increment it atomically, preventing stale administrator forms from overwriting newer work.
 
+### `chatbot_draft_sources` and `chatbot_draft_origins`
+
+Mutable source and exact-origin assignments belonging to the one draft. Composite primary keys prevent duplicates; assignment replacement and the shared draft revision increment commit together. Source foreign keys restrict permanent deletion. Origins are normalized ASCII scheme/host/optional-port values using binary comparison.
+
 ### `chatbot_publications`
 
 Immutable numbered core configuration snapshots. Each copies the complete validated draft, canonical configuration hash, source draft revision, and effective installation chat/embedding provider/model/dimensions. `(chatbot_id, publication_number)` is unique; records cascade only with permanent chatbot deletion.
 
-This core table is not publicly reachable yet. Source/origin snapshot relations and readiness/configuration-staleness validation arrive before any public execution.
+This table is not publicly reachable yet. Publication source readiness is implemented; runtime provider/configuration-staleness validation remains part of the later execution boundary.
+
+### `chatbot_publication_sources` and `chatbot_publication_origins`
+
+Immutable authorized-scope children of a numbered publication. They cascade only when publication history is permanently deleted. Source lookup indexes support dependency reporting; source foreign keys restrict deletion so publication history cannot silently lose its scope.
 
 ## Critical transactional boundaries
 
@@ -130,7 +138,9 @@ This core table is not publicly reachable yet. Source/origin snapshot relations 
 - Quota reconciliation adjusts reserved/consumed counts and deletes the reservation atomically.
 - Chatbot identity plus initial draft creation is one transaction.
 - Chatbot identity edits and optimistic draft revision updates are one transaction.
-- Core chatbot publication locks identity/draft, verifies revision, inserts an immutable numbered snapshot, and updates the active pointer atomically.
+- Chatbot assignment replacement locks identity/draft, replaces source/origin relations, and increments the common optimistic revision atomically.
+- Chatbot publication locks identity/draft, verifies assignments and active-version readiness, inserts an immutable numbered snapshot plus relation rows, and updates the active pointer atomically.
+- Permanent source deletion checks chatbot draft/active/history dependencies before staging files or deleting rows.
 - Permanent chatbot deletion requires archive, clears the cyclic active pointer, then cascades drafts/publications.
 
 ## Migration policy
@@ -156,6 +166,7 @@ Current migration history:
 | `20260719000011` | Per-source job-history index. |
 | `20260720000012` | Atomic provider quota buckets/reservations. |
 | `20260720000013` | Chatbot identity, mutable validated drafts, and immutable core publications. |
+| `20260720000014` | Mutable chatbot source/origin assignments and immutable publication scope snapshots. |
 
 ## Index and query guidance
 
@@ -166,7 +177,7 @@ Current migration history:
 | API keys | unique secret hash, status/expiry, creation/name/last-use order. |
 | API Activity | unique request ID, creation, key+creation, status+creation, endpoint+creation, duration+creation. |
 | Quotas | unique scope/identifier/period, expiry status for active reservations. |
-| Chatbots | unique public ID, status+updated, updated, name, unique publication number, chatbot+publication time. |
+| Chatbots | unique public ID, status+updated, updated, name, unique publication number, chatbot+publication time, source-to-draft/publication dependency lookups. |
 
 Admin result queries filter before pagination, select only display columns, use allowlisted sort expressions, and include deterministic ID tie-breakers. Offset pagination is appropriate for the single administrator and exact totals, but deep offsets and `COUNT(*)` become expensive at very large row counts.
 

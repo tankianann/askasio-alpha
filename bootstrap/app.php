@@ -57,6 +57,7 @@ use App\Security\UrlSourceValidator;
 use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
 use App\Services\Sources\SourcePermanentDeletionService;
+use App\Repositories\PdoChatbotRepository;
 use App\Services\Sources\SourceUpdateService;
 use App\Services\Sources\SourceListQueryParser;
 use App\Services\Sources\SourceHistoryQueryParser;
@@ -165,7 +166,8 @@ $sourceUpdates = new SourceUpdateService(
     $sourceFileStorage,
     $queue,
 );
-$sourceDeletion = new SourcePermanentDeletionService($sources, $sourceFileStorage, $logger);
+$chatbots = new PdoChatbotRepository($connection);
+$sourceDeletion = new SourcePermanentDeletionService($sources, $sourceFileStorage, $logger, $chatbots);
 $router = new Router();
 $router->middleware(new RequestIdMiddleware());
 $router->middleware(new SecurityHeadersMiddleware());
