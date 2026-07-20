@@ -17,6 +17,7 @@ This document records the Milestone 9 security baseline. It is an operational ch
 - Administrator state changes require authenticated sessions and CSRF tokens. Login attempts are throttled by normalized username and client IP identifiers.
 - API keys are generated from secure random bytes, shown once, and stored only as a visible prefix plus SHA-256 hash. Authentication comparisons use constant-time equality. API Access list queries select display metadata only and do not load secret hashes.
 - API requests are size/type/schema validated and rate-limited by API key and HMAC-derived IP identifier.
+- Provider calls from authenticated retrieval/chat requests require an atomic global and per-key token reservation before execution. Exhausted budgets fail closed without contacting the provider.
 - SQL uses prepared PDO statements. Templates escape untrusted output, including extracted text and provider/job errors.
 - Uploaded files are stored under randomized server names outside `public/` and validated by size, extension, detected MIME type, and signature or UTF-8 content rules.
 - URL ingestion permits only HTTP(S), rejects local/private/reserved destinations, validates DNS results before connection, pins the validated address, disables proxy inheritance, and repeats validation after redirects.
@@ -48,6 +49,7 @@ Visible API-key prefixes and connection names may be joined into administrator l
 ## Data lifecycle
 
 - API Activity follows the configured 0/30/90/180/365-day live-database policy and can also be manually purged through confirmed, CSRF-protected scopes.
+- Provider-token quota ledgers retain numeric global/per-key usage by UTC day/month. They contain no bearer key, prompt, context, model response, or provider credential.
 - Expired API rate-limit buckets are deleted in bounded batches during rate-limit activity.
 - Application logs rotate daily and retain 14 files by default; host log shipping requires its own retention policy.
 - Immutable source versions, chunks, embeddings, and ingestion jobs remain until permanent source deletion. Soft deletion is not a privacy erasure.
@@ -65,6 +67,7 @@ Because the reviewed development tables are small, MySQL may prefer a table scan
 - Rotate provider and application API keys on a documented schedule and immediately after suspected disclosure.
 - Back up MySQL and `FILESYSTEM_PATH` together; test restoration away from production.
 - Monitor health, worker status, failed jobs, provider errors/rate limits, disk capacity, and application logs.
+- Choose explicit provider daily/monthly budgets, monitor API Access usage, and retain a provider-account hard budget because administrator ingestion is outside the customer API-key quota ledger.
 - Keep `JOB_ABANDONED_TIMEOUT_MINUTES` above the worker's validated worst-case OCR/embedding window and schedule `bin/recover-jobs.php` as a fallback. The worker refuses unsafe timeout combinations.
 - Keep `INGESTION_MAXIMUM_EXTRACTED_CHARACTERS`, `RAG_MAXIMUM_CHUNKS_PER_DOCUMENT`, and `PDF_MAXIMUM_PAGES` at measured, finite values. Oversized documents fail permanently before embedding or activation.
 - Install the hardened `deploy/systemd/ragserver-worker.service` unit and keep its PHP/cgroup memory ceilings and `ReadWritePaths` aligned with the deployment.

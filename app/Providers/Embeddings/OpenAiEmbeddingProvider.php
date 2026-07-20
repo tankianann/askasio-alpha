@@ -11,6 +11,7 @@ use App\Providers\OpenAI\OpenAiClientException;
 use App\Providers\OpenAI\OpenAiMalformedResponseException;
 use App\Providers\OpenAI\OpenAiRateLimitException;
 use App\Providers\OpenAI\OpenAiTimeoutException;
+use App\Services\ProviderQuota\ProviderUsageAccumulator;
 
 final class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
 {
@@ -18,6 +19,7 @@ final class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
         private readonly OpenAiClientInterface $client,
         private readonly string $modelName,
         private readonly ?int $dimensions = null,
+        private readonly ?ProviderUsageAccumulator $usage = null,
     ) {
         if (trim($this->modelName) === '') {
             throw new EmbeddingConfigurationException('OPENAI_EMBEDDING_MODEL is not configured.');
@@ -113,6 +115,13 @@ final class OpenAiEmbeddingProvider implements EmbeddingProviderInterface
 
         if (count($vectors) !== count($texts)) {
             throw new MalformedEmbeddingResponseException('OpenAI returned duplicate or missing embedding indexes.');
+        }
+
+        $providerUsage = is_array($response['usage'] ?? null) ? $response['usage'] : [];
+        $tokens = $providerUsage['total_tokens'] ?? $providerUsage['prompt_tokens'] ?? null;
+
+        if (is_int($tokens) && $tokens >= 0) {
+            $this->usage?->recordEmbeddingTokens($tokens);
         }
 
         $dimensions = count($vectors[0] ?? []);

@@ -38,6 +38,8 @@ final class CleanDatabaseMigrationTest extends DatabaseIntegrationTestCase
             'api_rate_limit_buckets',
             'api_request_logs',
             'ingestion_jobs',
+            'provider_quota_buckets',
+            'provider_quota_reservations',
             'schema_migrations',
             'settings',
             'source_chunks',

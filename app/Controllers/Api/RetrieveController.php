@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace App\Controllers\Api;
 
+use App\Domain\ApiKeys\ApiKey;
 use App\Domain\RAG\RetrievedChunk;
 use App\Exceptions\HttpException;
+use App\Exceptions\ProviderQuotaExceededException;
 use App\Http\JsonRequestParser;
 use App\Http\Request;
 use App\Http\Response;
 use App\RAG\Retriever;
+use App\Ingestion\Chunking\HeuristicTokenEstimator;
+use App\Services\ProviderQuota\ProviderQuotaService;
+use App\Services\ProviderQuota\ProviderUsageAccumulator;
+use Throwable;
 
 final class RetrieveController
 {
@@ -18,6 +24,8 @@ final class RetrieveController
         private readonly int $maximumTopK,
         private readonly int $maximumQueryCharacters,
         private readonly JsonRequestParser $json,
+        private readonly ?ProviderQuotaService $quotas = null,
+        private readonly ?ProviderUsageAccumulator $providerUsage = null,
     ) {
     }
 
@@ -52,14 +60,56 @@ final class RetrieveController
         }
 
         $filters = $this->validateFilters($payload['filters'] ?? null);
-        $matches = $this->retriever->retrieve($query, $topK, $filters);
+        $reservation = null;
+
+        if ($this->quotas instanceof ProviderQuotaService) {
+            try {
+                $reservation = $this->quotas->reserveRetrieve($this->apiKeyId($request), $query);
+            } catch (ProviderQuotaExceededException) {
+                throw new HttpException(429, 'The provider token quota has been exhausted.', 'quota_exceeded');
+            }
+        }
+
+        try {
+            $matches = $this->retriever->retrieve($query, $topK, $filters);
+        } catch (Throwable $exception) {
+            if ($reservation !== null) {
+                $this->quotas?->reconcile($reservation, $reservation->reservedTokens, true);
+            }
+
+            throw $exception;
+        }
+
+        $embeddingTokens = $this->providerUsage?->embeddingTokens() ?? 0;
+        $embeddingTokens = $embeddingTokens > 0
+            ? $embeddingTokens
+            : (new HeuristicTokenEstimator())->estimate($query);
+        $quotaUsage = $reservation !== null
+            ? $this->quotas?->reconcile($reservation, $embeddingTokens) ?? []
+            : [];
         $requestId = $request->attribute('request_id');
 
         return Response::json([
             'matches' => array_map($this->serializeMatch(...), $matches),
-            'usage' => ['retrieved_chunks' => count($matches)],
+            'usage' => [
+                'retrieved_chunks' => count($matches),
+                'embedding_tokens' => $embeddingTokens,
+                'provider_total_tokens' => $embeddingTokens,
+                ...$quotaUsage,
+            ],
             'request_id' => is_string($requestId) ? $requestId : null,
         ]);
+    }
+
+    private function apiKeyId(Request $request): int
+    {
+        $apiKey = $request->attribute('api_key');
+
+        if (!$apiKey instanceof ApiKey) {
+            throw new \LogicException('Authenticated API key is missing from the request.');
+        }
+
+        return $apiKey->id;
     }
 
     /** @return array<string, mixed> */

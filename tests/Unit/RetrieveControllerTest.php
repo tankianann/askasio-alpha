@@ -6,13 +6,17 @@ namespace Tests\Unit;
 
 use App\Controllers\Api\RetrieveController;
 use App\Domain\RAG\RetrievedChunk;
+use App\Domain\ApiKeys\ApiKey;
 use App\Exceptions\HttpException;
 use App\Http\Request;
 use App\Http\JsonRequestParser;
 use App\RAG\Retriever;
+use App\Services\ProviderQuota\ProviderQuotaService;
+use App\Services\ProviderQuota\ProviderUsageAccumulator;
 use PHPUnit\Framework\TestCase;
 use Tests\Fakes\FakeEmbeddingProvider;
 use Tests\Fakes\InMemoryVectorStore;
+use Tests\Fakes\InMemoryProviderQuotaRepository;
 
 final class RetrieveControllerTest extends TestCase
 {
@@ -64,6 +68,63 @@ final class RetrieveControllerTest extends TestCase
         ($this->controller())(new Request('POST', '/api/v1/retrieve', rawBody: '{}'));
     }
 
+    public function testExhaustedQuotaDoesNotCallTheEmbeddingProvider(): void
+    {
+        $embedding = new FakeEmbeddingProvider();
+        $retriever = new Retriever($embedding, new InMemoryVectorStore(), 8, 20, 0.2);
+        $quotas = new ProviderQuotaService(new InMemoryProviderQuotaRepository(), 5, 50, 5, 50, 900);
+        $controller = new RetrieveController(
+            $retriever,
+            20,
+            4000,
+            new JsonRequestParser(65536),
+            $quotas,
+        );
+        $request = (new Request(
+            'POST',
+            '/api/v1/retrieve',
+            ['content-type' => 'application/json'],
+            rawBody: '{"query":"refund conditions"}',
+        ))->withAttribute('api_key', $this->apiKey());
+
+        try {
+            $controller($request);
+            self::fail('Expected the exhausted quota to reject the request.');
+        } catch (HttpException $exception) {
+            self::assertSame(429, $exception->statusCode);
+            self::assertSame('quota_exceeded', $exception->errorCode);
+        }
+
+        self::assertSame([], $embedding->inputs);
+    }
+
+    public function testItReportsReconciledProviderUsage(): void
+    {
+        $usage = new ProviderUsageAccumulator();
+        $usage->recordEmbeddingTokens(7);
+        $quotas = new ProviderQuotaService(new InMemoryProviderQuotaRepository(), 1_000, 5_000, 500, 2_500, 900);
+        $controller = new RetrieveController(
+            new Retriever(new FakeEmbeddingProvider(), new InMemoryVectorStore(), 8, 20, 0.2),
+            20,
+            4000,
+            new JsonRequestParser(65536),
+            $quotas,
+            $usage,
+        );
+        $request = (new Request(
+            'POST',
+            '/api/v1/retrieve',
+            ['content-type' => 'application/json'],
+            rawBody: '{"query":"refund conditions"}',
+        ))->withAttribute('api_key', $this->apiKey());
+
+        $payload = json_decode($controller($request)->body(), true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(7, $payload['usage']['provider_total_tokens']);
+        self::assertSame(7, $payload['usage']['quota_charged_tokens']);
+        self::assertSame(493, $payload['usage']['quota_daily_remaining_tokens']);
+    }
+
     /** @param list<RetrievedChunk> $matches */
     private function controller(array $matches = []): RetrieveController
     {
@@ -76,5 +137,10 @@ final class RetrieveControllerTest extends TestCase
         );
 
         return new RetrieveController($retriever, 20, 4000, new JsonRequestParser(65536));
+    }
+
+    private function apiKey(): ApiKey
+    {
+        return new ApiKey(7, 1, 'Test connection', 'rag_live_test', hash('sha256', 'secret'), 'active', '2026-01-01 00:00:00', null, null, null);
     }
 }

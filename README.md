@@ -96,6 +96,8 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Immediate revocation and permanent key deletion
 - Bearer authentication with generic failures and `WWW-Authenticate` responses
 - MySQL-backed fixed-window limits by API key and HMAC-hashed client IP
+- Atomic global and per-connection provider-token budgets with daily and monthly UTC windows
+- Worst-case reservation before provider access, actual-usage reconciliation, and conservative timeout charging
 - Request audit records containing request ID, numeric key ID, endpoint, status, duration, error category, and numeric usage
 - No bearer secrets, complete questions, or raw client IP addresses in API request records
 - Configurable API Activity retention with a concurrency-safe scheduled purge command
@@ -114,6 +116,28 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Input, cached-input, output, reasoning, total, context, and retrieved-chunk usage reporting
 - A stricter, independent chat rate-limit namespace by API key and client IP
 - Provider-side response storage disabled for chat requests
+
+### Provider token quotas
+
+Authenticated retrieval and chat requests are protected by independent global and per-API-key daily and monthly token budgets. Configure the limits in `.env`:
+
+```dotenv
+PROVIDER_GLOBAL_DAILY_TOKEN_LIMIT=1000000
+PROVIDER_GLOBAL_MONTHLY_TOKEN_LIMIT=10000000
+PROVIDER_API_KEY_DAILY_TOKEN_LIMIT=100000
+PROVIDER_API_KEY_MONTHLY_TOKEN_LIMIT=1000000
+PROVIDER_QUOTA_RESERVATION_TTL_SECONDS=900
+```
+
+A value of `0` makes that individual budget unlimited. Daily and monthly windows use UTC database dates, regardless of `APP_TIMEZONE`.
+
+Before either API endpoint can contact OpenAI, it atomically reserves a conservative worst-case allowance from all four applicable buckets. The transaction locks the shared global buckets and the calling connection's buckets, so concurrent requests cannot each spend the same remaining allowance. If any applicable limit cannot accommodate the reservation, the API returns HTTP `429` with error code `quota_exceeded` and makes no embedding or chat provider call.
+
+On success, the reservation is replaced with actual provider-reported chat and embedding token usage. If embedding usage is unavailable, the application uses its local token estimate. A request that fails after provider access may have been billed even when no response arrived, so its full reservation is conservatively charged as estimated usage. Active reservations abandoned by a crashed PHP process expire after the configured TTL and are similarly reconciled before the next reservation or usage view. Finalization moves the charge into compact period buckets and deletes the transient reservation in the same transaction, so reservation rows do not grow indefinitely.
+
+Successful `/api/v1/retrieve` and `/api/v1/chat` responses include `provider_total_tokens`, `quota_charged_tokens`, `quota_reserved_tokens`, and applicable effective daily/monthly remaining values in `usage`. The API Access screen shows global daily/monthly usage plus the current page's per-connection usage. Only numeric usage is copied into API Activity; prompts, responses, provider credentials, and bearer tokens remain excluded.
+
+These customer-request budgets cover the authenticated retrieval and chat endpoints. Administrator-triggered source ingestion is not attributable to an application API key and remains controlled by document/chunk limits and the provider account's own project budget. Keep an OpenAI project-level hard budget as the final ceiling for all provider activity.
 
 ## Requirements
 

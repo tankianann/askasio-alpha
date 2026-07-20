@@ -16,6 +16,7 @@ use App\Repositories\ApiKeyRepositoryInterface;
 use App\Security\CsrfTokenManager;
 use App\Services\ApiKeys\ApiKeyService;
 use App\Services\ApiKeys\ApiKeyListQueryParser;
+use App\Services\ProviderQuota\ProviderQuotaService;
 use App\Support\QueryString;
 use App\Support\SortDirection;
 use App\Support\ViewRenderer;
@@ -36,6 +37,7 @@ final class ApiKeyController
         private readonly string $environment,
         private readonly string $timezone,
         private readonly ApiKeyListQueryParser $listQueries,
+        private readonly ?ProviderQuotaService $providerQuotas = null,
     ) {
     }
 
@@ -60,6 +62,10 @@ final class ApiKeyController
         }
 
         $parameters = $query->queryParameters();
+        $quotaSnapshots = $this->providerQuotas?->snapshots(array_map(
+            static fn (ApiKey $key): int => $key->id,
+            $page->items,
+        ));
 
         return Response::html($this->views->render('api_keys/index', [
             ...$this->layoutData($request, 'API Access'),
@@ -67,6 +73,8 @@ final class ApiKeyController
             'query' => $query,
             'success' => $this->session->pull(self::FLASH_SUCCESS),
             'filterError' => $this->session->pull(self::FLASH_ERROR),
+            'globalQuota' => $quotaSnapshots['global'] ?? null,
+            'apiKeyQuotas' => $quotaSnapshots['api_keys'] ?? [],
             'queryUrl' => static fn (array $overrides = []): string => QueryString::url(
                 '/admin/api-keys',
                 $parameters,

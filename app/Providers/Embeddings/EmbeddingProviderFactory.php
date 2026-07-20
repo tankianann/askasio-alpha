@@ -7,6 +7,7 @@ namespace App\Providers\Embeddings;
 use App\Providers\OpenAI\OpenAiHttpClient;
 use App\Providers\OpenAI\OpenAiConfigurationException;
 use App\Support\Config;
+use App\Services\ProviderQuota\ProviderUsageAccumulator;
 
 final class EmbeddingProviderFactory
 {
@@ -14,7 +15,7 @@ final class EmbeddingProviderFactory
     {
     }
 
-    public function create(): EmbeddingProviderInterface
+    public function create(?ProviderUsageAccumulator $usage = null): EmbeddingProviderInterface
     {
         $provider = $this->config->requireString('providers.embedding_provider');
 
@@ -44,6 +45,7 @@ final class EmbeddingProviderFactory
             $client,
             $this->config->requireString('providers.openai.embedding_model'),
             $dimensions,
+            $usage,
         );
     }
 }

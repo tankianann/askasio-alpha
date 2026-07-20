@@ -7,6 +7,7 @@ namespace Tests\Unit;
 use App\Providers\Embeddings\MalformedEmbeddingResponseException;
 use App\Providers\Embeddings\OpenAiEmbeddingProvider;
 use App\Providers\OpenAI\OpenAiClientInterface;
+use App\Services\ProviderQuota\ProviderUsageAccumulator;
 use PHPUnit\Framework\TestCase;
 
 final class OpenAiEmbeddingProviderTest extends TestCase
@@ -49,5 +50,23 @@ final class OpenAiEmbeddingProviderTest extends TestCase
 
         $this->expectException(MalformedEmbeddingResponseException::class);
         (new OpenAiEmbeddingProvider($client, 'configured-model'))->embed('text');
+    }
+
+    public function testItRecordsExactEmbeddingUsageWhenProviderReturnsIt(): void
+    {
+        $client = new class implements OpenAiClientInterface {
+            public function postJson(string $path, array $payload): array
+            {
+                return [
+                    'data' => [['index' => 0, 'embedding' => [1, 0]]],
+                    'usage' => ['prompt_tokens' => 4, 'total_tokens' => 4],
+                ];
+            }
+        };
+        $usage = new ProviderUsageAccumulator();
+
+        (new OpenAiEmbeddingProvider($client, 'configured-model', usage: $usage))->embed('text');
+
+        self::assertSame(4, $usage->embeddingTokens());
     }
 }

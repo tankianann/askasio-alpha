@@ -35,6 +35,7 @@ use App\Repositories\PdoApiKeyRepository;
 use App\Repositories\PdoApiRateLimitRepository;
 use App\Repositories\PdoApiRequestLogRepository;
 use App\Repositories\PdoLoginAttemptRepository;
+use App\Repositories\PdoProviderQuotaRepository;
 use App\Repositories\PdoSourceRepository;
 use App\Repositories\PdoIngestionJobRepository;
 use App\Providers\Embeddings\EmbeddingProviderFactory;
@@ -61,6 +62,8 @@ use App\Services\Sources\SourceListQueryParser;
 use App\Services\Sources\SourceHistoryQueryParser;
 use App\Services\Ingestion\IngestionQueue;
 use App\Services\Ingestion\IngestionJobListQueryParser;
+use App\Services\ProviderQuota\ProviderQuotaService;
+use App\Services\ProviderQuota\ProviderUsageAccumulator;
 use App\Services\Api\ApiRateLimiter;
 use App\Services\Api\ApiRequestContext;
 use App\Services\Api\ApiRequestLogQueryParser;
@@ -99,6 +102,14 @@ $sources = new PdoSourceRepository($connection);
 $jobRepository = new PdoIngestionJobRepository($connection);
 $apiKeys = new PdoApiKeyRepository($connection);
 $apiRequestLogs = new PdoApiRequestLogRepository($connection);
+$providerQuotas = new ProviderQuotaService(
+    new PdoProviderQuotaRepository($connection),
+    $config->requireInt('provider_quotas.global_daily_tokens'),
+    $config->requireInt('provider_quotas.global_monthly_tokens'),
+    $config->requireInt('provider_quotas.api_key_daily_tokens'),
+    $config->requireInt('provider_quotas.api_key_monthly_tokens'),
+    $config->requireInt('provider_quotas.reservation_ttl_seconds'),
+);
 $queue = new IngestionQueue(
     $jobRepository,
     $config->requireInt('queue.max_attempts'),
@@ -208,6 +219,7 @@ $apiKeyController = new ApiKeyController(
     $config->requireString('app.env'),
     $timezone,
     new ApiKeyListQueryParser($timezone),
+    $providerQuotas,
 );
 $apiRequestLogController = new ApiRequestLogController(
     $apiRequestLogs,
@@ -258,8 +270,9 @@ if (!$registerRoutes instanceof Closure) {
     throw new RuntimeException('Route configuration is invalid.');
 }
 
-$retrieveHandler = static function (\App\Http\Request $request) use ($config, $connection): \App\Http\Response {
-    $provider = (new EmbeddingProviderFactory($config))->create();
+$retrieveHandler = static function (\App\Http\Request $request) use ($config, $connection, $providerQuotas): \App\Http\Response {
+    $providerUsage = new ProviderUsageAccumulator();
+    $provider = (new EmbeddingProviderFactory($config))->create($providerUsage);
     $retriever = new Retriever(
         $provider,
         new PdoVectorStore($connection, new CosineSimilarity()),
@@ -272,14 +285,17 @@ $retrieveHandler = static function (\App\Http\Request $request) use ($config, $c
         $config->requireInt('rag.retrieval_maximum_top_k'),
         $config->requireInt('rag.retrieval_maximum_query_characters'),
         new JsonRequestParser($config->requireInt('rag.api_maximum_body_bytes')),
+        $providerQuotas,
+        $providerUsage,
     );
 
     return $controller($request);
 };
 
-$chatHandler = static function (\App\Http\Request $request) use ($config, $connection, $appSecret): \App\Http\Response {
+$chatHandler = static function (\App\Http\Request $request) use ($config, $connection, $appSecret, $providerQuotas): \App\Http\Response {
     try {
-        $embeddings = (new EmbeddingProviderFactory($config))->create();
+        $providerUsage = new ProviderUsageAccumulator();
+        $embeddings = (new EmbeddingProviderFactory($config))->create($providerUsage);
         $retriever = new Retriever(
             $embeddings,
             new PdoVectorStore($connection, new CosineSimilarity()),
@@ -302,6 +318,10 @@ $chatHandler = static function (\App\Http\Request $request) use ($config, $conne
             $config->requireInt('rag.chat_maximum_top_k'),
             $config->requireInt('rag.chat_maximum_question_characters'),
             $appSecret,
+            $providerQuotas,
+            $providerUsage,
+            $config->requireInt('rag.chat_context_maximum_tokens'),
+            $config->requireInt('providers.openai.chat_maximum_output_tokens'),
         );
     } catch (ConfigurationException|EmbeddingConfigurationException|ChatConfigurationException) {
         throw new HttpException(503, 'The AI provider is not configured correctly.', 'provider_configuration_error');

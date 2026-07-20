@@ -7,6 +7,7 @@ namespace App\Controllers\Api;
 use App\Domain\ApiKeys\ApiKey;
 use App\Domain\RAG\RetrievedChunk;
 use App\Exceptions\HttpException;
+use App\Exceptions\ProviderQuotaExceededException;
 use App\Http\JsonRequestParser;
 use App\Http\Request;
 use App\Http\Response;
@@ -23,6 +24,10 @@ use App\Providers\Embeddings\EmbeddingRateLimitException;
 use App\Providers\Embeddings\EmbeddingTimeoutException;
 use App\Providers\Embeddings\MalformedEmbeddingResponseException;
 use App\RAG\AnswerGenerator;
+use App\Ingestion\Chunking\HeuristicTokenEstimator;
+use App\Services\ProviderQuota\ProviderQuotaService;
+use App\Services\ProviderQuota\ProviderUsageAccumulator;
+use Throwable;
 
 final class ChatController
 {
@@ -32,6 +37,10 @@ final class ChatController
         private readonly int $maximumTopK,
         private readonly int $maximumQuestionCharacters,
         private readonly string $applicationSecret,
+        private readonly ?ProviderQuotaService $quotas = null,
+        private readonly ?ProviderUsageAccumulator $providerUsage = null,
+        private readonly int $maximumContextTokens = 0,
+        private readonly int $maximumOutputTokens = 0,
     ) {
     }
 
@@ -73,23 +82,55 @@ final class ChatController
             );
         }
 
-        try {
-            $result = $this->answers->generate($question, $topK, [
-                'safety_identifier' => $this->safetyIdentifier($request),
-            ]);
-        } catch (EmbeddingConfigurationException|ChatConfigurationException) {
-            throw new HttpException(503, 'The AI provider is not configured correctly.', 'provider_configuration_error');
-        } catch (EmbeddingAuthenticationException|ChatAuthenticationException) {
-            throw new HttpException(503, 'The AI provider rejected the configured credentials.', 'provider_authentication_error');
-        } catch (EmbeddingRateLimitException|ChatRateLimitException) {
-            throw new HttpException(503, 'The AI provider is temporarily rate limited.', 'provider_rate_limited');
-        } catch (EmbeddingTimeoutException|ChatTimeoutException) {
-            throw new HttpException(504, 'The AI provider request timed out.', 'provider_timeout');
-        } catch (MalformedEmbeddingResponseException|ChatMalformedResponseException) {
-            throw new HttpException(502, 'The AI provider returned an invalid response.', 'provider_invalid_response');
-        } catch (EmbeddingProviderException|ChatProviderException) {
-            throw new HttpException(502, 'The AI provider request failed.', 'provider_error');
+        $reservation = null;
+
+        if ($this->quotas instanceof ProviderQuotaService) {
+            try {
+                $reservation = $this->quotas->reserveChat(
+                    $this->apiKeyId($request),
+                    $question,
+                    $this->maximumContextTokens,
+                    $this->maximumOutputTokens,
+                );
+            } catch (ProviderQuotaExceededException) {
+                throw new HttpException(429, 'The provider token quota has been exhausted.', 'quota_exceeded');
+            }
         }
+
+        try {
+            try {
+                $result = $this->answers->generate($question, $topK, [
+                    'safety_identifier' => $this->safetyIdentifier($request),
+                ]);
+            } catch (EmbeddingConfigurationException|ChatConfigurationException) {
+                throw new HttpException(503, 'The AI provider is not configured correctly.', 'provider_configuration_error');
+            } catch (EmbeddingAuthenticationException|ChatAuthenticationException) {
+                throw new HttpException(503, 'The AI provider rejected the configured credentials.', 'provider_authentication_error');
+            } catch (EmbeddingRateLimitException|ChatRateLimitException) {
+                throw new HttpException(503, 'The AI provider is temporarily rate limited.', 'provider_rate_limited');
+            } catch (EmbeddingTimeoutException|ChatTimeoutException) {
+                throw new HttpException(504, 'The AI provider request timed out.', 'provider_timeout');
+            } catch (MalformedEmbeddingResponseException|ChatMalformedResponseException) {
+                throw new HttpException(502, 'The AI provider returned an invalid response.', 'provider_invalid_response');
+            } catch (EmbeddingProviderException|ChatProviderException) {
+                throw new HttpException(502, 'The AI provider request failed.', 'provider_error');
+            }
+        } catch (Throwable $exception) {
+            if ($reservation !== null) {
+                $this->quotas?->reconcile($reservation, $reservation->reservedTokens, true);
+            }
+
+            throw $exception;
+        }
+
+        $embeddingTokens = $this->providerUsage?->embeddingTokens() ?? 0;
+        $embeddingTokens = $embeddingTokens > 0
+            ? $embeddingTokens
+            : (new HeuristicTokenEstimator())->estimate($question);
+        $providerTotalTokens = ($result->usage['total_tokens'] ?? 0) + $embeddingTokens;
+        $quotaUsage = $reservation !== null
+            ? $this->quotas?->reconcile($reservation, $providerTotalTokens) ?? []
+            : [];
 
         $requestId = $request->attribute('request_id');
 
@@ -100,9 +141,25 @@ final class ChatController
                 $result->chunks,
                 array_keys($result->chunks),
             ),
-            'usage' => $result->usage,
+            'usage' => [
+                ...$result->usage,
+                'embedding_tokens' => $embeddingTokens,
+                'provider_total_tokens' => $providerTotalTokens,
+                ...$quotaUsage,
+            ],
             'request_id' => is_string($requestId) ? $requestId : null,
         ])->withHeader('Cache-Control', 'no-store');
+    }
+
+    private function apiKeyId(Request $request): int
+    {
+        $apiKey = $request->attribute('api_key');
+
+        if (!$apiKey instanceof ApiKey) {
+            throw new \LogicException('Authenticated API key is missing from the request.');
+        }
+
+        return $apiKey->id;
     }
 
     /** @param array<string, mixed> $payload */
