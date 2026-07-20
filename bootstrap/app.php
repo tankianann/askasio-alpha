@@ -59,6 +59,7 @@ use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
 use App\Services\Sources\SourcePermanentDeletionService;
 use App\Repositories\PdoChatbotRepository;
+use App\Repositories\PdoChatbotConversationRepository;
 use App\Services\Sources\SourceUpdateService;
 use App\Services\Sources\SourceListQueryParser;
 use App\Services\Sources\SourceHistoryQueryParser;
@@ -80,9 +81,16 @@ use App\Services\Chatbots\ChatbotDraftValidator;
 use App\Services\Chatbots\ChatbotListQueryParser;
 use App\Services\Chatbots\ChatbotOriginNormalizer;
 use App\Services\Chatbots\ChatbotService;
+use App\Services\Chatbots\ChatbotConversationService;
+use App\Services\Chatbots\ChatbotHistorySelector;
+use App\Services\Chatbots\ChatbotPreviewService;
+use App\Services\Chatbots\RandomChatbotSessionCredentialGenerator;
+use App\Services\Chatbots\SharedChatExecutionService;
 use App\Services\Chatbots\InstallationChatbotProviderConfigurationFactory;
 use App\Services\Chatbots\RandomChatbotPublicIdGenerator;
 use App\Domain\Chatbots\ChatbotProviderConfiguration;
+use App\RAG\ChatExecutionErrorMapper;
+use App\RAG\CitationProjector;
 use App\Support\Config;
 use App\Support\ViewRenderer;
 use Dotenv\Dotenv;
@@ -238,6 +246,52 @@ $sourceController = new SourceController(
     new SourceListQueryParser($timezone),
     new SourceHistoryQueryParser($timezone),
 );
+$chatbotPreviewService = null;
+
+if ($chatbotProviderConfigured) {
+    try {
+        $conversationRepository = new PdoChatbotConversationRepository($connection);
+        $conversationService = new ChatbotConversationService(
+            $conversationRepository,
+            new RandomChatbotSessionCredentialGenerator(),
+        );
+        $previewUsage = new ProviderUsageAccumulator();
+        $previewTokens = new HeuristicTokenEstimator();
+        $previewAnswers = new AnswerGenerator(
+            new Retriever(
+                (new EmbeddingProviderFactory($config))->create($previewUsage),
+                new PdoVectorStore($connection, new CosineSimilarity()),
+                $config->requireInt('rag.chat_default_top_k'),
+                $config->requireInt('rag.chat_maximum_top_k'),
+                (float) $config->get('rag.retrieval_minimum_similarity'),
+            ),
+            new ContextSelector($previewTokens, $config->requireInt('rag.chat_context_maximum_tokens')),
+            new PromptBuilder(),
+            (new ChatProviderFactory($config))->create(),
+        );
+        $chatbotPreviewService = new ChatbotPreviewService(
+            $conversationService,
+            new SharedChatExecutionService(
+                $chatbots,
+                $conversationRepository,
+                $previewAnswers,
+                new ChatbotHistorySelector($previewTokens, $config->requireInt('rag.chat_history_maximum_tokens')),
+                new CitationProjector(),
+                new ChatExecutionErrorMapper(),
+                $providerQuotas,
+                $previewUsage,
+                $chatbotProvider,
+                $previewTokens,
+                $config->requireInt('rag.chat_context_maximum_tokens'),
+                $config->requireInt('providers.openai.chat_maximum_output_tokens'),
+            ),
+            $session,
+            $chatbotProvider,
+        );
+    } catch (ConfigurationException|EmbeddingConfigurationException|ChatConfigurationException) {
+        $chatbotProviderConfigured = false;
+    }
+}
 $chatbotController = new ChatbotController(
     $chatbots,
     $sources,
@@ -258,6 +312,8 @@ $chatbotController = new ChatbotController(
     $chatbotProviderConfigured,
     $config->requireInt('rag.chat_maximum_top_k'),
     $config->requireInt('rag.chat_maximum_question_characters'),
+    $chatbotPreviewService,
+    $appSecret,
 );
 $jobController = new JobController(
     $queue,

@@ -80,10 +80,12 @@ Outcome: migration `20260720000015`, publication-bound session/message records, 
 
 Outcome: one internal preview/public execution service over the existing grounded RAG components, with immutable publication/provider validation, assigned-source retrieval, `recent_completed_turns_v1` history budgeting, configured no-evidence fallback, public-safe versus administrator citation projections, stable error mapping, message/outcome/usage persistence, and installation-wide quota reservation/reconciliation. The existing authenticated `/api/v1/chat` request/response/error behavior remains compatible and stateless. No preview/public route, CORS, widget, streaming, or integration credential was added. See [Shared chat execution service](shared-chat-execution.md).
 
-### 7 — Admin preview
+### 7 — Admin preview (complete)
 
 - Add draft-capable test sessions using the shared execution service.
 - Show safe retrieval/usage diagnostics and separate test traffic.
+
+Outcome: authenticated/CSRF-protected draft preview, immutable revision/configuration/source/provider snapshots, server-session-held one-time bearer tokens, automatic revision/terminal-session rollover, transcript/restart controls, the shared source-scoped executor, bounded administrator-only retrieval and usage diagnostics, and immutable `admin_preview`/`is_test` traffic classification. Migration `20260720000016` adds the exclusive publication-or-draft execution binding. No public endpoint, CORS, widget, integration credential, or production conversation administration was added. See [Administrator preview](admin-preview.md).
 
 ### 8 — Public configuration and session API
 
@@ -131,4 +133,4 @@ Outcome: one internal preview/public execution service over the existing grounde
 
 ## First implementation recommendation
 
-After review of milestone 6, begin with milestone 7 only: administrator preview over draft-capable test sessions. Public routes remain later milestones.
+After review of milestone 7, begin with milestone 8 only: public configuration and session APIs with exact origin/CORS policy. Public message submission and the widget remain later milestones.

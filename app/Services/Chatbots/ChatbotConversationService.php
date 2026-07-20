@@ -7,6 +7,9 @@ namespace App\Services\Chatbots;
 use App\Domain\Chatbots\ChatbotMessage;
 use App\Domain\Chatbots\ChatbotMessageCompletion;
 use App\Domain\Chatbots\ChatbotMessageReservation;
+use App\Domain\Chatbots\Chatbot;
+use App\Domain\Chatbots\ChatbotExecutionConfiguration;
+use App\Domain\Chatbots\ChatbotProviderConfiguration;
 use App\Domain\Chatbots\ChatbotSession;
 use App\Domain\Chatbots\ChatbotSessionChannel;
 use App\Domain\Chatbots\ChatbotSessionStatus;
@@ -81,6 +84,40 @@ final readonly class ChatbotConversationService
         }
 
         return $session;
+    }
+
+    public function createDraftPreviewSession(
+        Chatbot $chatbot,
+        ChatbotProviderConfiguration $provider,
+        DateTimeImmutable $now,
+    ): CreatedChatbotSession {
+        if ($chatbot->status === \App\Domain\Chatbots\ChatbotStatus::Archived) {
+            throw new ValidationException('Archived chatbots cannot be previewed.');
+        }
+
+        $credentials = $this->credentials->generate();
+        $session = $this->conversations->createForDraftPreview(
+            new ChatbotExecutionConfiguration(
+                $chatbot->id,
+                null,
+                $chatbot->draft->revision,
+                $chatbot->draft,
+                $chatbot->assignments,
+                $provider,
+            ),
+            $credentials,
+            $now,
+        );
+
+        return new CreatedChatbotSession($session, $credentials->token);
+    }
+
+    /** @return list<ChatbotMessage> */
+    public function messages(string $publicId, string $token): array
+    {
+        $session = $this->authenticate($publicId, $token);
+
+        return $this->conversations->messagesForSession($session->id);
     }
 
     public function reserveMessage(

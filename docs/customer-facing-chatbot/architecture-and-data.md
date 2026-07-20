@@ -126,10 +126,10 @@ Publishing validates assigned sources through their active ready embedding-compa
 ### `chatbot_sessions` (implemented)
 
 - internal ID, unique high-entropy public session ID, token hash, and safe token prefix;
-- `chatbot_id` and immutable `chatbot_publication_id`;
+- `chatbot_id` and exactly one immutable execution binding: `chatbot_publication_id`, or a draft-preview revision/configuration snapshot;
 - channel and exact normalized browser origin where applicable;
 - `is_test`, status, message count, input/output/provider token totals;
-- copied message/expiry/retention policy and immutable publication binding;
+- copied message/expiry/retention policy and immutable publication-or-preview binding;
 - started, last activity, absolute/idle expiry, completed, and deletion timestamps;
 - indexes for chatbot/date/status/test pagination and retention batches.
 
@@ -146,7 +146,7 @@ Session creation returns a separate 256-bit bearer token once, stores only SHA-2
 
 Message content is persisted while the session is active. Retention choices are `0`, `7`, `30`, or `90` days, default `30`, measured from last activity and copied into the session. Zero-day sessions become purge-eligible on completion/expiry. Do not duplicate content in Activity or logs.
 
-Migration `20260720000015` implements both tables, publication/chatbot/message cascades, session/test/activity and expiry/retention indexes, chronological/pending message indexes, and unique idempotency/request/reply constraints. Internal services and repositories are present, but no HTTP route or execution path uses them yet.
+Migration `20260720000015` implements both tables, publication/chatbot/message cascades, session/test/activity and expiry/retention indexes, chronological/pending message indexes, and unique idempotency/request/reply constraints. Migration `20260720000016` adds the mutually exclusive draft-preview binding: nullable publication ID plus required draft revision/configuration snapshot for `admin_preview` test rows. The authenticated preview uses these records through the shared executor; public HTTP access remains unavailable.
 
 ### `chatbot_integration_credentials` (deferred milestone)
 

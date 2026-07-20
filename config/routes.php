@@ -100,6 +100,9 @@ return [
                 $router->get('/chatbots/create', [$chatbotController, 'create'], name: 'admin.chatbots.create');
                 $router->post('/chatbots', [$chatbotController, 'store'], name: 'admin.chatbots.store');
                 $router->get('/chatbots/{chatbotId}/edit', [$chatbotController, 'edit'], name: 'admin.chatbots.edit');
+                $router->get('/chatbots/{chatbotId}/preview', [$chatbotController, 'preview'], name: 'admin.chatbots.preview');
+                $router->post('/chatbots/{chatbotId}/preview/messages', [$chatbotController, 'sendPreviewMessage'], name: 'admin.chatbots.preview.messages');
+                $router->post('/chatbots/{chatbotId}/preview/restart', [$chatbotController, 'restartPreview'], name: 'admin.chatbots.preview.restart');
                 $router->post('/chatbots/{chatbotId}', [$chatbotController, 'update'], name: 'admin.chatbots.update');
                 $router->post('/chatbots/{chatbotId}/origins', [$chatbotController, 'updateOrigins'], name: 'admin.chatbots.origins');
                 $router->post('/chatbots/{chatbotId}/sources/{sourceId}/assign', [$chatbotController, 'assignSource'], name: 'admin.chatbots.sources.assign');

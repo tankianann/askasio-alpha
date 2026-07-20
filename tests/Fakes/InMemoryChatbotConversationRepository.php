@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Fakes;
 
 use App\Domain\Chatbots\ChatbotMessage;
+use App\Domain\Chatbots\ChatbotExecutionConfiguration;
 use App\Domain\Chatbots\ChatbotMessageCompletion;
 use App\Domain\Chatbots\ChatbotMessageReservation;
 use App\Domain\Chatbots\ChatbotMessageReservationState;
@@ -31,6 +32,9 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
 
     /** @var array<int, ChatbotMessage> */
     private array $messages = [];
+
+    /** @var array<int, ChatbotExecutionConfiguration> */
+    private array $previewConfigurations = [];
 
     private int $nextSessionId = 1;
     private int $nextMessageId = 1;
@@ -122,6 +126,40 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
         }
 
         return null;
+    }
+
+    public function createForDraftPreview(
+        ChatbotExecutionConfiguration $configuration,
+        ChatbotSessionCredentials $credentials,
+        DateTimeImmutable $now,
+    ): ChatbotSession {
+        $definition = $this->chatbots[$configuration->chatbotId] ?? null;
+
+        if ($definition === null || $definition['status'] === 'archived' || $configuration->draftRevision === null) {
+            throw new ChatbotSessionUnavailableException('The chatbot draft is unavailable for preview.');
+        }
+
+        $draft = $configuration->configuration;
+        $absolute = $now->add(new DateInterval('PT' . $draft->absoluteExpiryMinutes . 'M'));
+        $idle = $now->add(new DateInterval('PT' . $draft->idleExpiryMinutes . 'M'));
+        $idle = $idle < $absolute ? $idle : $absolute;
+        $session = new ChatbotSession(
+            $this->nextSessionId++, $credentials->publicId, $credentials->tokenPrefix, $credentials->tokenHash,
+            $configuration->chatbotId, null, ChatbotSessionChannel::AdminPreview, null, true,
+            ChatbotSessionStatus::Active, 0, $draft->maximumMessagesPerSession,
+            $draft->maximumMessageCharacters, $draft->idleExpiryMinutes, $draft->retentionDays,
+            0, 0, 0, 0, $this->format($now), $this->format($now), $this->format($idle),
+            $this->format($absolute), null, null, $configuration->draftRevision,
+        );
+        $this->sessions[$session->id] = $session;
+        $this->previewConfigurations[$session->id] = $configuration;
+
+        return $session;
+    }
+
+    public function previewExecutionConfiguration(int $sessionId): ?ChatbotExecutionConfiguration
+    {
+        return $this->previewConfigurations[$sessionId] ?? null;
     }
 
     public function findSessionByTokenHash(string $tokenHash): ?ChatbotSession
@@ -315,6 +353,7 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
     public function permanentlyDelete(int $sessionId): void
     {
         unset($this->sessions[$sessionId]);
+        unset($this->previewConfigurations[$sessionId]);
 
         foreach ($this->messages as $id => $message) {
             if ($message->sessionId === $sessionId) {
@@ -395,6 +434,7 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
             $session->startedAt, $lastActivityAt ?? $session->lastActivityAt,
             $idleExpiresAt ?? $session->idleExpiresAt, $session->absoluteExpiresAt,
             $completedAt ?? $session->completedAt, $purgeEligibleAt ?? $session->purgeEligibleAt,
+            $session->previewDraftRevision,
         );
     }
 

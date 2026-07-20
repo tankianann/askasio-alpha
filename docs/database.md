@@ -135,7 +135,7 @@ Immutable authorized-scope children of a numbered publication. They cascade only
 
 ### `chatbot_sessions`
 
-Publication-bound conversation identity and lifecycle. Each row stores a unique 256-bit public ID, only the SHA-256 hash and safe prefix of a separate 256-bit bearer token, chatbot/publication ownership, channel/origin, immutable production/test classification, status, user-turn count, copied message/expiry/retention limits, usage totals, and activity/expiry/terminal/purge timestamps. There is no tenant/account field.
+Conversation identity and lifecycle. Each row stores a unique 256-bit public ID, only the SHA-256 hash and safe prefix of a separate 256-bit bearer token, chatbot ownership, channel/origin, immutable production/test classification, status, user-turn count, copied message/expiry/retention limits, usage totals, and activity/expiry/terminal/purge timestamps. An exclusive check requires either an immutable publication ID or an administrator-test draft revision plus bounded configuration/source/provider snapshot. There is no tenant/account field or provider secret.
 
 Indexes support hash/public-ID lookup, chatbot/test/activity queries, publication dependencies, idle and absolute expiry batches, and purge-eligibility batches. Sessions cascade only with permanent chatbot/publication deletion or explicit/retention deletion.
 
@@ -186,6 +186,7 @@ Current migration history:
 | `20260720000013` | Chatbot identity, mutable validated drafts, and immutable core publications. |
 | `20260720000014` | Mutable chatbot source/origin assignments and immutable publication scope snapshots. |
 | `20260720000015` | Publication-bound chatbot sessions/messages, hash-only authorization, idempotency, expiry, usage, and retention indexes. |
+| `20260720000016` | Mutually exclusive immutable draft-preview execution snapshots on test sessions; publication binding becomes nullable only for those rows. |
 
 ## Index and query guidance
 

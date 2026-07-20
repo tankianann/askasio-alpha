@@ -10,7 +10,7 @@ $archived = $chatbot->status === \App\Domain\Chatbots\ChatbotStatus::Archived;
 ?>
 <div class="page-heading page-heading-compact">
     <div><p class="breadcrumbs"><a href="/admin/chatbots">Chatbots</a> <span>/</span> Edit</p><h1><?= $escape($chatbot->name) ?></h1><p class="muted">Draft revision <?= $escape($draft->revision) ?> · <?php if ($chatbot->isPublished()): ?>active publication available<?php else: ?>not yet published<?php endif; ?></p></div>
-    <?php if (!$archived): ?><form method="post" action="/admin/chatbots/<?= $escape($chatbot->id) ?>/publish"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><button class="button button-primary" type="submit" <?= !$providerConfigured ? 'disabled' : '' ?>>Publish current draft</button></form><?php endif; ?>
+    <?php if (!$archived): ?><div class="action-row"><a class="button button-quiet" href="/admin/chatbots/<?= $escape($chatbot->id) ?>/preview">Preview draft</a><form method="post" action="/admin/chatbots/<?= $escape($chatbot->id) ?>/publish"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><button class="button button-primary" type="submit" <?= !$providerConfigured ? 'disabled' : '' ?>>Publish current draft</button></form></div><?php endif; ?>
 </div>
 
 <?php if (is_string($success) && $success !== ''): ?><div class="alert alert-success" role="status"><?= $escape($success) ?></div><?php endif; ?>

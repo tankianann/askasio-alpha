@@ -46,7 +46,11 @@ final class SharedChatExecutionServiceTest extends TestCase
             18, 1, 3, 2, 'Refunds are available within 30 days.', 0.91,
             'Refund Policy', 'url', 'https://example.com/refunds', ['section_title' => 'Eligibility'],
         );
-        $fixture = $this->fixture([$chunk], sessionChannel: ChatbotSessionChannel::AdminPreview);
+        $fixture = $this->fixture(
+            [$chunk],
+            sessionChannel: ChatbotSessionChannel::AdminPreview,
+            draftPreview: true,
+        );
         $reservation = $this->reserve($fixture, 'What is the refund policy?', 'turn-1', '018f9f3a-7420-7cc1-8a12-8ac550004444');
         $result = $fixture['executor']->execute(
             $reservation,
@@ -56,6 +60,9 @@ final class SharedChatExecutionServiceTest extends TestCase
         );
 
         self::assertSame([1], $fixture['vectors']->filters['source_ids']);
+        self::assertNull($reservation->session->publicationId);
+        self::assertSame(2, $reservation->session->previewDraftRevision);
+        self::assertTrue($reservation->session->isTest);
         self::assertSame(0.2, $fixture['vectors']->filters['minimum_similarity']);
         self::assertSame('text-embedding-test', $fixture['vectors']->filters['embedding_model']);
         self::assertSame([
@@ -100,6 +107,38 @@ final class SharedChatExecutionServiceTest extends TestCase
         self::assertSame('Follow-up question', $input['question']);
         self::assertStringContainsString('Additional administrator-authored behavior instructions', $request['instructions']);
         self::assertSame([], $result->diagnostics);
+    }
+
+    public function testPublicAudienceCannotExecuteAdministratorTestTraffic(): void
+    {
+        $fixture = $this->fixture(
+            [new RetrievedChunk(1, 1, 1, 1, 'Private diagnostic context.', 0.9, 'Policy', 'markdown', null, [])],
+            sessionChannel: ChatbotSessionChannel::AdminPreview,
+            draftPreview: true,
+        );
+        $reservation = $this->reserve(
+            $fixture,
+            'Question',
+            'turn-audience',
+            '018f9f3a-7420-7cc1-8a12-8ac550001111',
+        );
+
+        try {
+            $fixture['executor']->execute(
+                $reservation,
+                ChatbotExecutionAudience::Public,
+                'visitor',
+                new DateTimeImmutable('2026-07-20 10:01:01 UTC'),
+            );
+            self::fail('Administrator test traffic must not execute as public traffic.');
+        } catch (ChatbotExecutionException $exception) {
+            self::assertSame(403, $exception->statusCode);
+            self::assertSame('execution_audience_mismatch', $exception->errorCode);
+        }
+
+        self::assertSame([], $fixture['embedding']->inputs);
+        self::assertSame([], $fixture['chat']->requests);
+        self::assertSame(0, $fixture['quotaRepository']->reservationAttempts);
     }
 
     public function testNoEvidenceUsesConfiguredFallbackWithoutCallingChatGeneration(): void
@@ -221,6 +260,7 @@ final class SharedChatExecutionServiceTest extends TestCase
      *   chat: FakeChatProvider,
      *   quotas: ProviderQuotaService,
      *   quotaRepository: InMemoryProviderQuotaRepository
+     *   chatbots: InMemoryChatbotRepository
      * }
      */
     private function fixture(
@@ -229,6 +269,7 @@ final class SharedChatExecutionServiceTest extends TestCase
         ?ChatbotProviderConfiguration $installationProvider = null,
         ChatbotSessionChannel $sessionChannel = ChatbotSessionChannel::Browser,
         bool $citationsEnabled = true,
+        bool $draftPreview = false,
     ): array {
         $chatbots = new InMemoryChatbotRepository();
         $chatbots->defineSource(1);
@@ -268,13 +309,19 @@ final class SharedChatExecutionServiceTest extends TestCase
             }
         };
         $conversationService = new ChatbotConversationService($conversations, $generator);
-        $created = $conversationService->createSession(
-            $chatbot->id,
-            $sessionChannel,
-            $sessionChannel === ChatbotSessionChannel::Browser ? 'https://example.com' : null,
-            $sessionChannel === ChatbotSessionChannel::AdminPreview,
-            new DateTimeImmutable('2026-07-20 10:00:00 UTC'),
-        );
+        $created = $draftPreview
+            ? $conversationService->createDraftPreviewSession(
+                $chatbot,
+                ChatbotFixtures::provider(),
+                new DateTimeImmutable('2026-07-20 10:00:00 UTC'),
+            )
+            : $conversationService->createSession(
+                $chatbot->id,
+                $sessionChannel,
+                $sessionChannel === ChatbotSessionChannel::Browser ? 'https://example.com' : null,
+                $sessionChannel === ChatbotSessionChannel::AdminPreview,
+                new DateTimeImmutable('2026-07-20 10:00:00 UTC'),
+            );
         $vectors = new InMemoryVectorStore($matches);
         $embedding = new FakeEmbeddingProvider(modelName: 'text-embedding-test');
         $chat ??= new FakeChatProvider();
@@ -305,7 +352,7 @@ final class SharedChatExecutionServiceTest extends TestCase
 
         return compact(
             'executor', 'conversationService', 'conversations', 'credentials', 'created',
-            'vectors', 'embedding', 'chat', 'quotas', 'quotaRepository',
+            'vectors', 'embedding', 'chat', 'quotas', 'quotaRepository', 'chatbots',
         );
     }
 

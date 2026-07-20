@@ -2,6 +2,14 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot administrator preview — 2026-07-20
+
+- Added authenticated, CSRF-protected draft preview and restart/message routes over the shared chat execution service.
+- Added migration `20260720000016` and ADR-033 for immutable draft revision/configuration/source/provider snapshots on exclusively classified `admin_preview` test sessions.
+- Kept one-time hash-only conversation credentials in the server-side administrator session and separated preview traffic from production through immutable channel/test fields.
+- Added escaped transcripts and bounded administrator retrieval/usage diagnostics without exposing credentials, system prompts, raw provider failures, or arbitrary metadata.
+- Added unit/controller/shared-execution and opt-in real-MySQL persistence coverage; no public endpoint, CORS, widget, or integration credential was added.
+
 ## Customer-facing chatbot shared execution — 2026-07-20
 
 - Added one internal execution service for future administrator preview and public messaging over atomically reserved conversation turns.

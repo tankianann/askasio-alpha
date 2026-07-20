@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Chatbots;
 
 use App\Domain\Chatbots\ChatbotExecutionAudience;
+use App\Domain\Chatbots\ChatbotExecutionConfiguration;
 use App\Domain\Chatbots\ChatbotExecutionResult;
 use App\Domain\Chatbots\ChatbotMessage;
 use App\Domain\Chatbots\ChatbotMessageCompletion;
@@ -91,13 +92,25 @@ final readonly class SharedChatExecutionService
                 throw new ChatbotExecutionException(404, 'chatbot_unavailable', 'The chatbot is not available.');
             }
 
-            $publication = $this->chatbots->findPublicationById($reservation->session->publicationId);
-
-            if ($publication === null || $publication->chatbotId !== $chatbot->id) {
-                throw new ChatbotExecutionException(503, 'publication_unavailable', 'The chatbot publication is unavailable.');
+            if ($reservation->session->publicationId !== null) {
+                $publication = $this->chatbots->findPublicationById($reservation->session->publicationId);
+                $execution = $publication === null ? null : new ChatbotExecutionConfiguration(
+                    $publication->chatbotId,
+                    $publication->id,
+                    null,
+                    $publication->configuration,
+                    $publication->assignments,
+                    $publication->providerConfiguration,
+                );
+            } else {
+                $execution = $this->conversations->previewExecutionConfiguration($reservation->session->id);
             }
 
-            if ($publication->providerConfiguration->configuration()
+            if (!$execution instanceof ChatbotExecutionConfiguration || $execution->chatbotId !== $chatbot->id) {
+                throw new ChatbotExecutionException(503, 'execution_configuration_unavailable', 'The chatbot execution configuration is unavailable.');
+            }
+
+            if ($execution->providerConfiguration->configuration()
                 !== $this->installationProvider->configuration()) {
                 throw new StaleChatbotPublicationException('The publication provider configuration is stale.');
             }
@@ -116,13 +129,13 @@ final readonly class SharedChatExecutionService
             $started = hrtime(true);
             $answer = $this->answers->generateConfigured(
                 $question,
-                $publication->configuration->retrievalTopK,
+                $execution->configuration->retrievalTopK,
                 [
-                    'source_ids' => $publication->assignments->sourceIds,
-                    'minimum_similarity' => $publication->configuration->minimumSimilarity,
+                    'source_ids' => $execution->assignments->sourceIds,
+                    'minimum_similarity' => $execution->configuration->minimumSimilarity,
                 ],
-                $publication->configuration->systemInstructions,
-                $publication->configuration->fallbackMessage,
+                $execution->configuration->systemInstructions,
+                $execution->configuration->fallbackMessage,
                 $selectedHistory->messages,
                 ['safety_identifier' => substr($safetyIdentifier, 0, 64)],
             );
@@ -135,14 +148,14 @@ final readonly class SharedChatExecutionService
 
             $chatTokens = $answer->usage['total_tokens'] ?? 0;
             $providerTokens = $chatTokens + $embeddingTokens;
-            $publicCitations = $publication->configuration->citationsEnabled
+            $publicCitations = $execution->configuration->citationsEnabled
                 ? array_map(
                     fn (RetrievedChunk $chunk, int $index): array => $this->citations->public($chunk, $index),
                     $answer->chunks,
                     array_keys($answer->chunks),
                 )
                 : [];
-            $displayAnswer = $publication->configuration->citationsEnabled
+            $displayAnswer = $execution->configuration->citationsEnabled
                 ? $answer->answer
                 : trim(preg_replace('/\s*\[S\d+\]/', '', $answer->answer) ?? $answer->answer);
             $retrieval = [
@@ -172,8 +185,8 @@ final readonly class SharedChatExecutionService
                 $reservation->userMessage->id,
                 new ChatbotMessageCompletion(
                     $displayAnswer,
-                    $publication->providerConfiguration->chatProvider,
-                    $answer->model ?? $publication->providerConfiguration->chatModel,
+                    $execution->providerConfiguration->chatProvider,
+                    $answer->model ?? $execution->providerConfiguration->chatModel,
                     $latencyMs,
                     $answer->usage['input_tokens'] ?? 0,
                     $answer->usage['output_tokens'] ?? 0,

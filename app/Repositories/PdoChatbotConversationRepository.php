@@ -6,6 +6,10 @@ namespace App\Repositories;
 
 use App\Database\Connection;
 use App\Domain\Chatbots\ChatbotMessage;
+use App\Domain\Chatbots\ChatbotAssignments;
+use App\Domain\Chatbots\ChatbotDraft;
+use App\Domain\Chatbots\ChatbotExecutionConfiguration;
+use App\Domain\Chatbots\ChatbotProviderConfiguration;
 use App\Domain\Chatbots\ChatbotMessageCompletion;
 use App\Domain\Chatbots\ChatbotMessageReservation;
 use App\Domain\Chatbots\ChatbotMessageReservationState;
@@ -130,6 +134,122 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
     public function findSessionByPublicId(string $publicId): ?ChatbotSession
     {
         return $this->findSession('public_id = :value', $publicId);
+    }
+
+    public function createForDraftPreview(
+        ChatbotExecutionConfiguration $configuration,
+        ChatbotSessionCredentials $credentials,
+        DateTimeImmutable $now,
+    ): ChatbotSession {
+        if ($configuration->draftRevision === null || $configuration->publicationId !== null) {
+            throw new \InvalidArgumentException('A draft preview configuration is required.');
+        }
+
+        $snapshot = $this->encodeJson([
+            'draft' => $configuration->configuration->configuration(),
+            'source_ids' => $configuration->assignments->sourceIds,
+            'provider' => $configuration->providerConfiguration->configuration(),
+        ]);
+
+        return $this->transaction(function (PDO $pdo) use ($configuration, $credentials, $now, $snapshot): ChatbotSession {
+            $locked = $pdo->prepare(
+                'SELECT c.status, cd.revision FROM chatbots c
+                 INNER JOIN chatbot_drafts cd ON cd.chatbot_id = c.id
+                 WHERE c.id = :id FOR UPDATE',
+            );
+            $locked->execute(['id' => $configuration->chatbotId]);
+            $row = $locked->fetch();
+
+            if (!is_array($row) || $row['status'] === 'archived') {
+                throw new ChatbotSessionUnavailableException('The chatbot draft is unavailable for preview.');
+            }
+
+            if ((int) $row['revision'] !== $configuration->draftRevision) {
+                throw new ChatbotSessionUnavailableException('The chatbot draft changed before preview started.');
+            }
+
+            $sources = $pdo->prepare(
+                'SELECT source_id FROM chatbot_draft_sources WHERE chatbot_id = :id ORDER BY source_id',
+            );
+            $sources->execute(['id' => $configuration->chatbotId]);
+            $storedSourceIds = array_map('intval', $sources->fetchAll(PDO::FETCH_COLUMN));
+
+            if ($storedSourceIds !== $configuration->assignments->sourceIds) {
+                throw new ChatbotSessionUnavailableException('The chatbot draft sources changed before preview started.');
+            }
+
+            $draft = $configuration->configuration;
+            $absolute = $now->add(new DateInterval('PT' . $draft->absoluteExpiryMinutes . 'M'));
+            $idle = $now->add(new DateInterval('PT' . $draft->idleExpiryMinutes . 'M'));
+            $idle = $idle < $absolute ? $idle : $absolute;
+            $timestamp = $this->format($now);
+            $insert = $pdo->prepare(<<<'SQL'
+                INSERT INTO chatbot_sessions (
+                    public_id, token_prefix, token_hash, chatbot_id, chatbot_publication_id,
+                    preview_draft_revision, preview_configuration_json,
+                    channel, normalized_origin, is_test, status, message_count,
+                    maximum_messages, maximum_message_characters, idle_timeout_minutes,
+                    retention_days, input_tokens, output_tokens, embedding_tokens, provider_tokens,
+                    started_at, last_activity_at, idle_expires_at, absolute_expires_at,
+                    created_at, updated_at
+                ) VALUES (
+                    :public_id, :token_prefix, :token_hash, :chatbot_id, NULL,
+                    :draft_revision, :configuration_json,
+                    'admin_preview', NULL, 1, 'active', 0,
+                    :maximum_messages, :maximum_characters, :idle_timeout_minutes,
+                    :retention_days, 0, 0, 0, 0,
+                    :started_at, :last_activity_at, :idle_expires_at, :absolute_expires_at,
+                    :created_at, :updated_at
+                )
+                SQL);
+            $insert->execute([
+                'public_id' => $credentials->publicId,
+                'token_prefix' => $credentials->tokenPrefix,
+                'token_hash' => $credentials->tokenHash,
+                'chatbot_id' => $configuration->chatbotId,
+                'draft_revision' => $configuration->draftRevision,
+                'configuration_json' => $snapshot,
+                'maximum_messages' => $draft->maximumMessagesPerSession,
+                'maximum_characters' => $draft->maximumMessageCharacters,
+                'idle_timeout_minutes' => $draft->idleExpiryMinutes,
+                'retention_days' => $draft->retentionDays,
+                'started_at' => $timestamp,
+                'last_activity_at' => $timestamp,
+                'idle_expires_at' => $this->format($idle),
+                'absolute_expires_at' => $this->format($absolute),
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ]);
+
+            return $this->requireSession($pdo, (int) $pdo->lastInsertId());
+        });
+    }
+
+    public function previewExecutionConfiguration(int $sessionId): ?ChatbotExecutionConfiguration
+    {
+        $statement = $this->connection->pdo()->prepare(
+            'SELECT chatbot_id, preview_draft_revision, preview_configuration_json
+             FROM chatbot_sessions WHERE id = :id AND chatbot_publication_id IS NULL LIMIT 1',
+        );
+        $statement->execute(['id' => $sessionId]);
+        $row = $statement->fetch();
+
+        if (!is_array($row) || !is_string($row['preview_configuration_json'])) {
+            return null;
+        }
+
+        $snapshot = json_decode($row['preview_configuration_json'], true, flags: JSON_THROW_ON_ERROR);
+
+        if (!is_array($snapshot) || !is_array($snapshot['draft'] ?? null)
+            || !is_array($snapshot['source_ids'] ?? null) || !is_array($snapshot['provider'] ?? null)) {
+            throw new RuntimeException('Stored chatbot preview configuration is invalid.');
+        }
+
+        return $this->hydratePreviewConfiguration(
+            (int) $row['chatbot_id'],
+            (int) $row['preview_draft_revision'],
+            $snapshot,
+        );
     }
 
     public function findSessionByTokenHash(string $tokenHash): ?ChatbotSession
@@ -621,7 +741,7 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
             (string) $row['token_prefix'],
             (string) $row['token_hash'],
             (int) $row['chatbot_id'],
-            (int) $row['chatbot_publication_id'],
+            isset($row['chatbot_publication_id']) ? (int) $row['chatbot_publication_id'] : null,
             ChatbotSessionChannel::from((string) $row['channel']),
             isset($row['normalized_origin']) ? (string) $row['normalized_origin'] : null,
             (bool) $row['is_test'],
@@ -641,6 +761,52 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
             (string) $row['absolute_expires_at'],
             isset($row['completed_at']) ? (string) $row['completed_at'] : null,
             isset($row['purge_eligible_at']) ? (string) $row['purge_eligible_at'] : null,
+            isset($row['preview_draft_revision']) ? (int) $row['preview_draft_revision'] : null,
+        );
+    }
+
+    /** @param array<string, mixed> $snapshot */
+    private function hydratePreviewConfiguration(int $chatbotId, int $revision, array $snapshot): ChatbotExecutionConfiguration
+    {
+        $draft = $snapshot['draft'];
+        $provider = $snapshot['provider'];
+        $sourceIds = $snapshot['source_ids'];
+
+        if (!is_array($draft) || !is_array($provider) || !is_array($sourceIds)
+            || !is_array($draft['presentation'] ?? null) || !is_array($draft['appearance'] ?? null)) {
+            throw new RuntimeException('Stored chatbot preview configuration has an invalid shape.');
+        }
+
+        return new ChatbotExecutionConfiguration(
+            $chatbotId,
+            null,
+            $revision,
+            new ChatbotDraft(
+                (int) ($draft['schema_version'] ?? 0),
+                $revision,
+                (string) ($draft['system_instructions'] ?? ''),
+                (string) ($draft['fallback_message'] ?? ''),
+                (int) ($draft['retrieval_top_k'] ?? 0),
+                (float) ($draft['minimum_similarity'] ?? 0),
+                (bool) ($draft['citations_enabled'] ?? false),
+                (int) ($draft['maximum_message_characters'] ?? 0),
+                (int) ($draft['maximum_messages_per_session'] ?? 0),
+                (int) ($draft['idle_expiry_minutes'] ?? 0),
+                (int) ($draft['absolute_expiry_minutes'] ?? 0),
+                (int) ($draft['retention_days'] ?? 0),
+                isset($draft['privacy_notice_url']) ? (string) $draft['privacy_notice_url'] : null,
+                (string) ($draft['disclosure_text'] ?? ''),
+                $draft['presentation'],
+                $draft['appearance'],
+            ),
+            new ChatbotAssignments(array_map('intval', $sourceIds), []),
+            new ChatbotProviderConfiguration(
+                (string) ($provider['chat_provider'] ?? ''),
+                (string) ($provider['chat_model'] ?? ''),
+                (string) ($provider['embedding_provider'] ?? ''),
+                (string) ($provider['embedding_model'] ?? ''),
+                isset($provider['embedding_dimensions']) ? (int) $provider['embedding_dimensions'] : null,
+            ),
         );
     }
 

@@ -299,3 +299,15 @@ This is a compact ADR register. Status is **Accepted** unless otherwise noted. N
 **Why.** One executor prevents security and behavior drift. Complete-pair oldest removal is deterministic, inexpensive, and cannot introduce summary hallucinations. Separate projections preserve public privacy while retaining useful preview diagnosis. Explicit model staleness prevents unreviewed public behavior changes.
 
 **Trade-offs and implications.** Follow-ups referring only to omitted old turns may lose context. The heuristic token estimator is approximate. The installation quota currently limits aggregate provider use; per-session/chatbot/integration limits remain later work. Changing history policy or public citation fields requires an explicit versioned compatibility review.
+
+## ADR-033 — Bind administrator test sessions to an immutable draft snapshot
+
+**Context.** Preview must exercise unpublished draft settings and source assignments, including on disabled chatbots. Binding it to the active publication would test the wrong configuration, while reading the mutable draft on every turn could change behavior and source scope midway through a retained conversation. Preview also needs the same hash-only session authorization, persistence, quota, and execution boundaries as public traffic without being counted as production.
+
+**Decision.** Allow a conversation session exactly one immutable execution binding: a publication, or an administrator-preview draft snapshot. The preview binding records the draft revision plus validated configuration, assigned source IDs, and effective installation provider/model metadata in bounded JSON; it never stores credentials. Require draft-bound rows to use `admin_preview` and immutable `is_test = true`. Lock and verify the draft revision and assignments when creating the snapshot. Keep the one-time 256-bit bearer token only in the administrator's server-side session and persist its hash. Execute through the shared service, and start a new test session when the draft revision changes or the current session becomes terminal.
+
+**Alternatives.** Preview only the active publication; read mutable draft tables for every turn; copy drafts into the publication table; build an unpersisted preview-only execution path.
+
+**Why.** The snapshot makes every transcript reproducible and prevents source/configuration drift while letting the administrator test exactly what is being edited. Reusing normal conversations exercises real persistence and quota behavior, while channel/audience checks and test classification prevent authorization and reporting overlap with public traffic.
+
+**Trade-offs and implications.** Preview snapshots add bounded JSON to test sessions and may retain source identifiers until copied retention purges them. Editing a draft starts a fresh preview on the next message, so history does not cross revisions. Migration rollback must delete draft-bound sessions before restoring a non-null publication foreign key; forward repair is preferred in production.

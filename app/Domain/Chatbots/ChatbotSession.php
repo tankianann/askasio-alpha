@@ -12,7 +12,7 @@ final readonly class ChatbotSession
         public string $tokenPrefix,
         public string $tokenHash,
         public int $chatbotId,
-        public int $publicationId,
+        public ?int $publicationId,
         public ChatbotSessionChannel $channel,
         public ?string $normalizedOrigin,
         public bool $isTest,
@@ -32,6 +32,7 @@ final readonly class ChatbotSession
         public string $absoluteExpiresAt,
         public ?string $completedAt,
         public ?string $purgeEligibleAt,
+        public ?int $previewDraftRevision = null,
     ) {
     }
 }

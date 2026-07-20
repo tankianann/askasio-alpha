@@ -2,9 +2,9 @@
 
 ## Implementation status
 
-Milestone 6 is implemented as one internal execution service for future administrator preview and public messaging. It adds no preview controller, public route, CORS behavior, widget, integration credential, or streaming protocol.
+Milestone 6 implemented one internal execution service for administrator preview and future public messaging. Milestone 7 now calls it from the authenticated preview. There is still no public route, CORS behavior, widget, integration credential, or streaming protocol.
 
-`SharedChatExecutionService` owns the execution of an already-authorized, atomically reserved conversation turn. Both future audiences pass through the same publication validation, source scope, history policy, grounding/fallback, provider mapping, persistence, and quota lifecycle. The audience changes only whether internal bounded retrieval diagnostics are returned; persisted/public citations remain safe.
+`SharedChatExecutionService` owns the execution of an already-authorized, atomically reserved conversation turn. Preview and public audiences pass through the same immutable execution-configuration validation, source scope, history policy, grounding/fallback, provider mapping, persistence, and quota lifecycle. The audience changes only whether internal bounded retrieval diagnostics are returned; persisted/public citations remain safe.
 
 The existing authenticated `POST /api/v1/chat` remains stateless, continues rejecting non-null `conversation_id`, and retains its request/response/error contract. Its grounding engine, provider error mapping, and legacy citation projection were refactored into shared components used by the chatbot executor.
 
@@ -30,17 +30,17 @@ The caller must first authenticate/create the session and reserve a user turn th
 
 HTTP authorization, rate limiting, origin revalidation, and conversion of these internal outcomes to public/admin DTOs remain their endpoint milestones.
 
-## Publication and provider enforcement
+## Execution binding and provider enforcement
 
-Execution loads the session-bound immutable publication by ID, verifies it belongs to the session chatbot, and requires the chatbot's immediate status to remain `active`. A later publication does not silently change an existing session's instructions or scope.
+Execution loads the session's immutable configuration: its publication, or its administrator-preview draft snapshot. It verifies chatbot ownership and audience/channel/test classification. Public execution requires an active chatbot; authenticated preview also permits disabled chatbots but rejects archived ones. A later publication or draft edit does not silently change an existing session's instructions or scope.
 
-The publication's provider, chat model, embedding provider/model, and dimensions must exactly equal the installation's current configuration. A mismatch fails before quota/provider access with `publication_configuration_stale`; review and republication are required. No per-chatbot provider credential or model selector was added.
+The bound provider, chat model, embedding provider/model, and dimensions must exactly equal the installation's current configuration. A mismatch fails before quota/provider access with the stable stale-configuration mapping; public publications require review and republication, while preview starts from the current provider-backed draft. No per-chatbot provider credential or model selector was added.
 
-Retrieval receives only server-derived publication values:
+Retrieval receives only server-derived immutable binding values:
 
 - exact immutable assigned source IDs;
-- published top-K;
-- published minimum similarity;
+- configured top-K;
+- configured minimum similarity;
 - current embedding model, added by `Retriever`.
 
 The vector store continues enforcing enabled, non-deleted sources with ready active versions and compatible embedding dimensions/model. Client input cannot widen the scope.
@@ -60,7 +60,7 @@ Core grounding instructions remain above administrator-authored chatbot instruct
 
 ## Fallback, citations, and diagnostics
 
-If retrieval/context admission produces no chunks, the executor returns the publication's configured fallback and makes no chat-generation call. The embedding call and its usage are still recorded and reconciled.
+If retrieval/context admission produces no chunks, the executor returns the bound configuration's fallback and makes no chat-generation call. The embedding call and its usage are still recorded and reconciled.
 
 Generated answers retain strict `[S#]` range validation. Public-safe citations contain only:
 
@@ -88,7 +88,7 @@ The quota is reconciled before the completed assistant transaction. If execution
 
 ## Safe failure mapping
 
-The shared mapper preserves the established categories and messages for configuration, authentication, rate-limit, timeout, malformed response, generic provider, and quota failures. Chatbot-specific safe codes add publication stale/unavailable, chatbot unavailable, in-progress, and generic execution failure.
+The shared mapper preserves the established categories and messages for configuration, authentication, rate-limit, timeout, malformed response, generic provider, and quota failures. Chatbot-specific safe codes add execution-configuration stale/unavailable, chatbot unavailable, in-progress, and generic execution failure.
 
 Reserved conversation failures create a content-free failed assistant outcome with the safe code and conservative charged usage. Secret provider details are retained only in the exception chain for controlled operational handling; they are not used as public messages or stored transcript content.
 
@@ -99,7 +99,8 @@ Reserved conversation failures create a content-free failed assistant outcome wi
 ## Test coverage
 
 - immutable assigned-source/top-K/similarity/model filters;
-- stale publication rejection before quota or providers;
+- stale publication/draft binding rejection before quota or providers;
+- administrator draft-snapshot execution with immutable test/channel classification;
 - recent completed-pair history, deterministic oldest removal, failed/current exclusion, and prompt separation;
 - configured no-evidence fallback with no chat-generation call;
 - public citation allowlist versus administrator diagnostics;

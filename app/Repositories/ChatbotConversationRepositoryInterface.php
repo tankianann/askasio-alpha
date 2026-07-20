@@ -7,6 +7,7 @@ namespace App\Repositories;
 use App\Domain\Chatbots\ChatbotMessage;
 use App\Domain\Chatbots\ChatbotMessageCompletion;
 use App\Domain\Chatbots\ChatbotMessageReservation;
+use App\Domain\Chatbots\ChatbotExecutionConfiguration;
 use App\Domain\Chatbots\ChatbotSession;
 use App\Domain\Chatbots\ChatbotSessionChannel;
 use App\Domain\Chatbots\ChatbotSessionCredentials;
@@ -23,6 +24,14 @@ interface ChatbotConversationRepositoryInterface
         bool $isTest,
         DateTimeImmutable $now,
     ): ChatbotSession;
+
+    public function createForDraftPreview(
+        ChatbotExecutionConfiguration $configuration,
+        ChatbotSessionCredentials $credentials,
+        DateTimeImmutable $now,
+    ): ChatbotSession;
+
+    public function previewExecutionConfiguration(int $sessionId): ?ChatbotExecutionConfiguration;
 
     public function findSessionByPublicId(string $publicId): ?ChatbotSession;
 

@@ -12,6 +12,7 @@ use App\Domain\Chatbots\ChatbotProviderConfiguration;
 use App\Domain\Chatbots\ChatbotStatus;
 use App\Domain\Sources\Source;
 use App\Exceptions\HttpException;
+use App\Exceptions\ChatbotExecutionException;
 use App\Exceptions\StaleChatbotDraftException;
 use App\Exceptions\ValidationException;
 use App\Http\Request;
@@ -23,10 +24,14 @@ use App\Services\Chatbots\ChatbotAdminFormParser;
 use App\Services\Chatbots\ChatbotDraftDefaults;
 use App\Services\Chatbots\ChatbotListQueryParser;
 use App\Services\Chatbots\ChatbotService;
+use App\Services\Chatbots\ChatbotPreviewService;
 use App\Services\Sources\SourceListQueryParser;
 use App\Support\QueryString;
 use App\Support\SortDirection;
 use App\Support\ViewRenderer;
+use DateTimeImmutable;
+use DateTimeZone;
+use Ramsey\Uuid\Uuid;
 
 final class ChatbotController
 {
@@ -49,6 +54,8 @@ final class ChatbotController
         private readonly bool $providerConfigured = true,
         private readonly int $maximumTopK = 8,
         private readonly int $maximumMessageCharacters = 4_000,
+        private readonly ?ChatbotPreviewService $previewService = null,
+        private readonly string $applicationSecret = '',
     ) {
     }
 
@@ -128,6 +135,80 @@ final class ChatbotController
     public function edit(Request $request): Response
     {
         return $this->editView($request, $this->chatbotFromRequest($request));
+    }
+
+    public function preview(Request $request): Response
+    {
+        $chatbot = $this->chatbotFromRequest($request);
+
+        if ($chatbot->status === ChatbotStatus::Archived) {
+            throw new HttpException(404, 'Archived chatbots cannot be previewed.', 'chatbot_not_found');
+        }
+
+        $preview = $this->requirePreviewService();
+        $state = $preview->current($chatbot);
+
+        return Response::html($this->views->render('chatbots/preview', [
+            ...$this->layoutData($request, 'Preview ' . $chatbot->name),
+            'chatbot' => $chatbot,
+            'state' => $state,
+            'providerConfigured' => $this->providerConfigured,
+            'success' => $this->session->pull(self::FLASH_SUCCESS),
+            'error' => $this->session->pull(self::FLASH_ERROR),
+            'idempotencyKey' => bin2hex(random_bytes(16)),
+            'requestId' => Uuid::uuid7()->toString(),
+        ], 'layouts/admin'));
+    }
+
+    public function sendPreviewMessage(Request $request): Response
+    {
+        $chatbot = $this->chatbotFromRequest($request);
+
+        if (!$this->providerConfigured || $chatbot->status === ChatbotStatus::Archived) {
+            $this->session->put(self::FLASH_ERROR, 'Preview is unavailable until the chatbot and installation provider are available.');
+
+            return Response::redirect('/admin/chatbots/' . $chatbot->id . '/preview', 303);
+        }
+
+        try {
+            $result = $this->requirePreviewService()->send(
+                $chatbot,
+                $this->inputString($request, 'message'),
+                $this->inputString($request, 'idempotency_key'),
+                $this->inputString($request, 'request_id'),
+                $this->previewSafetyIdentifier($request, $chatbot),
+                new DateTimeImmutable('now', new DateTimeZone('UTC')),
+            );
+            $this->session->put(
+                self::FLASH_SUCCESS,
+                $result->fallback ? 'Test fallback recorded.' : 'Test response recorded.',
+            );
+        } catch (ValidationException|ChatbotExecutionException $exception) {
+            $this->session->put(self::FLASH_ERROR, $exception->getMessage());
+        } catch (\Throwable) {
+            $this->session->put(self::FLASH_ERROR, 'The preview message could not be completed.');
+        }
+
+        return Response::redirect('/admin/chatbots/' . $chatbot->id . '/preview', 303);
+    }
+
+    public function restartPreview(Request $request): Response
+    {
+        $chatbot = $this->chatbotFromRequest($request);
+
+        try {
+            $this->requirePreviewService()->restart(
+                $chatbot,
+                new DateTimeImmutable('now', new DateTimeZone('UTC')),
+            );
+            $this->session->put(self::FLASH_SUCCESS, 'A fresh draft test session was started.');
+        } catch (ValidationException|ChatbotExecutionException $exception) {
+            $this->session->put(self::FLASH_ERROR, $exception->getMessage());
+        } catch (\Throwable) {
+            $this->session->put(self::FLASH_ERROR, 'A fresh preview session could not be started.');
+        }
+
+        return Response::redirect('/admin/chatbots/' . $chatbot->id . '/preview', 303);
     }
 
     public function update(Request $request): Response
@@ -408,6 +489,23 @@ final class ChatbotController
         $value = $request->input($field);
 
         return is_string($value) ? $value : '';
+    }
+
+    private function requirePreviewService(): ChatbotPreviewService
+    {
+        return $this->previewService
+            ?? throw new HttpException(503, 'Chatbot preview is unavailable.', 'preview_unavailable');
+    }
+
+    private function previewSafetyIdentifier(Request $request, Chatbot $chatbot): string
+    {
+        $admin = $request->attribute('admin_user');
+
+        if (!$admin instanceof AdminUser || strlen($this->applicationSecret) < 32) {
+            throw new \LogicException('Administrator preview safety identity is unavailable.');
+        }
+
+        return hash_hmac('sha256', 'admin:' . $admin->id . ':chatbot:' . $chatbot->id, $this->applicationSecret);
     }
 
     /** @return array<string, mixed> */

@@ -1,6 +1,6 @@
 # Ask Asio
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening. The customer-facing chatbot now has administration, publication-bound conversation persistence, and a shared source-scoped execution service; no chatbot preview/public route or widget exists yet.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening. The customer-facing chatbot now has administration, durable publication/draft-preview conversations, a shared source-scoped execution service, and an administrator test preview; no public chatbot route or widget exists yet.
 
 ## Implemented functionality
 

@@ -23,6 +23,66 @@ use Tests\Support\TestDatabase;
 
 final class ChatbotConversationRepositoryTest extends DatabaseIntegrationTestCase
 {
+    public function testDraftPreviewSessionPersistsAnImmutableTestConfigurationSnapshot(): void
+    {
+        $connection = $this->connection();
+        $chatbots = new PdoChatbotRepository($connection);
+        $sourceId = $this->createReadySource();
+        $chatbot = $chatbots->create('cb_draft_preview', 'Draft preview', null, ChatbotFixtures::draft());
+        $chatbot = $chatbots->replaceDraftAssignments(
+            $chatbot->id,
+            1,
+            new ChatbotAssignments([$sourceId], ['https://example.com']),
+        );
+        $token = 'cst_v1_' . str_repeat('P', 43);
+        $credentials = new ChatbotSessionCredentials(
+            'cs_' . str_repeat('Q', 43),
+            $token,
+            substr($token, 0, 15),
+            hash('sha256', $token),
+        );
+        $generator = new class($credentials) implements ChatbotSessionCredentialGeneratorInterface {
+            public function __construct(private readonly ChatbotSessionCredentials $credentials)
+            {
+            }
+
+            public function generate(): ChatbotSessionCredentials
+            {
+                return $this->credentials;
+            }
+        };
+        $repository = new PdoChatbotConversationRepository($connection);
+        $service = new ChatbotConversationService($repository, $generator);
+        $created = $service->createDraftPreviewSession(
+            $chatbot,
+            ChatbotFixtures::provider(),
+            new DateTimeImmutable('2026-07-20 09:00:00 UTC'),
+        );
+
+        self::assertNull($created->session->publicationId);
+        self::assertSame(2, $created->session->previewDraftRevision);
+        self::assertSame(ChatbotSessionChannel::AdminPreview, $created->session->channel);
+        self::assertTrue($created->session->isTest);
+        $configuration = $repository->previewExecutionConfiguration($created->session->id);
+        self::assertNotNull($configuration);
+        self::assertSame([$sourceId], $configuration->assignments->sourceIds);
+        self::assertSame($chatbot->draft->configuration(), $configuration->configuration->configuration());
+        self::assertSame(
+            ChatbotFixtures::provider()->configuration(),
+            $configuration->providerConfiguration->configuration(),
+        );
+
+        $stored = self::$database?->query(
+            'SELECT chatbot_publication_id, preview_draft_revision, preview_configuration_json, is_test
+             FROM chatbot_sessions LIMIT 1',
+        )->fetch(PDO::FETCH_ASSOC);
+        self::assertIsArray($stored);
+        self::assertNull($stored['chatbot_publication_id']);
+        self::assertSame('2', (string) $stored['preview_draft_revision']);
+        self::assertSame('1', (string) $stored['is_test']);
+        self::assertStringNotContainsString($token, (string) $stored['preview_configuration_json']);
+    }
+
     public function testPublicationBoundSessionReservationCompletionAndCascadeDeletionPersist(): void
     {
         $connection = $this->connection();
