@@ -83,8 +83,8 @@ return new class implements Migration {
     public function down(\PDO $pdo): void
     {
         $pdo->exec('DROP TABLE ai_usage_records');
-        $pdo->exec('ALTER TABLE provider_quota_reservations DROP CHECK chk_provider_quota_access_method, DROP COLUMN chatbot_id, DROP COLUMN chatbot_api_key_id, DROP COLUMN access_method');
+        $pdo->exec('ALTER TABLE provider_quota_reservations DROP CONSTRAINT chk_provider_quota_access_method, DROP COLUMN chatbot_id, DROP COLUMN chatbot_api_key_id, DROP COLUMN access_method');
         $pdo->exec('ALTER TABLE chatbot_sessions DROP INDEX idx_chatbot_sessions_chatbot_api_key, DROP COLUMN chatbot_api_key_id');
-        $pdo->exec('ALTER TABLE api_request_logs DROP CHECK chk_api_request_access_method, DROP INDEX idx_api_request_logs_chatbot_created, DROP INDEX idx_api_request_logs_chatbot_key_created, DROP INDEX idx_api_request_logs_access_created, DROP COLUMN chatbot_id, DROP COLUMN chatbot_api_key_id, DROP COLUMN access_method');
+        $pdo->exec('ALTER TABLE api_request_logs DROP CONSTRAINT chk_api_request_access_method, DROP INDEX idx_api_request_logs_chatbot_created, DROP INDEX idx_api_request_logs_chatbot_key_created, DROP INDEX idx_api_request_logs_access_created, DROP COLUMN chatbot_id, DROP COLUMN chatbot_api_key_id, DROP COLUMN access_method');
     }
 };

@@ -32,7 +32,7 @@ return new class implements Migration {
         $pdo->exec('DELETE FROM chatbot_sessions WHERE chatbot_publication_id IS NULL');
         $pdo->exec(<<<'SQL'
             ALTER TABLE chatbot_sessions
-                DROP CHECK chk_chatbot_sessions_execution_binding,
+                DROP CONSTRAINT chk_chatbot_sessions_execution_binding,
                 DROP COLUMN preview_configuration_json,
                 DROP COLUMN preview_draft_revision,
                 MODIFY chatbot_publication_id BIGINT UNSIGNED NOT NULL

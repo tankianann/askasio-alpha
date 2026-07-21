@@ -9,7 +9,7 @@ return new class implements Migration {
     {
         $pdo->exec(<<<'SQL'
             ALTER TABLE api_rate_limit_buckets
-                DROP CHECK chk_api_rate_scope_v2,
+                DROP CONSTRAINT chk_api_rate_scope_v2,
                 ADD CONSTRAINT chk_api_rate_scope_v3 CHECK (scope IN ('api_key', 'ip', 'chatbot', 'session'))
             SQL);
     }
@@ -19,7 +19,7 @@ return new class implements Migration {
         $pdo->exec("DELETE FROM api_rate_limit_buckets WHERE scope = 'session'");
         $pdo->exec(<<<'SQL'
             ALTER TABLE api_rate_limit_buckets
-                DROP CHECK chk_api_rate_scope_v3,
+                DROP CONSTRAINT chk_api_rate_scope_v3,
                 ADD CONSTRAINT chk_api_rate_scope_v2 CHECK (scope IN ('api_key', 'ip', 'chatbot'))
             SQL);
     }

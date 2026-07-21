@@ -497,7 +497,7 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface, SourceDe
 
         $placeholders = implode(',', array_fill(0, count($sourceIds), '?'));
         $statement = $pdo->prepare(
-            "SELECT id FROM sources WHERE id IN ($placeholders) AND deleted_at IS NULL FOR SHARE",
+            "SELECT id FROM sources WHERE id IN ($placeholders) AND deleted_at IS NULL LOCK IN SHARE MODE",
         );
         $statement->execute($sourceIds);
         $found = array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));
@@ -603,7 +603,7 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface, SourceDe
         }
 
         $placeholders = implode(',', array_fill(0, count($sourceIds), '?'));
-        $lockClause = $lock ? ' FOR SHARE' : '';
+        $lockClause = $lock ? ' LOCK IN SHARE MODE' : '';
         $statement = $pdo->prepare(<<<SQL
             SELECT s.id, s.name, s.status, s.deleted_at, s.active_version_id,
                    sv.processing_status,
