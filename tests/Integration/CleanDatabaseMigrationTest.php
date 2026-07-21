@@ -58,6 +58,15 @@ final class CleanDatabaseMigrationTest extends DatabaseIntegrationTestCase
             'sources',
         ], $tables);
 
+        $analyticsIndex = self::$database?->query(
+            "SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',')
+             FROM information_schema.statistics
+             WHERE table_schema = DATABASE()
+               AND table_name = 'chatbot_sessions'
+               AND index_name = 'idx_chatbot_sessions_activity_analytics'",
+        )->fetchColumn();
+        self::assertSame('last_activity_at,is_test,chatbot_id,id', $analyticsIndex);
+
         $migrator = new Migrator(self::$database, dirname(__DIR__, 2) . '/database/migrations');
         self::assertSame([], $migrator->migrate(), 'A second migration pass must not alter the schema.');
     }

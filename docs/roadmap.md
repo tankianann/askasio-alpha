@@ -2,7 +2,7 @@
 
 ## Current state
 
-Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestones 9 and 10 add authenticated non-streaming public messages and an accessible isolated widget over exact-origin production sessions.
+Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestones 1–13 now include public/widget messaging, conversation administration, scoped server integrations, bounded analytics, and operational runbooks.
 
 The application is suitable for a controlled single-administrator deployment after the operator completes the production checklist. The largest remaining architecture limit is full-corpus vector scoring in PHP. The most immediate deployment-security gap is trusted reverse-proxy handling.
 
@@ -66,7 +66,7 @@ The application is suitable for a controlled single-administrator deployment aft
 
 ### Customer-facing chatbot implementation
 
-The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–12 add migrations `20260720000013`–`20260721000019`, chatbot identity/drafts, immutable scoped publications, shared grounding, public/widget messaging, bounded conversation retention, and separate scoped server credentials. The next reviewable milestone is analytics and operational readiness.
+The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–13 add migrations `20260720000013`–`20260721000020`, chatbot identity/drafts, immutable scoped publications, shared grounding, public/widget messaging, bounded conversation retention and analytics, separate scoped server credentials, and operational readiness guidance. The next reviewable milestone is the security/accessibility/end-to-end release gate.
 
 Trusted reverse-proxy support remains a production security dependency for reliable client-IP rate limiting when deployed behind a TLS terminator.
 

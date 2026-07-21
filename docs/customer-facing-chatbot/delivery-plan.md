@@ -119,11 +119,13 @@ Outcome: bounded filtered list/detail views, explicit production/test/channel st
 
 Outcome: migration `20260721000019`, separate hash-only `chatint_live_` credentials and scope relations, one-time lifecycle UI, exact scope middleware, credential/IP limits, integration session/message routes, two-layer session authorization, shared execution/usage accounting, examples, and tests. The existing general API keys remain unchanged. See [Scoped server integration credentials](scoped-integration-credentials.md).
 
-### 13 — Analytics and operational readiness
+### 13 — Analytics and operational readiness (complete)
 
 - Add bounded chatbot/session summaries using existing privacy and request-ID conventions.
 - Finalize config inventory, deployment, monitoring, troubleshooting, backup/restore, migration and rollback/forward-fix docs.
 - Validate provider hard limits and trusted-proxy deployment dependency.
+
+Outcome: administrator-only 1–90 day content-free session/chatbot summaries with production/test separation and request-ID correlation, migration `20260721000020` for the bounded activity scan, verified application/provider configuration bounds, and complete chatbot release/monitoring/troubleshooting/backup/restore/migration/rollback/forward-fix guidance. Conventional TLS-terminating proxy deployment remains blocked until allowlisted trusted-proxy handling is implemented; provider-project spend/rate ceilings remain an explicit external operator check. See [Analytics and operational readiness](analytics-and-operational-readiness.md).
 
 ### 14 — Security/accessibility/end-to-end release gate
 

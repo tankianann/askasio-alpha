@@ -217,6 +217,7 @@ return [
                 $router->post('/chatbots/{chatbotId}/rotate-public-id', [$chatbotController, 'rotatePublicId'], name: 'admin.chatbots.rotate_public_id');
                 $router->post('/chatbots/{chatbotId}/permanent-delete', [$chatbotController, 'permanentlyDelete'], name: 'admin.chatbots.permanent_delete');
                 $router->get('/conversations', [$chatbotConversationController, 'index'], name: 'admin.conversations.index');
+                $router->get('/conversations/analytics', [$chatbotConversationController, 'analytics'], name: 'admin.conversations.analytics');
                 $router->get('/conversations/{sessionId}', [$chatbotConversationController, 'show'], name: 'admin.conversations.show');
                 $router->post('/conversations/purge/preview', [$chatbotConversationController, 'previewPurge'], name: 'admin.conversations.purge_preview');
                 $router->post('/conversations/purge', [$chatbotConversationController, 'executePurge'], name: 'admin.conversations.purge_execute');

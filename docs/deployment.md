@@ -202,6 +202,8 @@ php bin/embed-chunks.php --rebuild
 
 A provider token limit of `0` means unlimited. Use explicit finite production limits plus the OpenAI project hard budget.
 
+Provider construction enforces an application output range of `64..32768`, retry range of `0..10`, positive timeouts, an HTTPS base URL, supported provider/reasoning values, and required model/credential values. These checks do not prove that the selected provider model supports the configured combined context/output envelope, nor can they inspect the provider project's rate or monetary limits. Complete the external model-limit and project-hard-budget checks in [Chatbot analytics and operational readiness](customer-facing-chatbot/analytics-and-operational-readiness.md#provider-hard-limit-validation).
+
 `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` exist as placeholders but no Anthropic implementation is available.
 
 ## Production Apache/PHP-FPM
@@ -230,6 +232,8 @@ Example virtual host:
 ```
 
 Add HTTPS and redirect HTTP. Use `SESSION_SECURE_COOKIE=always`. Do not deploy behind an unreviewed TLS-terminating proxy until trusted-proxy support is implemented, or ensure the application receives the original HTTPS connection and client IP.
+
+Forwarded headers are ignored even when present. A conventional TLS-terminating proxy is therefore a release blocker: `SESSION_SECURE_COOKIE=always` does not repair collapsed visitor-IP controls or same-origin reconstruction. See the explicit [trusted-proxy deployment gate](customer-facing-chatbot/analytics-and-operational-readiness.md#trusted-proxy-deployment-gate).
 
 PHP-FPM baseline for 20 MB uploads:
 
@@ -268,6 +272,8 @@ sudo systemctl reload php8.3-fpm
 ```
 
 Before release, run the quality commands from [Developer guide](developer-guide.md#quality-gate). Back up before migrations. `create-admin.php` is initial setup only.
+
+Use the chatbot-specific [release procedure and forward-repair runbook](customer-facing-chatbot/analytics-and-operational-readiness.md#release-procedure) when customer-facing routes are enabled.
 
 ## Ingestion worker
 
@@ -343,6 +349,8 @@ At minimum alert on:
 
 No metrics exporter is implemented; current sources are health JSON, dashboard aggregates, API Activity, Monolog files, systemd journal, and database monitoring.
 
+The administrator chatbot analytics view supplies bounded, content-free session/chatbot/token summaries. The implemented-versus-future signal inventory and request-ID troubleshooting matrix are maintained in [Analytics and operational readiness](customer-facing-chatbot/analytics-and-operational-readiness.md#monitoring-inventory).
+
 ## CI/CD
 
 `.github/workflows/quality.yml` runs on every push and pull request for PHP 8.3 and 8.4 with MySQL 8.4. It installs dependencies, validates and audits Composer, lints PHP, runs PHPStan level 5, and executes all PHPUnit tests including clean-schema and HTTP smoke tests.
@@ -357,10 +365,12 @@ CI is a quality pipeline only. It does not deploy, run production migrations, ro
 - [ ] MySQL private and least privilege; migrations backed up and applied.
 - [ ] Source/log/cache permissions correct; storage outside public.
 - [ ] OpenAI project hard budget plus application quotas configured.
+- [ ] Selected provider model supports the configured context/output envelope and provider rate limits are monitored.
 - [ ] OCR binary/languages/timeouts verified with representative PDFs.
 - [ ] Document limits and worker timeout relationship accepted.
 - [ ] systemd worker installed, enabled, and monitored—or cron one-shot chosen, not both.
 - [ ] recovery and API Activity retention scheduled and monitored.
+- [ ] chatbot conversation expiry/retention scheduled, run once, and monitored.
 - [ ] Database + filesystem backup and restore test completed.
 - [ ] CI green; no real provider calls in automated tests.
 - [ ] Representative retrieval/citation/unsupported-answer evaluation completed.

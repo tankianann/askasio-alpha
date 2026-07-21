@@ -95,6 +95,7 @@ use App\Services\Chatbots\ChatbotService;
 use App\Services\Chatbots\ChatbotConversationService;
 use App\Services\Chatbots\ChatbotConversationListQueryParser;
 use App\Services\Chatbots\ChatbotConversationRetentionService;
+use App\Services\Chatbots\ChatbotAnalyticsQueryParser;
 use App\Services\Chatbots\ChatbotIntegrationCredentialService;
 use App\Services\Chatbots\ChatbotHistorySelector;
 use App\Services\Chatbots\ChatbotPreviewService;
@@ -410,6 +411,7 @@ $chatbotConversationController = new ChatbotConversationController(
     $csrf,
     $session,
     $config->requireString('app.env'),
+    new ChatbotAnalyticsQueryParser($timezone),
 );
 $chatbotIntegrationCredentialController = new ChatbotIntegrationCredentialController(
     $integrationCredentials,

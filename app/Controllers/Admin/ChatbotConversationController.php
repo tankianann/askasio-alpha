@@ -17,6 +17,7 @@ use App\Repositories\ChatbotRepositoryInterface;
 use App\Security\CsrfTokenManager;
 use App\Services\Chatbots\ChatbotConversationListQueryParser;
 use App\Services\Chatbots\ChatbotConversationRetentionService;
+use App\Services\Chatbots\ChatbotAnalyticsQueryParser;
 use App\Support\QueryString;
 use App\Support\ViewRenderer;
 use DateTimeImmutable;
@@ -36,6 +37,7 @@ final readonly class ChatbotConversationController
         private CsrfTokenManager $csrf,
         private SessionStoreInterface $session,
         private string $environment,
+        private ChatbotAnalyticsQueryParser $analyticsQueries,
     ) {
     }
 
@@ -64,6 +66,26 @@ final readonly class ChatbotConversationController
             ...$this->layout($request, 'Conversation'), 'conversation' => $conversation,
             'chatbot' => $chatbot, 'messages' => $this->conversations->messagesForSession($conversation->id),
         ], 'layouts/admin'));
+    }
+
+    public function analytics(Request $request): Response
+    {
+        try {
+            $query = $this->analyticsQueries->parse($request);
+        } catch (ValidationException $exception) {
+            $this->session->put(self::FLASH, $exception->getMessage());
+
+            return Response::redirect('/admin/conversations/analytics');
+        }
+
+        return Response::html($this->views->render('conversations/analytics', [
+            ...$this->layout($request, 'Chatbot analytics'),
+            'query' => $query,
+            'analytics' => $this->conversations->analytics($query),
+            'chatbots' => $this->chatbots->listOptions(),
+            'message' => $this->session->pull(self::FLASH),
+            'requestId' => $request->attribute('request_id'),
+        ], 'layouts/admin'))->withHeader('Cache-Control', 'no-store');
     }
 
     public function previewPurge(Request $request): Response

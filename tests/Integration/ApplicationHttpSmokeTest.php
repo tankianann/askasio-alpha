@@ -53,6 +53,14 @@ final class ApplicationHttpSmokeTest extends DatabaseIntegrationTestCase
         self::assertSame(302, $home->status());
         self::assertSame('/admin', $home->headers()['Location'] ?? null);
 
+        $analytics = $this->dispatch($router, $errorHandler, new Request(
+            'GET',
+            '/admin/conversations/analytics',
+            attributes: ['request_id' => 'smoke-chatbot-analytics'],
+        ));
+        self::assertSame(302, $analytics->status());
+        self::assertSame('/admin/login', $analytics->headers()['Location'] ?? null);
+
         $retrieve = $this->dispatch($router, $errorHandler, new Request(
             'POST',
             '/api/v1/retrieve',

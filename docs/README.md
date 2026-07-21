@@ -26,7 +26,7 @@ These documents are the single source of truth for future Ask Asio development. 
 - CI and real-MySQL integration testing: complete.
 - Worker/document safety hardening: complete.
 - Provider quota enforcement: complete for authenticated chat and retrieval.
-- Customer-facing chatbot: milestones 11 and 12 conversation administration/retention and scoped server integrations complete; analytics/operational readiness is next.
+- Customer-facing chatbot: milestones 1–13 complete, including bounded analytics and operational readiness; the security/accessibility/end-to-end release gate is next.
 - Recommended next milestone: trusted reverse-proxy support and production scheme/IP correctness. See [Roadmap](roadmap.md#recommended-next-milestone).
 
 ## Source of truth rules

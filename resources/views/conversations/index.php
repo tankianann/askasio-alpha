@@ -1,4 +1,4 @@
-<div class="page-heading"><div><p class="eyebrow">Chatbots</p><h1>Conversations</h1><p class="muted">Production and test transcripts are clearly separated and loaded in bounded pages.</p></div></div>
+<div class="page-heading"><div><p class="eyebrow">Chatbots</p><h1>Conversations</h1><p class="muted">Production and test transcripts are clearly separated and loaded in bounded pages.</p></div><a class="button button-quiet" href="/admin/conversations/analytics">View analytics</a></div>
 <?php if (is_string($message) && $message !== ''): ?><div class="alert alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
 <form class="panel filter-panel compact-filter-panel" method="get" action="/admin/conversations">
     <div class="filter-heading"><div><h2>Find conversations</h2><p>Search a session reference or filter by chatbot, traffic, state, and activity date.</p></div><a class="text-link" href="/admin/conversations">Clear filters</a></div>

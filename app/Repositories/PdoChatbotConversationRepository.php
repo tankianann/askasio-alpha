@@ -22,6 +22,8 @@ use App\Domain\Chatbots\ChatbotSessionStatus;
 use App\Domain\Chatbots\ChatbotConversationListItem;
 use App\Domain\Chatbots\ChatbotConversationListQuery;
 use App\Domain\Chatbots\ChatbotConversationPurgeSnapshot;
+use App\Domain\Chatbots\ChatbotAnalytics;
+use App\Domain\Chatbots\ChatbotAnalyticsQuery;
 use App\Support\Pagination\PaginatedResult;
 use App\Support\SortDirection;
 use App\Exceptions\ChatbotIdempotencyConflictException;
@@ -698,6 +700,97 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
         ]);
 
         return $statement->rowCount();
+    }
+
+    public function analytics(ChatbotAnalyticsQuery $query): ChatbotAnalytics
+    {
+        $pdo = $this->connection->pdo();
+        $where = $this->analyticsWhere($query);
+        $summary = $pdo->prepare(
+            'SELECT COUNT(*) AS sessions,
+                    COALESCE(SUM(cs.is_test = 0), 0) AS production_sessions,
+                    COALESCE(SUM(cs.is_test = 1), 0) AS test_sessions,
+                    COALESCE(SUM(cs.status = \'active\'), 0) AS active_sessions,
+                    COALESCE(SUM(cs.message_count), 0) AS messages,
+                    COALESCE(SUM(cs.provider_tokens), 0) AS provider_tokens,
+                    COUNT(DISTINCT cs.chatbot_id) AS distinct_chatbots
+             FROM chatbot_sessions cs' . $where['sql'],
+        );
+        $summary->execute($where['parameters']);
+        $row = $summary->fetch();
+
+        if (!is_array($row)) {
+            throw new RuntimeException('Chatbot analytics summary could not be loaded.');
+        }
+
+        $failures = $pdo->prepare(
+            'SELECT COUNT(*) FROM chatbot_messages cm INNER JOIN chatbot_sessions cs ON cs.id = cm.session_id'
+            . $where['sql'] . " AND cm.role = 'assistant' AND cm.status = 'failed'",
+        );
+        $failures->execute($where['parameters']);
+
+        $byChatbot = $pdo->prepare(
+            'SELECT cs.chatbot_id, c.name AS chatbot_name, COUNT(*) AS sessions,
+                    COALESCE(SUM(cs.message_count), 0) AS messages,
+                    COALESCE(SUM(cs.provider_tokens), 0) AS provider_tokens
+             FROM chatbot_sessions cs INNER JOIN chatbots c ON c.id = cs.chatbot_id'
+            . $where['sql'] . ' GROUP BY cs.chatbot_id, c.name ORDER BY sessions DESC, cs.chatbot_id ASC LIMIT 100',
+        );
+        $byChatbot->execute($where['parameters']);
+        $byChatbotRows = array_map(static fn (array $metric): array => [
+            'chatbot_id' => (int) $metric['chatbot_id'],
+            'chatbot_name' => (string) $metric['chatbot_name'],
+            'sessions' => (int) $metric['sessions'],
+            'messages' => (int) $metric['messages'],
+            'provider_tokens' => (int) $metric['provider_tokens'],
+        ], $byChatbot->fetchAll());
+
+        $daily = $pdo->prepare(
+            'SELECT DATE(cs.last_activity_at) AS day, COUNT(*) AS sessions,
+                    COALESCE(SUM(cs.message_count), 0) AS messages,
+                    COALESCE(SUM(cs.provider_tokens), 0) AS provider_tokens
+             FROM chatbot_sessions cs' . $where['sql']
+            . ' GROUP BY DATE(cs.last_activity_at) ORDER BY day ASC LIMIT 90',
+        );
+        $daily->execute($where['parameters']);
+        $dailyRows = array_map(static fn (array $metric): array => [
+            'day' => (string) $metric['day'],
+            'sessions' => (int) $metric['sessions'],
+            'messages' => (int) $metric['messages'],
+            'provider_tokens' => (int) $metric['provider_tokens'],
+        ], $daily->fetchAll());
+
+        return new ChatbotAnalytics(
+            (int) $row['sessions'],
+            (int) $row['production_sessions'],
+            (int) $row['test_sessions'],
+            (int) $row['active_sessions'],
+            (int) $row['messages'],
+            (int) $row['provider_tokens'],
+            (int) $failures->fetchColumn(),
+            (int) $row['distinct_chatbots'],
+            $byChatbotRows,
+            $dailyRows,
+        );
+    }
+
+    /** @return array{sql: string, parameters: array<string, int|string>} */
+    private function analyticsWhere(ChatbotAnalyticsQuery $query): array
+    {
+        $clauses = ['cs.last_activity_at >= :analytics_from', 'cs.last_activity_at < :analytics_before'];
+        $parameters = ['analytics_from' => $query->fromUtc, 'analytics_before' => $query->beforeUtc];
+
+        if ($query->chatbotId !== null) {
+            $clauses[] = 'cs.chatbot_id = :analytics_chatbot_id';
+            $parameters['analytics_chatbot_id'] = $query->chatbotId;
+        }
+
+        if ($query->isTest !== null) {
+            $clauses[] = 'cs.is_test = :analytics_is_test';
+            $parameters['analytics_is_test'] = $query->isTest ? 1 : 0;
+        }
+
+        return ['sql' => ' WHERE ' . implode(' AND ', $clauses), 'parameters' => $parameters];
     }
 
     /** @return array{sql: string, parameters: array<string, int|string>} */

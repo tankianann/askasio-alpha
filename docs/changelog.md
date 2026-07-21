@@ -2,6 +2,13 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot analytics and operational readiness — 2026-07-21
+
+- Added administrator-only, content-free 1–90 day chatbot/session summaries with production/test filters, numeric usage/failure aggregates, and request-ID correlation.
+- Added migration `20260721000020` for the bounded session-activity analytics scan and real-MySQL aggregation coverage.
+- Finalized the chatbot configuration and enforced-limit inventory, deployment and monitoring procedure, request-ID troubleshooting, coordinated backup/restore, and migration rollback/forward-fix guidance.
+- Confirmed that provider-project hard spend/rate limits remain an external operator gate and that conventional TLS-terminating proxy deployment remains blocked until allowlisted trusted-proxy support exists.
+
 ## Customer-facing chatbot conversation operations and integrations — 2026-07-21
 
 - Added bounded conversation list/detail views with explicit production/test classification, filtered pagination, safe transcript rendering, and content-free diagnostics.

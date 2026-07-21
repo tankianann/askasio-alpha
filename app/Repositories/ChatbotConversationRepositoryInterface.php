@@ -15,6 +15,8 @@ use App\Domain\Chatbots\ChatbotSessionStatus;
 use DateTimeImmutable;
 use App\Domain\Chatbots\ChatbotConversationListQuery;
 use App\Domain\Chatbots\ChatbotConversationPurgeSnapshot;
+use App\Domain\Chatbots\ChatbotAnalytics;
+use App\Domain\Chatbots\ChatbotAnalyticsQuery;
 use App\Support\Pagination\PaginatedResult;
 
 interface ChatbotConversationRepositoryInterface
@@ -89,6 +91,8 @@ interface ChatbotConversationRepositoryInterface
     public function purgeSnapshot(ChatbotConversationListQuery $query, DateTimeImmutable $now): ChatbotConversationPurgeSnapshot;
 
     public function purgeSnapshotBatch(ChatbotConversationPurgeSnapshot $snapshot, DateTimeImmutable $now, int $limit): int;
+
+    public function analytics(ChatbotAnalyticsQuery $query): ChatbotAnalytics;
 
     /** @return list<ChatbotMessage> */
     public function messagesForSession(int $sessionId): array;

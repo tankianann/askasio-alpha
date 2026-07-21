@@ -78,11 +78,15 @@ Reuse the existing request ID, API Activity, numeric usage, rate-limit, and prov
 
 Do not store tenant ID because no tenant record exists. Estimated monetary cost is shown only after reliable versioned model pricing exists. Analytics screens require date range, filters, pagination, bounded summaries, and retention; no unbounded chart queries or duplicate content payloads.
 
+Milestone 13 implements administrator-only session/chatbot summaries over a 1–90 day `last_activity_at` window, with production/test and chatbot filters, at most 90 UTC daily buckets, and at most 100 grouped chatbot rows. The query reads numeric/status fields rather than transcript or retrieval content, returns `Cache-Control: no-store`, and displays the request ID. See [Analytics and operational readiness](analytics-and-operational-readiness.md).
+
 ## Logs and metrics
 
 Structured logs should support request/chatbot/session correlation without content leakage. Useful operational measures are sessions/messages per chatbot, success and fallback rates, provider/retrieval failures, p50/p95 latency, token usage, rate/quota events, expired sessions, and widget initialization errors.
 
 The current application has no metrics exporter. Initial observability may use Monolog, API Activity/conversation tables, provider quota buckets, dashboard summaries, health, and database/system monitoring. Deployment docs must distinguish implemented metrics from desired future metrics.
+
+The implemented milestone 13 analytics view supplies session count, active status count, user turns, failed assistant outcomes, provider tokens, traffic mix, and bounded daily/chatbot groupings. It does not supply latency percentiles, fallback rates, monetary cost, provider-project state, or widget telemetry.
 
 The initial provider/model is installation-wide and read-only per ADR-031. Publication stores the effective provider/chat/embedding metadata; monitoring must surface configuration-stale publications after an environment model change so the administrator can review and republish them.
 

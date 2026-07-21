@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Providers\Chat\ChatMalformedResponseException;
 use App\Providers\Chat\ChatRateLimitException;
+use App\Providers\Chat\ChatConfigurationException;
 use App\Providers\Chat\OpenAiChatProvider;
 use App\Providers\OpenAI\OpenAiClientInterface;
 use App\Providers\OpenAI\OpenAiRateLimitException;
@@ -83,5 +84,28 @@ final class OpenAiChatProviderTest extends TestCase
 
         $this->expectException(ChatRateLimitException::class);
         (new OpenAiChatProvider($client, 'model', 600))->generate('instructions', 'input');
+    }
+
+    /** @dataProvider invalidOutputTokenLimits */
+    public function testItRejectsOutputTokenLimitsOutsideTheApplicationHardBounds(int $tokens): void
+    {
+        $client = new class implements OpenAiClientInterface {
+            public function postJson(string $path, array $payload): array
+            {
+                throw new \LogicException('The provider must not be called for invalid configuration.');
+            }
+        };
+
+        $this->expectException(ChatConfigurationException::class);
+        $this->expectExceptionMessage('between 64 and 32768');
+
+        new OpenAiChatProvider($client, 'model', $tokens);
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function invalidOutputTokenLimits(): iterable
+    {
+        yield 'below minimum' => [63];
+        yield 'above maximum' => [32_769];
     }
 }

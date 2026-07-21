@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Database\Connection;
+use App\Domain\Chatbots\ChatbotAnalyticsQuery;
 use App\Domain\Chatbots\ChatbotAssignments;
 use App\Domain\Chatbots\ChatbotMessageCompletion;
 use App\Domain\Chatbots\ChatbotMessageReservationState;
@@ -81,6 +82,17 @@ final class ChatbotConversationRepositoryTest extends DatabaseIntegrationTestCas
         self::assertSame('2', (string) $stored['preview_draft_revision']);
         self::assertSame('1', (string) $stored['is_test']);
         self::assertStringNotContainsString($token, (string) $stored['preview_configuration_json']);
+
+        $analytics = $repository->analytics(new ChatbotAnalyticsQuery(
+            '2026-07-20',
+            '2026-07-20',
+            '2026-07-20 00:00:00',
+            '2026-07-21 00:00:00',
+            isTest: true,
+        ));
+        self::assertSame(1, $analytics->sessions);
+        self::assertSame(0, $analytics->productionSessions);
+        self::assertSame(1, $analytics->testSessions);
     }
 
     public function testPublicationBoundSessionReservationCompletionAndCascadeDeletionPersist(): void
@@ -163,6 +175,25 @@ final class ChatbotConversationRepositoryTest extends DatabaseIntegrationTestCas
         self::assertSame(ChatbotMessageReservationState::Replay, $replay->state);
         self::assertCount(2, $repository->messagesForSession($created->session->id));
         self::assertSame(1, $repository->findSessionByPublicId($created->session->publicId)?->messageCount);
+
+        $analytics = $repository->analytics(new ChatbotAnalyticsQuery(
+            '2026-07-20',
+            '2026-07-20',
+            '2026-07-20 00:00:00',
+            '2026-07-21 00:00:00',
+        ));
+        self::assertSame(1, $analytics->sessions);
+        self::assertSame(1, $analytics->productionSessions);
+        self::assertSame(0, $analytics->testSessions);
+        self::assertSame(1, $analytics->messages);
+        self::assertSame(16, $analytics->providerTokens);
+        self::assertSame(0, $analytics->failedAssistantMessages);
+        self::assertSame([[
+            'day' => '2026-07-20',
+            'sessions' => 1,
+            'messages' => 1,
+            'provider_tokens' => 16,
+        ]], $analytics->daily);
 
         $repository->permanentlyDelete($created->session->id);
         self::assertSame(0, (int) self::$database?->query('SELECT COUNT(*) FROM chatbot_messages')->fetchColumn());

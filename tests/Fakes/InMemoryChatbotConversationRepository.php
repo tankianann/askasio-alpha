@@ -23,6 +23,8 @@ use DateInterval;
 use DateTimeImmutable;
 use App\Domain\Chatbots\ChatbotConversationListQuery;
 use App\Domain\Chatbots\ChatbotConversationPurgeSnapshot;
+use App\Domain\Chatbots\ChatbotAnalytics;
+use App\Domain\Chatbots\ChatbotAnalyticsQuery;
 use App\Support\Pagination\PaginatedResult;
 
 final class InMemoryChatbotConversationRepository implements ChatbotConversationRepositoryInterface
@@ -417,6 +419,23 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
     public function purgeSnapshotBatch(ChatbotConversationPurgeSnapshot $snapshot, DateTimeImmutable $now, int $limit): int
     {
         return 0;
+    }
+
+    public function analytics(ChatbotAnalyticsQuery $query): ChatbotAnalytics
+    {
+        $sessions = array_filter($this->sessions, static function (ChatbotSession $session) use ($query): bool {
+            return $session->lastActivityAt >= $query->fromUtc && $session->lastActivityAt < $query->beforeUtc
+                && ($query->chatbotId === null || $session->chatbotId === $query->chatbotId)
+                && ($query->isTest === null || $session->isTest === $query->isTest);
+        });
+        return new ChatbotAnalytics(
+            count($sessions), count(array_filter($sessions, static fn (ChatbotSession $s): bool => !$s->isTest)),
+            count(array_filter($sessions, static fn (ChatbotSession $s): bool => $s->isTest)),
+            count(array_filter($sessions, static fn (ChatbotSession $s): bool => $s->status === ChatbotSessionStatus::Active)),
+            array_sum(array_map(static fn (ChatbotSession $s): int => $s->messageCount, $sessions)),
+            array_sum(array_map(static fn (ChatbotSession $s): int => $s->providerTokens, $sessions)), 0,
+            count(array_unique(array_map(static fn (ChatbotSession $s): int => $s->chatbotId, $sessions))), [], [],
+        );
     }
 
     private function requireSession(int $id): ChatbotSession

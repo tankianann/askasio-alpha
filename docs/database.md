@@ -137,7 +137,7 @@ Immutable authorized-scope children of a numbered publication. They cascade only
 
 Conversation identity and lifecycle. Each row stores a unique 256-bit public ID, only the SHA-256 hash and safe prefix of a separate 256-bit bearer token, chatbot ownership, channel/origin, immutable production/test classification, status, user-turn count, copied message/expiry/retention limits, usage totals, and activity/expiry/terminal/purge timestamps. An exclusive check requires either an immutable publication ID or an administrator-test draft revision plus bounded configuration/source/provider snapshot. There is no tenant/account field or provider secret.
 
-Indexes support hash/public-ID lookup, chatbot/test/activity queries, publication dependencies, idle and absolute expiry batches, and purge-eligibility batches. Sessions cascade only with permanent chatbot/publication deletion or explicit/retention deletion.
+Indexes support hash/public-ID lookup, chatbot/test/activity queries, bounded analytics windows, publication dependencies, idle and absolute expiry batches, and purge-eligibility batches. Sessions cascade only with permanent chatbot/publication deletion or explicit/retention deletion.
 
 ### `chatbot_messages`
 
@@ -190,6 +190,7 @@ Current migration history:
 | `20260721000017` | Add the public-chatbot scope to atomic fixed-window request counters. |
 | `20260721000018` | Add the public-session scope used by independent message request limits. |
 | `20260721000019` | Separate chatbot integration credentials/scopes and dedicated integration rate-counter scope. |
+| `20260721000020` | Add the bounded chatbot session-activity analytics index. |
 
 ## Index and query guidance
 
@@ -200,7 +201,7 @@ Current migration history:
 | API keys | unique secret hash, status/expiry, creation/name/last-use order. |
 | API Activity | unique request ID, creation, key+creation, status+creation, endpoint+creation, duration+creation. |
 | Quotas | unique scope/identifier/period, expiry status for active reservations. |
-| Chatbots | unique public/session IDs and token hash, status+updated, updated, name, unique publication number, chatbot+publication time, source dependencies, session test/activity, expiry, retention, message chronology/idempotency/pending outcomes. |
+| Chatbots | unique public/session IDs and token hash, status+updated, updated, name, unique publication number, chatbot+publication time, source dependencies, session test/activity, activity-window analytics, expiry, retention, message chronology/idempotency/pending outcomes. |
 
 Admin result queries filter before pagination, select only display columns, use allowlisted sort expressions, and include deterministic ID tie-breakers. Offset pagination is appropriate for the single administrator and exact totals, but deep offsets and `COUNT(*)` become expensive at very large row counts.
 
