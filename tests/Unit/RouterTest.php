@@ -20,13 +20,19 @@ final class RouterTest extends TestCase
         $router->group('/api/v1', [], static function (Router $router): void {
             $router->get('/sources/{sourceId}', static fn (Request $request): Response => Response::json([
                 'source_id' => $request->route('sourceId'),
-            ]));
+                'route_pattern' => $request->attribute('route_pattern'),
+                'route_name' => $request->attribute('route_name'),
+            ]), name: 'api.v1.sources.show');
         });
 
         $response = $router->dispatch(new Request('GET', '/api/v1/sources/42'));
 
         self::assertSame(200, $response->status());
-        self::assertSame(['source_id' => '42'], json_decode($response->body(), true, flags: JSON_THROW_ON_ERROR));
+        self::assertSame([
+            'source_id' => '42',
+            'route_pattern' => '/api/v1/sources/{sourceId}',
+            'route_name' => 'api.v1.sources.show',
+        ], json_decode($response->body(), true, flags: JSON_THROW_ON_ERROR));
     }
 
     public function testMiddlewareWrapsTheMatchedRoute(): void

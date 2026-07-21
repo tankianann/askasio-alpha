@@ -71,10 +71,12 @@
 
     var transcript = element('div', 'askasio-transcript');
     transcript.setAttribute('role', 'log');
+    transcript.setAttribute('aria-label', 'Conversation');
     transcript.setAttribute('aria-live', 'polite');
     transcript.setAttribute('aria-relevant', 'additions text');
 
     var suggestions = element('div', 'askasio-suggestions');
+    suggestions.setAttribute('role', 'group');
     suggestions.setAttribute('aria-label', 'Suggested questions');
     var status = element('p', 'askasio-status');
     status.setAttribute('role', 'status');
@@ -325,6 +327,7 @@
 
     function addMessage(role, text, citations) {
         var item = element('article', 'askasio-message askasio-message-' + role);
+        item.setAttribute('aria-label', role === 'assistant' ? 'Assistant message' : 'Your message');
         var body = element('p', 'askasio-message-body');
         body.textContent = text;
         item.appendChild(body);
@@ -373,6 +376,7 @@
 
     function setBusy(next, message, isError) {
         busy = next;
+        panel.setAttribute('aria-busy', next ? 'true' : 'false');
         input.disabled = next;
         send.disabled = next;
         restart.disabled = next;

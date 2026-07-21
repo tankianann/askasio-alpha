@@ -19,7 +19,7 @@ For a strict Content Security Policy, allow the Ask Asio origin in `script-src`,
 
 The loader creates an isolated Shadow DOM rather than an iframe. This preserves the embedding page's browser `Origin` for API authorization while containing widget styles. The external versioned stylesheet provides desktop/mobile sizing, high-contrast behavior, visible keyboard focus, and reduced-motion handling.
 
-The launcher exposes expanded/control state; the panel is a labelled non-modal dialog; the transcript is a polite live log; controls have accessible names; Enter submits, Shift+Enter inserts a line, Escape closes, opening focuses the message input, and closing restores launcher focus. The interface does not trap focus.
+The launcher exposes expanded/control state; the panel is a labelled non-modal dialog with busy state; the transcript is a named polite live log; suggestion controls form a named group; messages are labelled by speaker; controls have accessible names; Enter submits, Shift+Enter inserts a line, Escape closes, opening focuses the message input, and closing restores launcher focus. The interface does not trap focus. Mobile sizing uses dynamic viewport units with a `vh` fallback so the panel responds to supported on-screen keyboards.
 
 ## Session and message behavior
 
@@ -35,4 +35,4 @@ Cross-origin embeds send `Origin` and receive the exact allowlisted CORS respons
 
 ## Compatibility verification
 
-Asset contract tests protect the versioned loader, Shadow DOM boundary, session-only storage, API paths, bearer/idempotency behavior, safe DOM rendering, URL scheme restriction, keyboard hooks, focus states, responsive layout, forced colors, and reduced motion. HTTP tests separately cover the widget-facing API and same-origin exception. Browser release checks must load the real asset, inspect its rendered state, exercise launcher/close/keyboard behavior, and test a narrow viewport without making a paid provider call.
+Asset contract tests protect the versioned loader, Shadow DOM boundary, session-only storage, API paths, bearer/idempotency behavior, safe DOM rendering, URL scheme restriction, accessible names/groups/busy state, keyboard hooks, focus states, dynamic-viewport responsive layout, forced colors, and reduced motion. HTTP tests separately cover the widget-facing API and same-origin exception. Browser release checks must load the real asset, inspect its rendered/accessibility-tree state, exercise launcher/close/keyboard behavior, and test a narrow viewport without making a paid provider call. The required matrix and release threshold are in [Security, accessibility, and end-to-end release gate](security-accessibility-release-gate.md#widget-browser-and-accessibility-matrix).

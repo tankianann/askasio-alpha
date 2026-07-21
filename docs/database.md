@@ -127,7 +127,7 @@ Mutable source and exact-origin assignments belonging to the one draft. Composit
 
 Immutable numbered core configuration snapshots. Each copies the complete validated draft, canonical configuration hash, source draft revision, and effective installation chat/embedding provider/model/dimensions. `(chatbot_id, publication_number)` is unique; records cascade only with permanent chatbot deletion.
 
-This table is not publicly reachable yet. Publication source readiness is implemented; runtime provider/configuration-staleness validation remains part of the later execution boundary.
+Public configuration/session/message execution resolves only the active immutable publication. The execution boundary compares its copied provider/model metadata to the current installation and safely rejects configuration-stale publications until reviewed and republished.
 
 ### `chatbot_publication_sources` and `chatbot_publication_origins`
 

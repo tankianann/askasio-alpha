@@ -61,6 +61,10 @@ final class ApiRequestLoggingMiddleware implements MiddlewareInterface
         int $started,
     ): void {
         $requestId = $request->attribute('request_id');
+        $routePattern = $request->attribute('route_pattern');
+        $endpoint = is_string($routePattern) && str_starts_with($routePattern, '/')
+            ? $routePattern
+            : $request->path();
 
         try {
             $this->logs->record(new ApiRequestLog(
@@ -68,7 +72,7 @@ final class ApiRequestLoggingMiddleware implements MiddlewareInterface
                 $this->context->apiKeyId,
                 hash_hmac('sha256', $request->clientIp(), $this->applicationSecret),
                 $request->method(),
-                $request->path(),
+                $endpoint,
                 $status,
                 max(0, (int) ((hrtime(true) - $started) / 1_000_000)),
                 $errorCategory,

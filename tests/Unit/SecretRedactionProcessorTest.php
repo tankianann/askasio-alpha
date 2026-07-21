@@ -22,6 +22,7 @@ final class SecretRedactionProcessorTest extends TestCase
             [
                 'api_key' => 'sk-abcdefghijklmnop',
                 'nested' => ['password' => 'do-not-log-this'],
+                'diagnostic' => 'integration chatint_live_abcdefghijklmnopqrstuvwxyz and session cst_v1_abcdefghijklmnopqrstuvwxyz',
                 'exception' => new \RuntimeException('token=super-secret-token'),
             ],
         );
@@ -31,6 +32,7 @@ final class SecretRedactionProcessorTest extends TestCase
         self::assertStringNotContainsString('rag_live_', $redacted->message);
         self::assertSame('[REDACTED]', $redacted->context['api_key']);
         self::assertSame('[REDACTED]', $redacted->context['nested']['password']);
+        self::assertSame('integration [REDACTED] and session [REDACTED]', $redacted->context['diagnostic']);
         self::assertSame('token=[REDACTED]', $redacted->context['exception']['message']);
         self::assertArrayNotHasKey('trace', $redacted->context['exception']);
     }

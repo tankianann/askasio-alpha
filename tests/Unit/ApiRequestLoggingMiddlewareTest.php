@@ -124,4 +124,33 @@ final class ApiRequestLoggingMiddlewareTest extends TestCase
             'apiKeyPrefix',
         ], array_keys(get_object_vars($repository->logs[0])));
     }
+
+    public function testItStoresTheMatchedRouteTemplateInsteadOfPublicResourceIdentifiers(): void
+    {
+        $repository = new InMemoryApiRequestLogRepository();
+        $middleware = new ApiRequestLoggingMiddleware(
+            $repository,
+            new ApiRequestContext(),
+            new NullLogger(),
+            str_repeat('s', 32),
+        );
+        $request = (new Request(
+            'POST',
+            '/api/public/v1/chatbots/cb_PUBLIC_IDENTIFIER/sessions/cs_SESSION_IDENTIFIER/messages',
+        ))
+            ->withAttribute('request_id', 'route-template-request')
+            ->withAttribute(
+                'route_pattern',
+                '/api/public/v1/chatbots/{chatbotPublicId}/sessions/{sessionId}/messages',
+            );
+
+        $middleware->process($request, static fn (): Response => Response::json(['ok' => true]));
+
+        self::assertSame(
+            '/api/public/v1/chatbots/{chatbotPublicId}/sessions/{sessionId}/messages',
+            $repository->logs[0]->endpoint,
+        );
+        self::assertStringNotContainsString('PUBLIC_IDENTIFIER', serialize($repository->logs[0]));
+        self::assertStringNotContainsString('SESSION_IDENTIFIER', serialize($repository->logs[0]));
+    }
 }

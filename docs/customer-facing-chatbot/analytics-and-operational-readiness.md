@@ -154,4 +154,4 @@ Never edit an applied migration, manually claim success without comparing the ex
 
 ## Remaining release gates
 
-Milestone 13 makes operations reviewable but does not itself authorize internet production. Milestone 14 still owns the complete security, accessibility, real-browser, failure, origin/CORS, restore, and release rehearsal. Trusted-proxy support must precede a conventional TLS-terminating proxy deployment. Provider project hard-budget validation remains an operator-controlled external check on every release and provider/model change.
+Milestone 14's implementation gate is complete and its conditional decision is recorded in [Security, accessibility, and end-to-end release gate](security-accessibility-release-gate.md). Real-browser/accessibility, production-equivalent restore, provider-project/model, and deployment-topology checks remain environment-owned conditions before production approval. Trusted-proxy support must precede a conventional TLS-terminating proxy deployment.

@@ -296,7 +296,7 @@ curl -X POST https://ragserver.example.com/api/v1/chat \
 
 ## API Activity privacy contract
 
-The application records request ID, numeric API-key ID, HMAC-derived IP identifier, method, path-only endpoint, status, duration, error category, numeric usage, and UTC time. It does not record authorization headers, complete keys, raw IPs, query strings, bodies, questions, retrieved chunks, citations, or answers.
+The application records request ID, numeric API-key ID, HMAC-derived IP identifier, method, matched route template, status, duration, error category, numeric usage, and UTC time. Dynamic public chatbot/session identifiers and query strings are not retained in the endpoint field. It does not record authorization headers, complete keys, raw IPs, bodies, questions, retrieved chunks, citations, or answers.
 
 ## Compatibility and versioning policy
 

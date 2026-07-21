@@ -2,6 +2,14 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot security/accessibility release gate — 2026-07-21
+
+- Ran the complete local and real-MySQL quality, HTTP, security, CORS, abuse, failure, migration, and restore gates without paid provider calls.
+- Added a representative real-vector RAG evaluation covering expected source selection, unsupported fallback, assigned-source exclusion, prompt/data separation, and citation enforcement.
+- Prevented API Activity from retaining dynamic chatbot/session route identifiers and expanded log redaction for integration/session bearer formats.
+- Hardened widget accessible naming, grouping, busy state, speaker labels, and mobile dynamic-viewport behavior.
+- Rehearsed logical database restoration and release-artifact composition; documented accepted limitations and withheld unrestricted production approval pending real-browser, production restore, provider-account/model, and deployment-topology checks.
+
 ## Customer-facing chatbot analytics and operational readiness — 2026-07-21
 
 - Added administrator-only, content-free 1–90 day chatbot/session summaries with production/test filters, numeric usage/failure aggregates, and request-ID correlation.

@@ -51,11 +51,23 @@ final class PublicChatbotWidgetAssetTest extends TestCase
 
     public function testAccessibleResponsiveInteractionHooksRemainPresent(): void
     {
-        foreach (['aria-expanded', 'aria-controls', "role', 'dialog", "role', 'log", "event.key === 'Escape'", 'inputLabel.htmlFor'] as $contract) {
+        foreach ([
+            'aria-expanded',
+            'aria-controls',
+            "role', 'dialog",
+            "role', 'log",
+            "role', 'group",
+            "aria-label', 'Conversation",
+            "aria-label', role === 'assistant' ? 'Assistant message' : 'Your message'",
+            "aria-busy', next ? 'true' : 'false'",
+            "event.key === 'Escape'",
+            'inputLabel.htmlFor',
+        ] as $contract) {
             self::assertStringContainsString($contract, $this->javascript);
         }
 
         self::assertStringContainsString('@media (max-width: 520px)', $this->css);
+        self::assertStringContainsString('100dvh', $this->css);
         self::assertStringContainsString('@media (prefers-reduced-motion: reduce)', $this->css);
         self::assertStringContainsString('@media (forced-colors: active)', $this->css);
         self::assertStringContainsString(':focus-visible', $this->css);

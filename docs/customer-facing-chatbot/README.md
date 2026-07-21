@@ -32,6 +32,7 @@ Requirements use **must** for release requirements, **should** for preferred beh
 | [Conversation administration and retention](conversation-administration-and-retention.md) | Implemented milestone 11 bounded views, classification, scheduled/manual retention, locking, deletion, and audit behavior. |
 | [Scoped server integration credentials](scoped-integration-credentials.md) | Implemented milestone 12 separate one-time credentials, chatbot scopes, server API, limits, usage, migration, and tests. |
 | [Analytics and operational readiness](analytics-and-operational-readiness.md) | Implemented milestone 13 bounded content-free summaries, configuration/limit inventory, release/monitoring/troubleshooting, backup/restore, and forward-fix guidance. |
+| [Security, accessibility, and release gate](security-accessibility-release-gate.md) | Milestone 14 quality/security/RAG/restore evidence, fixed findings, browser matrix, accepted limitations, and conditional release decision. |
 | [Public API and integrations](public-api-and-integrations.md) | Browser API, session/message contracts, widget, CORS, WordPress, and server-to-server access. |
 | [Security and privacy](security-and-privacy.md) | Trust boundaries, resource scoping, abuse controls, secrets, retention, and content safety. |
 | [Quality and operations](quality-and-operations.md) | Grounding, reliability, observability, caching, test strategy, deployment, and definition of done. |

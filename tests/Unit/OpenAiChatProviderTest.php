@@ -10,6 +10,7 @@ use App\Providers\Chat\ChatConfigurationException;
 use App\Providers\Chat\OpenAiChatProvider;
 use App\Providers\OpenAI\OpenAiClientInterface;
 use App\Providers\OpenAI\OpenAiRateLimitException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class OpenAiChatProviderTest extends TestCase
@@ -86,7 +87,7 @@ final class OpenAiChatProviderTest extends TestCase
         (new OpenAiChatProvider($client, 'model', 600))->generate('instructions', 'input');
     }
 
-    /** @dataProvider invalidOutputTokenLimits */
+    #[DataProvider('invalidOutputTokenLimits')]
     public function testItRejectsOutputTokenLimitsOutsideTheApplicationHardBounds(int $tokens): void
     {
         $client = new class implements OpenAiClientInterface {

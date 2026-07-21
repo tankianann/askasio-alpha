@@ -96,7 +96,7 @@ The invariant must be tested at repository, service, and HTTP levels: a session 
 
 This schema is intentionally single-tenant. It contains no `tenant_id`, `account_id`, `workspace_id`, `created_by`, or `updated_by` because there is one administrator and no ownership boundary those columns could enforce.
 
-Milestones 2–3 implement `chatbots`, `chatbot_drafts`, `chatbot_publications`, and their source/origin relations. Session/message/credential tables below remain planned.
+Milestones 2–5 and 12 implement `chatbots`, `chatbot_drafts`, immutable `chatbot_publications`, source/origin relations, session/message persistence, and separate scoped integration credentials. The schema remains single-installation with no tenant ownership columns.
 
 ### `chatbots`
 
@@ -146,7 +146,7 @@ Session creation returns a separate 256-bit bearer token once, stores only SHA-2
 
 Message content is persisted while the session is active. Retention choices are `0`, `7`, `30`, or `90` days, default `30`, measured from last activity and copied into the session. Zero-day sessions become purge-eligible on completion/expiry. Do not duplicate content in Activity or logs.
 
-Migration `20260720000015` implements both tables, publication/chatbot/message cascades, session/test/activity and expiry/retention indexes, chronological/pending message indexes, and unique idempotency/request/reply constraints. Migration `20260720000016` adds the mutually exclusive draft-preview binding: nullable publication ID plus required draft revision/configuration snapshot for `admin_preview` test rows. The authenticated preview uses these records through the shared executor; public HTTP access remains unavailable.
+Migration `20260720000015` implements both tables, publication/chatbot/message cascades, session/test/activity and expiry/retention indexes, chronological/pending message indexes, and unique idempotency/request/reply constraints. Migration `20260720000016` adds the mutually exclusive draft-preview binding: nullable publication ID plus required draft revision/configuration snapshot for `admin_preview` test rows. Administrator preview, exact-origin browser routes, the widget, and scoped integration routes all use these records through the shared executor with their distinct authorization boundaries.
 
 ### `chatbot_integration_credentials` (deferred milestone)
 

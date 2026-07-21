@@ -2,16 +2,16 @@
 
 ## API namespace and conventions
 
-Chatbot public endpoints are versioned separately from the existing bearer-authenticated general RAG endpoints while retaining the same JSON/error conventions. Configuration and session creation are implemented; message submission and deletion remain planned:
+Chatbot public endpoints are versioned separately from the existing bearer-authenticated general RAG endpoints while retaining the same JSON/error conventions. The implemented browser routes are:
 
 ```text
 GET    /api/public/v1/chatbots/{public_chatbot_id}/config
 POST   /api/public/v1/chatbots/{public_chatbot_id}/sessions
 POST   /api/public/v1/chatbots/{public_chatbot_id}/sessions/{session_id}/messages
-DELETE /api/public/v1/chatbots/{public_chatbot_id}/sessions/{session_id}
+POST   /api/public/v1/chatbots/{public_chatbot_id}/sessions/{session_id}/complete
 ```
 
-The public session ID is a non-secret routing identifier. Creation returns its separate bearer once and stores only its hash. Future message/delete requests send that token in `Authorization`; neither value is accepted from a query string. A combined first-message/session endpoint may be chosen later only through a compatible documented addition.
+The public session ID is a non-secret routing identifier. Creation returns its separate bearer once and stores only its hash. Message/completion requests send that token in `Authorization`; neither value is accepted from a query string. Live browser hard deletion and a combined first-message/session endpoint are not implemented.
 
 All endpoints must:
 
@@ -71,13 +71,13 @@ The server must:
 
 1. Resolve a published, enabled chatbot by public ID without revealing whether a forbidden record exists.
 2. Validate the normalized `Origin` for browser requests or integration authentication for trusted server requests.
-3. Enforce IP/chatbot creation limits and provider-budget preconditions where relevant.
-4. Validate and whitelist bounded metadata.
+3. Enforce IP/chatbot creation limits.
+4. Reject every request field; browser session creation accepts exactly `{}`.
 5. Create a server-owned session tied to exactly one chatbot with idle and absolute expiry.
 6. Generate a non-secret public session ID and a separate 256-bit random bearer token; store only the token SHA-256 hash and safe prefix.
 7. Return the ID and plaintext token once with idle/absolute expiry information.
 
-A browser cannot supply a trusted external-user ID. An authenticated server integration may supply an allowlisted bounded reference, but Ask Asio treats it as an opaque correlation value, not as proof of identity beyond that integration.
+A browser cannot supply a trusted external-user ID or arbitrary metadata. The implemented scoped integration session route also accepts exactly `{}`; an external-user reference remains deferred.
 
 The widget places `{session_id, session_token}` in per-tab `sessionStorage`. Loss of the token is not recoverable and starts a new session.
 
@@ -149,13 +149,13 @@ Example response:
 
 Public usage must be deliberately minimal; token counts, quota values, cost, similarity scores, internal chunk IDs, and source version IDs belong in admin diagnostics unless a documented client need outweighs disclosure risk.
 
-## Session deletion or restart
+## Session completion and restart
 
-Restart and erasure are distinct. Restart marks the current session completed and creates a new session; the old conversation follows its configured retention. Authenticated `DELETE` hard-deletes the live session and cascades its messages. It returns an empty `204`; unknown/already-deleted credentials receive the same response so client-visible retry is idempotent and does not enumerate sessions. The UI must state that live deletion does not erase unexpired backups or independent content-free Activity records.
+Restart and erasure are distinct. The widget best-effort calls the authenticated completion route, clears the per-tab credentials/transcript, and creates a new session lazily on the next message. Completion returns empty `204`; the old conversation follows its copied retention policy. No public hard-delete route exists. Live hard deletion is restricted to confirmed administrator/retention workflows, and neither path erases unexpired backups or independent content-free Activity records.
 
 ## Error codes
 
-Stable proposed codes:
+Stable implemented codes include:
 
 | Status | Code | Meaning |
 | --- | --- | --- |
@@ -217,7 +217,7 @@ Origin is not a secret and can be forged outside a browser. Public IDs and CORS 
 
 ## WordPress and server-to-server integration
 
-WordPress may render the standard widget without storing a secret. Custom server-rendered experiences use a distinct Ask Asio integration credential, never the OpenAI key.
+WordPress may render the standard widget without storing a secret. Custom server-rendered experiences use the implemented `/api/integrations/v1` routes with a distinct Ask Asio integration credential, never the OpenAI key.
 
 Trusted credential requirements:
 

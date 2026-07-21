@@ -53,6 +53,7 @@ button:disabled, textarea:disabled { cursor: not-allowed; opacity: .64; }
 .askasio-panel {
     width: min(380px, calc(100vw - 32px));
     height: min(620px, calc(100vh - 112px));
+    height: min(620px, calc(100dvh - 112px));
     min-height: 360px;
     overflow: hidden;
     border: 1px solid var(--askasio-border);
@@ -178,7 +179,11 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
     .askasio-widget { justify-items: stretch; }
     .askasio-launcher { justify-self: end; }
     :host([data-position="left"]) .askasio-launcher { justify-self: start; }
-    .askasio-panel { width: 100%; height: min(680px, calc(100vh - 80px)); }
+    .askasio-panel {
+        width: 100%;
+        height: min(680px, calc(100vh - 80px));
+        height: min(680px, calc(100dvh - 80px));
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

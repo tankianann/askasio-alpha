@@ -161,6 +161,9 @@ final class PublicChatbotApiTest extends TestCase
         yield 'subdomain' => ['https://support.example.com'];
         yield 'suffix confusion' => ['https://example.com.attacker.test'];
         yield 'wrong port' => ['https://example.com:8443'];
+        yield 'multiple origin values' => ['https://example.com, https://attacker.test'];
+        yield 'embedded credentials' => ['https://visitor@example.com'];
+        yield 'non-origin path' => ['https://example.com/private'];
     }
 
     #[DataProvider('forbiddenOrigins')]

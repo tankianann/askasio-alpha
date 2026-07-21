@@ -54,7 +54,7 @@ Stored:
 - request ID;
 - numeric API-key ID;
 - HMAC-derived IP identifier;
-- HTTP method and path-only endpoint;
+- HTTP method and matched route template without dynamic resource identifiers;
 - status, duration, error category;
 - numeric provider/quota usage;
 - UTC timestamp.

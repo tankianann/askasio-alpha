@@ -127,10 +127,12 @@ Outcome: migration `20260721000019`, separate hash-only `chatint_live_` credenti
 
 Outcome: administrator-only 1–90 day content-free session/chatbot summaries with production/test separation and request-ID correlation, migration `20260721000020` for the bounded activity scan, verified application/provider configuration bounds, and complete chatbot release/monitoring/troubleshooting/backup/restore/migration/rollback/forward-fix guidance. Conventional TLS-terminating proxy deployment remains blocked until allowlisted trusted-proxy handling is implemented; provider-project spend/rate ceilings remain an explicit external operator check. See [Analytics and operational readiness](analytics-and-operational-readiness.md).
 
-### 14 — Security/accessibility/end-to-end release gate
+### 14 — Security/accessibility/end-to-end release gate (complete)
 
 - Run full quality gate, real-DB/HTTP/security tests, representative RAG evaluation, widget browser/mobile/accessibility checks, origin/CORS matrix, abuse/failure exercises, and restore/release rehearsal.
 - Resolve release blockers and document accepted limitations.
+
+Outcome: the complete local and real-MySQL quality/security/CORS/abuse/failure gates, a real-vector deterministic RAG evaluation, code-level widget accessibility hardening, API Activity route-template privacy, chatbot credential redaction, logical restore and release-artifact rehearsals, and an explicit limitations/release checklist. The implementation gate is complete, but unrestricted production approval is conditional on the environment-owned real-browser matrix, production-equivalent backup/files/environment restore, provider hard-budget/model review, and supported direct/trusted-proxy topology. See [Security, accessibility, and end-to-end release gate](security-accessibility-release-gate.md).
 
 ### Optional later — Streaming
 
@@ -144,4 +146,4 @@ Outcome: administrator-only 1–90 day content-free session/chatbot summaries wi
 
 ## First implementation recommendation
 
-After review of milestones 11 and 12, begin milestone 13 analytics and operational readiness.
+Complete the outstanding environment-owned release conditions, then implement allowlisted trusted-proxy support before any conventional TLS-terminating proxy deployment.

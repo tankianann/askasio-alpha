@@ -107,7 +107,10 @@ final class Router
                 continue;
             }
 
-            $request = $request->withRouteParameters($parameters);
+            $request = $request
+                ->withRouteParameters($parameters)
+                ->withAttribute('route_pattern', $route->path)
+                ->withAttribute('route_name', $route->name);
             $core = $route->handler;
             $middleware = [...$this->globalMiddleware, ...$route->middleware];
 

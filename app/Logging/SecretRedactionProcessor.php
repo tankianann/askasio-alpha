@@ -59,6 +59,7 @@ final class SecretRedactionProcessor
         $patterns = [
             '/(Bearer\s+)[^\s]+/i' => '$1' . self::REDACTED,
             '/\b(?:sk-[A-Za-z0-9_-]{8,}|rag_(?:live|test)_[A-Za-z0-9_-]{8,})\b/' => self::REDACTED,
+            '/\b(?:chatint_live_|cst_v1_)[A-Za-z0-9_-]{8,}\b/' => self::REDACTED,
             '/((?:api[_-]?key|password|secret|token)\s*[=:]\s*)[^\s,;]+/i' => '$1' . self::REDACTED,
             '/([a-z][a-z0-9+.-]*:\/\/[^:\s\/]+:)[^@\s\/]+@/i' => '$1' . self::REDACTED . '@',
         ];
