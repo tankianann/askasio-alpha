@@ -3,9 +3,10 @@
 | Term | Definition and why it exists | Where used |
 | --- | --- | --- |
 | Active version | The one ready immutable revision currently used for retrieval. Keeps failed/new processing from disrupting live knowledge. | `sources.active_version_id`, activation policy, vector-store queries. |
-| API Access | Admin area for creating, viewing, revoking, deleting, and monitoring application API connections. | `/admin/api-keys`, `api_keys`. |
-| API Activity | Privacy-minimized diagnostic records for API requests, not a conversation transcript. | `/admin/api-requests`, `api_request_logs`, retention/purge services. |
-| API key / connection | Opaque `rag_live_…` bearer credential used by an external application. Full value is shown once; only prefix/hash persists. | `ApiKeyService`, auth middleware, `api_keys`. |
+| General API Keys | Admin area for `rag_live_…` credentials used by external applications calling the general retrieval/chat API. | `/admin/api-keys`, `api_keys`. |
+| Chatbot API Keys | Chatbot-scoped `chatint_live_…` credentials used by server integrations. They create chatbot sessions and do not replace browser session tokens. | `/admin/integration-credentials`, `chatbot_integration_credentials`. |
+| API Activity | Privacy-minimized diagnostic records for API requests, attributed by access method rather than treated as a conversation transcript. | `/admin/api-requests`, `api_request_logs`, retention/purge services. |
+| AI usage | Embedding plus model input/output tokens consumed by quota-managed API/chatbot request operations. It is not an authentication key, API-request count, session token, monetary amount, or ingestion-embedding total. | `/admin/ai-usage`, `ai_usage_records`, provider quota services. |
 | APP_SECRET | Stable high-entropy secret used for HMAC identifiers. Rotation breaks correlation with prior hashes. | Login/API IP hashing and safety identifiers. |
 | Ask Asio | Product name of this standalone single-user RAG server. Legacy internal names may still say `ragserver`. | UI/docs. |
 | Citation | Structured reference to a retrieved chunk and inline `[S#]` marker supporting an answer claim. | Prompt builder, answer generator, chat response. |
@@ -42,4 +43,3 @@
 | SSRF | Server-Side Request Forgery; risk that a URL source accesses private/local/metadata services. | URL validator, network guard, safe fetcher. |
 | Vector store | Interface for embedding persistence/search. Current implementation uses MySQL JSON and PHP cosine. | `VectorStoreInterface`, `PdoVectorStore`. |
 | Worker runtime policy | Startup validation ensuring configured operation timeouts fit inside the abandoned-job reservation. | `WorkerRuntimePolicy`, worker bootstrap. |
-

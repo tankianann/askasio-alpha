@@ -14,6 +14,7 @@ use App\Auth\PasswordHasher;
 use App\Controllers\Admin\AuthController;
 use App\Controllers\Admin\ApiKeyController;
 use App\Controllers\Admin\ApiRequestLogController;
+use App\Controllers\Admin\AiUsageController;
 use App\Controllers\Admin\DashboardController;
 use App\Controllers\Admin\ChatbotController;
 use App\Controllers\Admin\ChatbotConversationController;
@@ -45,6 +46,7 @@ use App\Repositories\PdoAdminRepository;
 use App\Repositories\PdoApiKeyRepository;
 use App\Repositories\PdoApiRateLimitRepository;
 use App\Repositories\PdoApiRequestLogRepository;
+use App\Repositories\PdoAiUsageRepository;
 use App\Repositories\PdoLoginAttemptRepository;
 use App\Repositories\PdoProviderQuotaRepository;
 use App\Repositories\PdoSourceRepository;
@@ -78,6 +80,7 @@ use App\Services\Sources\SourceHistoryQueryParser;
 use App\Services\Ingestion\IngestionQueue;
 use App\Services\Ingestion\IngestionJobListQueryParser;
 use App\Services\ProviderQuota\ProviderQuotaService;
+use App\Services\ProviderQuota\AiUsageQueryParser;
 use App\Services\ProviderQuota\ProviderUsageAccumulator;
 use App\Services\Api\ApiRateLimiter;
 use App\Services\Api\ApiRequestContext;
@@ -140,6 +143,7 @@ $sources = new PdoSourceRepository($connection);
 $jobRepository = new PdoIngestionJobRepository($connection);
 $apiKeys = new PdoApiKeyRepository($connection);
 $apiRequestLogs = new PdoApiRequestLogRepository($connection);
+$aiUsage = new PdoAiUsageRepository($connection);
 $providerQuotas = new ProviderQuotaService(
     new PdoProviderQuotaRepository($connection),
     $config->requireInt('provider_quotas.global_daily_tokens'),
@@ -397,6 +401,15 @@ $apiRequestLogController = new ApiRequestLogController(
     new ApiRequestLogPurgeIntentStore($session),
     $config->requireString('app.env'),
 );
+$aiUsageController = new AiUsageController(
+    $aiUsage,
+    $providerQuotas,
+    new AiUsageQueryParser(),
+    $views,
+    $csrf,
+    $session,
+    $config->requireString('app.env'),
+);
 $conversationRetention = new ChatbotConversationRetentionService(
     $conversationRepository,
     new PdoAdvisoryLock($connection),
@@ -425,6 +438,7 @@ $chatbotIntegrationCredentialController = new ChatbotIntegrationCredentialContro
     $config->requireString('app.env'),
     $timezone,
     $logger,
+    $aiUsage,
 );
 $apiRequestContext = new ApiRequestContext();
 $apiRequestLoggingMiddleware = new ApiRequestLoggingMiddleware(
@@ -601,6 +615,7 @@ $registerRoutes(
     $jobController,
     $apiKeyController,
     $apiRequestLogController,
+    $aiUsageController,
     $chatbotConversationController,
     $retrieveHandler,
     $chatHandler,

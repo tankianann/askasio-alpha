@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#ffffff">
     <title><?= $escape($title) ?> · Ask Asio</title>
     <link rel="icon" href="/assets/images/ask-asio.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/assets/app.css?v=17">
+    <link rel="stylesheet" href="/assets/app.css?v=18">
     <script src="/assets/app.js?v=13" defer></script>
 </head>
 <body class="admin-body">
@@ -56,11 +56,15 @@
                 </a>
                 <a href="/admin/api-keys" <?= $currentSection === 'api_keys' ? 'aria-current="page"' : '' ?>>
                     <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-access"></use></svg>
-                    <span>API Access</span>
+                    <span>General API Keys</span>
                 </a>
                 <a href="/admin/integration-credentials" <?= $currentSection === 'integration_credentials' ? 'aria-current="page"' : '' ?>>
                     <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-access"></use></svg>
-                    <span>Chatbot Integrations</span>
+                    <span>Chatbot API Keys</span>
+                </a>
+                <a href="/admin/ai-usage" <?= $currentSection === 'ai_usage' ? 'aria-current="page"' : '' ?>>
+                    <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-activity"></use></svg>
+                    <span>AI Usage</span>
                 </a>
                 <a href="/admin/api-requests" <?= $currentSection === 'api_requests' ? 'aria-current="page"' : '' ?>>
                     <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-activity"></use></svg>

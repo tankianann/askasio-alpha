@@ -4,9 +4,9 @@ $oldExpiry = $old['expires_at'] ?? '';
 ?>
 <div class="page-heading page-heading-compact">
     <div>
-        <p class="breadcrumbs"><a href="/admin/api-keys">API Access</a> <span>/</span> Create connection</p>
-        <h1>Create connection</h1>
-        <p class="muted">A secure bearer key will be shown once after this connection is created.</p>
+        <p class="breadcrumbs"><a href="/admin/api-keys">General API Keys</a> <span>/</span> Create</p>
+        <h1>Create General API key</h1>
+        <p class="muted">A secure bearer key will be shown once.</p>
     </div>
 </div>
 
@@ -18,7 +18,7 @@ $oldExpiry = $old['expires_at'] ?? '';
     <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
 
     <div class="form-group">
-        <label for="name">Connection name</label>
+        <label for="name">Key name</label>
         <input id="name" name="name" type="text" value="<?= $escape($oldName) ?>" maxlength="190" required autofocus>
         <p class="field-help">Use the client or integration name, such as “Support website”.</p>
     </div>
@@ -31,6 +31,6 @@ $oldExpiry = $old['expires_at'] ?? '';
 
     <div class="form-actions">
         <a class="button button-quiet" href="/admin/api-keys">Cancel</a>
-        <button class="button button-primary" type="submit">Create connection</button>
+        <button class="button button-primary" type="submit">Create General API key</button>
     </div>
 </form>

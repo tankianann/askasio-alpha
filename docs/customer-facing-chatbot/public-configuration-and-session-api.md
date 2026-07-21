@@ -46,7 +46,7 @@ Configuration and creation use independent fixed-window namespaces with atomic H
 
 The window defaults to 60 seconds. Rejections return `429 rate_limit_exceeded`, `Retry-After`, limit/remaining headers, and readable CORS only for an approved origin. Migration `20260721000017` expands the existing rate-bucket scope check with `chatbot`; no tenant/account/session/provider-credential table is added.
 
-Authorized public requests reuse privacy-minimized API Activity with a separate unauthenticated request context. It records request ID, HMAC IP, path, method, status, duration, and safe error category—not bodies or tokens.
+Authorized public requests reuse privacy-minimized API Activity with the **Browser chatbot** access method. It records request ID, chatbot correlation, HMAC IP, path, method, status, duration, and safe error category—not bodies or tokens. This origin/session authorization is deliberately distinguished from an unauthenticated or failed request even though it does not use a General or Chatbot API key.
 
 ## Deployment and forward repair
 

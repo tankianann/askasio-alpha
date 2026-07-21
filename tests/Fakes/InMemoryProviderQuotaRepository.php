@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Fakes;
 
 use App\Domain\ProviderQuota\ProviderQuotaReservation;
+use App\Domain\ProviderQuota\ProviderQuotaAttribution;
 use App\Exceptions\ProviderQuotaExceededException;
 use App\Repositories\ProviderQuotaRepositoryInterface;
 use DateTimeImmutable;
@@ -26,6 +27,7 @@ final class InMemoryProviderQuotaRepository implements ProviderQuotaRepositoryIn
         array $limits,
         DateTimeImmutable $now,
         DateTimeImmutable $expiresAt,
+        ?ProviderQuotaAttribution $attribution = null,
     ): ProviderQuotaReservation {
         ++$this->reservationAttempts;
         $daily = $now->format('Y-m-d');
@@ -63,7 +65,7 @@ final class InMemoryProviderQuotaRepository implements ProviderQuotaRepositoryIn
             'expires_at' => $expiresAt,
         ];
 
-        return new ProviderQuotaReservation($id, $apiKeyId, $operation, $tokens);
+        return new ProviderQuotaReservation($id, $apiKeyId, $operation, $tokens, $attribution);
     }
 
     public function reconcile(string $reservationId, int $actualTokens, bool $estimated = false): void

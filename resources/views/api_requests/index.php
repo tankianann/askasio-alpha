@@ -42,9 +42,9 @@
             <input type="date" name="date_to" value="<?= $escape($query->dateTo) ?>">
         </label>
         <label class="filter-field filter-field-wide">
-            <span>Connection</span>
+            <span>General API key</span>
             <select name="api_key_id">
-                <option value="">All connections</option>
+                <option value="">All General API keys</option>
                 <?php foreach ($connections as $connection): ?>
                     <option value="<?= $escape($connection->id) ?>" <?= $query->apiKeyId === $connection->id ? 'selected' : '' ?>>
                         <?= $escape($connection->name) ?><?= $connection->visiblePrefix !== null ? ' · ' . $escape($connection->visiblePrefix) . '…' : '' ?>
@@ -79,11 +79,11 @@
             <input type="number" name="status_code" value="<?= $escape($query->statusCode) ?>" min="100" max="599" placeholder="e.g. 429">
         </label>
         <label class="filter-field">
-            <span>Authentication</span>
-            <select name="authentication">
-                <option value="all" <?= $query->authentication->value === 'all' ? 'selected' : '' ?>>All requests</option>
-                <option value="authenticated" <?= $query->authentication->value === 'authenticated' ? 'selected' : '' ?>>Authenticated</option>
-                <option value="unauthenticated" <?= $query->authentication->value === 'unauthenticated' ? 'selected' : '' ?>>Unauthenticated</option>
+            <span>Access method</span>
+            <select name="access_method">
+                <?php foreach (\App\Domain\Api\ApiAccessMethod::cases() as $accessMethod): ?>
+                    <option value="<?= $escape($accessMethod->value) ?>" <?= $query->accessMethod === $accessMethod ? 'selected' : '' ?>><?= $escape($accessMethod->label()) ?></option>
+                <?php endforeach; ?>
             </select>
         </label>
         <label class="filter-field">
@@ -157,7 +157,7 @@
                     <a class="sort-link" href="<?= $escape($sortUrl(\App\Domain\Api\ApiRequestLogSort::Date)) ?>">Date<span aria-hidden="true"><?= $query->sort->value === 'date' ? ($query->direction->value === 'asc' ? '↑' : '↓') : '↕' ?></span></a>
                 </th>
                 <th aria-sort="<?= $query->sort->value === 'connection' ? ($query->direction->value === 'asc' ? 'ascending' : 'descending') : 'none' ?>">
-                    <a class="sort-link" href="<?= $escape($sortUrl(\App\Domain\Api\ApiRequestLogSort::Connection)) ?>">Connection<span aria-hidden="true"><?= $query->sort->value === 'connection' ? ($query->direction->value === 'asc' ? '↑' : '↓') : '↕' ?></span></a>
+                    <a class="sort-link" href="<?= $escape($sortUrl(\App\Domain\Api\ApiRequestLogSort::Connection)) ?>">Access method<span aria-hidden="true"><?= $query->sort->value === 'connection' ? ($query->direction->value === 'asc' ? '↑' : '↓') : '↕' ?></span></a>
                 </th>
                 <th aria-sort="<?= $query->sort->value === 'endpoint' ? ($query->direction->value === 'asc' ? 'ascending' : 'descending') : 'none' ?>">
                     <a class="sort-link" href="<?= $escape($sortUrl(\App\Domain\Api\ApiRequestLogSort::Endpoint)) ?>">Request<span aria-hidden="true"><?= $query->sort->value === 'endpoint' ? ($query->direction->value === 'asc' ? '↑' : '↓') : '↕' ?></span></a>
@@ -177,11 +177,20 @@
                 <tr>
                     <td><?= $escape($formatDate($log->createdAt)) ?></td>
                     <td>
-                        <?php if ($log->apiKeyId !== null): ?>
-                            <?= $escape($log->apiKeyName ?? 'Deleted connection') ?>
-                            <?php if ($log->apiKeyPrefix !== null): ?><span class="table-subtitle"><code><?= $escape($log->apiKeyPrefix) ?>…</code></span><?php endif; ?>
+                        <?php if ($log->accessMethod === \App\Domain\Api\ApiAccessMethod::GeneralApiKey): ?>
+                            <strong>General API Key</strong>
+                            <span class="table-subtitle"><?= $escape($log->apiKeyName ?? ($log->apiKeyId !== null ? 'Deleted key #' . $log->apiKeyId : 'Unknown key')) ?><?php if ($log->apiKeyPrefix !== null): ?> · <code><?= $escape($log->apiKeyPrefix) ?>…</code><?php endif; ?></span>
+                        <?php elseif ($log->accessMethod === \App\Domain\Api\ApiAccessMethod::ChatbotApiKey): ?>
+                            <strong>Chatbot API Key</strong>
+                            <span class="table-subtitle"><?= $escape($log->chatbotApiKeyName ?? ($log->chatbotApiKeyId !== null ? 'Deleted key #' . $log->chatbotApiKeyId : 'Historical key')) ?><?php if ($log->chatbotApiKeyPrefix !== null): ?> · <code><?= $escape($log->chatbotApiKeyPrefix) ?>…</code><?php endif; ?></span>
+                        <?php elseif ($log->accessMethod === \App\Domain\Api\ApiAccessMethod::BrowserChatbot): ?>
+                            <strong>Browser chatbot</strong>
+                            <span class="table-subtitle"><?= $escape($log->chatbotName ?? ($log->chatbotId !== null ? 'Deleted chatbot #' . $log->chatbotId : 'Public chatbot request')) ?></span>
+                        <?php elseif ($log->accessMethod === \App\Domain\Api\ApiAccessMethod::AdminPreview): ?>
+                            <strong>Administrator preview</strong>
+                            <?php if ($log->chatbotName !== null): ?><span class="table-subtitle"><?= $escape($log->chatbotName) ?></span><?php endif; ?>
                         <?php else: ?>
-                            <span class="muted">Unauthenticated</span>
+                            <span class="badge badge-failed">Authentication failed</span>
                         <?php endif; ?>
                     </td>
                     <td><strong><?= $escape($log->method) ?></strong> <code><?= $escape($log->endpoint) ?></code></td>

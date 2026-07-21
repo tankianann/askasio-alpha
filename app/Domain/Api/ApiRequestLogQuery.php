@@ -26,6 +26,7 @@ final readonly class ApiRequestLogQuery
         public ApiRequestAuthenticationState $authentication,
         public ApiRequestLogSort $sort,
         public SortDirection $direction,
+        public ApiAccessMethod $accessMethod = ApiAccessMethod::All,
     ) {
     }
 
@@ -58,6 +59,9 @@ final readonly class ApiRequestLogQuery
             'authentication' => $this->authentication === ApiRequestAuthenticationState::All
                 ? null
                 : $this->authentication->value,
+            'access_method' => $this->accessMethod === ApiAccessMethod::All
+                ? null
+                : $this->accessMethod->value,
         ], static fn (int|string|null $value): bool => $value !== null && $value !== '');
     }
 

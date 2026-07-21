@@ -102,7 +102,7 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Request audit records containing request ID, numeric key ID, endpoint, status, duration, error category, and numeric usage
 - No bearer secrets, complete questions, or raw client IP addresses in API request records
 - Configurable API Activity retention with a concurrency-safe scheduled purge command
-- Paginated and filterable API Access and API Activity screens
+- Paginated and filterable General API Keys and API Activity screens, plus attributed AI Usage reporting
 
 ### Grounded RAG chat
 
@@ -136,7 +136,7 @@ Before either API endpoint can contact OpenAI, it atomically reserves a conserva
 
 On success, the reservation is replaced with actual provider-reported chat and embedding token usage. If embedding usage is unavailable, the application uses its local token estimate. A request that fails after provider access may have been billed even when no response arrived, so its full reservation is conservatively charged as estimated usage. Active reservations abandoned by a crashed PHP process expire after the configured TTL and are similarly reconciled before the next reservation or usage view. Finalization moves the charge into compact period buckets and deletes the transient reservation in the same transaction, so reservation rows do not grow indefinitely.
 
-Successful `/api/v1/retrieve` and `/api/v1/chat` responses include `provider_total_tokens`, `quota_charged_tokens`, `quota_reserved_tokens`, and applicable effective daily/monthly remaining values in `usage`. The API Access screen shows global daily/monthly usage, attributes those totals between API connections and customer-facing chatbots, and shows the current page's per-connection usage. The API-connection subtotal includes deleted connections and connections outside the current page or filters. Only numeric usage is copied into API Activity; prompts, responses, provider credentials, and bearer tokens remain excluded.
+Successful `/api/v1/retrieve` and `/api/v1/chat` responses include `provider_total_tokens`, `quota_charged_tokens`, `quota_reserved_tokens`, and applicable effective daily/monthly remaining values in `usage`. **General API Keys** shows each key's quota-bucket usage. The dedicated **AI Usage** page shows installation totals and reconciled consumption by access method, day, chatbot, General API key, and Chatbot API key. Consumption from before attribution was introduced remains visible as unattributed. Only numeric usage/correlation is copied into AI Usage and API Activity; prompts, responses, provider credentials, and bearer tokens remain excluded.
 
 These customer-request budgets cover the authenticated retrieval and chat endpoints. Administrator-triggered source ingestion is not attributable to an application API key and remains controlled by document/chunk limits and the provider account's own project budget. Keep an OpenAI project-level hard budget as the final ceiling for all provider activity.
 
@@ -467,13 +467,13 @@ As an additional operational safeguard, run recovery periodically. It is idempot
 
 ### Administrator list pagination and filters
 
-The Knowledge Base, Processing, and API Access screens use server-side filtering, sorting, counting, and pagination. They default to 25 rows per page and allow 50 or 100. Search, filters, sort direction, page size, and current page are represented in the URL, so refreshing or sharing an administrator URL preserves the view. Applying filters starts at page 1; if deletion or a narrower filter makes the requested page invalid, the controller redirects to the last valid page while retaining the validated query state.
+The Knowledge Base, Processing, and General API Keys screens use server-side filtering, sorting, counting, and pagination. They default to 25 rows per page and allow 50 or 100. Search, filters, sort direction, page size, and current page are represented in the URL, so refreshing or sharing an administrator URL preserves the view. Applying filters starts at page 1; if deletion or a narrower filter makes the requested page invalid, the controller redirects to the last valid page while retaining the validated query state.
 
 Available controls are:
 
 - **Knowledge Base:** source-name search; source type; enabled, disabled, or deleted availability; latest-version processing status; and sorting by updated date, name, source type, availability, latest processing status, or revision count.
 - **Processing:** job status; source; application-timezone date range; minimum and maximum attempt count; and sorting by created date, status, source, attempts, or next available time. The summary cards intentionally show global queue totals rather than filtered-page totals.
-- **API Access:** name or visible-prefix search; active, revoked, or expired display status; and sorting by creation date, name, status, last-used date, or expiry date. List queries select only display metadata and never load the stored API-key hash.
+- **General API Keys:** name or visible-prefix search; active, revoked, or expired display status; and sorting by creation date, name, status, last-used date, or expiry date. List queries select only display metadata and never load the stored API-key hash.
 
 Sort columns are mapped through application allowlists rather than accepting SQL identifiers from query parameters. Result queries select only the current page, use deterministic ID tie-breakers, and run a separate filtered count query. The supporting migration adds indexes for common date, status, name, last-use, and attempt-order paths.
 
@@ -489,21 +489,21 @@ Source details paginate revision and processing histories independently at 10 ro
 | Knowledge Base | Sources with latest revision state | Moderate | 25 by default; 50/100 optional | Name, type, availability, processing state | Updated, name, type, availability, processing, revisions | Soft/permanent source deletion | Current offset pagination is appropriate. |
 | Source details | Immutable revisions and ingestion jobs | High per frequently updated source | Independent 10-row histories | None required currently | Newest revision/job first | Preserved until permanent source deletion | Large extracted fields are excluded from history and opened on demand. |
 | Processing | Ingestion jobs | High | 25 by default; 50/100 optional | Status, source, date, attempts | Date, status, source, attempts, availability | Removed with permanently deleted source; no global job-retention policy | Monitor table growth and consider operational job retention only if audit requirements permit it. |
-| API Access | Application API keys | Moderate | 25 by default; 50/100 optional | Name/prefix search and display status | Created, name, status, last used, expiry | Administrator revocation/deletion | Full keys are never listed; list projections omit hashes. |
-| API Activity | API request audit metadata | Highest | 25 by default; 50/100 optional | Date, connection, endpoint, method, exact/grouped status, duration, request ID, authentication state | Date, duration, status, endpoint, connection | Configurable 0/30/90/180/365 days plus confirmed manual purge | Keep scheduled retention enabled and monitor row count/index size. |
+| General API Keys | Application API keys | Moderate | 25 by default; 50/100 optional | Name/prefix search and display status | Created, name, status, last used, expiry | Administrator revocation/deletion | Full keys are never listed; list projections omit hashes. |
+| API Activity | API request audit metadata | Highest | 25 by default; 50/100 optional | Date, General API key, access method, endpoint, method, exact/grouped status, duration, request ID | Date, duration, status, endpoint, access correlation | Configurable 0/30/90/180/365 days plus confirmed manual purge | Keep scheduled retention enabled and monitor row count/index size. |
 
 API Activity defaults to newest first and shows exact result counts, numbered pages where useful, Previous/Next controls, and “Showing x–y of z” feedback. Filters, sorting, and pagination are persisted as validated query parameters. Filtering produces a clear active-filter summary and filtered empty state. The connection selector contains one option per historically observed API-key ID; if an installation accumulates many thousands of deleted connections, replace that selector with an asynchronous searchable control or a separate paginated lookup.
 
 ### Query and index review
 
-The final development-schema review used MySQL `EXPLAIN` on default and filtered API Activity reads, scheduled retention deletion, Processing status reads, source revision/job histories, and API Access ordering. The schema provides these primary dashboard paths:
+The final development-schema review used MySQL `EXPLAIN` on default and filtered API Activity reads, scheduled retention deletion, Processing status reads, source revision/job histories, and General API Keys ordering. The schema provides these primary dashboard paths:
 
 | Dataset | Supporting indexes |
 | --- | --- |
 | API Activity | unique request ID; `created_at`; `(api_key_id, created_at)`; `(status_code, created_at)`; `(endpoint, created_at)`; `(duration_ms, created_at)` |
 | Sources | status/deletion; type/deletion; `(updated_at, id)`; `(name, id)`; unique `(source_id, version_number)` on revisions |
 | Processing | claim/reservation indexes; `(created_at, id)`; `(status, created_at, id)`; `(attempts, created_at, id)`; `(source_version_id, created_at, id)` |
-| API Access | unique secret hash for authentication; status/expiry; `(created_at, id)`; `(name, id)`; `(last_used_at, id)` |
+| General API Keys | unique secret hash for authentication; status/expiry; `(created_at, id)`; `(name, id)`; `(last_used_at, id)` |
 
 `EXPLAIN` selected range/index access for retention cutoffs, duration ordering, Processing status, and revision history. The local database contains very few rows, so MySQL reasonably chose table scans/filesorts for some unfiltered newest-first queries; this does not indicate that their ordering indexes are absent. Run `ANALYZE TABLE` after large imports and use `EXPLAIN ANALYZE` with representative production filters before changing indexes.
 

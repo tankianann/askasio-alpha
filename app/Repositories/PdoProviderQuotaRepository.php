@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Database\Connection;
+use App\Domain\Api\ApiAccessMethod;
+use App\Domain\ProviderQuota\ProviderQuotaAttribution;
 use App\Domain\ProviderQuota\ProviderQuotaReservation;
 use App\Exceptions\ProviderQuotaExceededException;
 use DateTimeImmutable;
@@ -25,6 +27,7 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
         array $limits,
         DateTimeImmutable $now,
         DateTimeImmutable $expiresAt,
+        ?ProviderQuotaAttribution $attribution = null,
     ): ProviderQuotaReservation {
         if ($apiKeyId < 0 || !in_array($operation, ['retrieve', 'chat'], true) || $tokens < 1
             || ($apiKeyId === 0 && $operation !== 'chat')) {
@@ -86,18 +89,27 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
             }
 
             $id = bin2hex(random_bytes(16));
+            $attribution ??= new ProviderQuotaAttribution(
+                $apiKeyId > 0 ? ApiAccessMethod::GeneralApiKey : ApiAccessMethod::Unauthenticated,
+                apiKeyId: $apiKeyId > 0 ? $apiKeyId : null,
+            );
             $reservation = $pdo->prepare(
                 'INSERT INTO provider_quota_reservations (
-                    id, api_key_id, operation, reserved_tokens, actual_tokens,
+                    id, api_key_id, access_method, chatbot_api_key_id, chatbot_id,
+                    operation, reserved_tokens, actual_tokens,
                     daily_period_start, monthly_period_start, status, expires_at, created_at
                  ) VALUES (
-                    :id, :api_key_id, :operation, :reserved_tokens, NULL,
+                    :id, :api_key_id, :access_method, :chatbot_api_key_id, :chatbot_id,
+                    :operation, :reserved_tokens, NULL,
                     :daily_period_start, :monthly_period_start, \'active\', :expires_at, UTC_TIMESTAMP(6)
                  )',
             );
             $reservation->execute([
                 'id' => $id,
                 'api_key_id' => $apiKeyId,
+                'access_method' => $attribution->accessMethod->value,
+                'chatbot_api_key_id' => $attribution->chatbotApiKeyId,
+                'chatbot_id' => $attribution->chatbotId,
                 'operation' => $operation,
                 'reserved_tokens' => $tokens,
                 'daily_period_start' => $daily,
@@ -106,7 +118,7 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
             ]);
             $pdo->commit();
 
-            return new ProviderQuotaReservation($id, $apiKeyId, $operation, $tokens);
+            return new ProviderQuotaReservation($id, $apiKeyId, $operation, $tokens, $attribution);
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
@@ -127,7 +139,8 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
 
         try {
             $statement = $pdo->prepare(
-                'SELECT id, api_key_id, reserved_tokens, daily_period_start, monthly_period_start, status
+                'SELECT id, api_key_id, access_method, chatbot_api_key_id, chatbot_id, operation,
+                        reserved_tokens, daily_period_start, monthly_period_start, status, created_at
                  FROM provider_quota_reservations WHERE id = :id FOR UPDATE',
             );
             $statement->execute(['id' => $reservationId]);
@@ -145,7 +158,7 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
                 return;
             }
 
-            $this->reconcileLockedRow($pdo, $row, $actualTokens);
+            $this->reconcileLockedRow($pdo, $row, $actualTokens, $estimated);
             $pdo->commit();
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -164,14 +177,15 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
 
         try {
             $rows = $pdo->query(
-                'SELECT id, api_key_id, reserved_tokens, daily_period_start, monthly_period_start, status
+                'SELECT id, api_key_id, access_method, chatbot_api_key_id, chatbot_id, operation,
+                        reserved_tokens, daily_period_start, monthly_period_start, status, created_at
                  FROM provider_quota_reservations
                  WHERE status = \'active\' AND expires_at < UTC_TIMESTAMP(6)
                  ORDER BY expires_at ASC LIMIT ' . $limit . ' FOR UPDATE SKIP LOCKED',
             )->fetchAll();
 
             foreach ($rows as $row) {
-                $this->reconcileLockedRow($pdo, $row, (int) $row['reserved_tokens']);
+                $this->reconcileLockedRow($pdo, $row, (int) $row['reserved_tokens'], true);
             }
 
             $pdo->commit();
@@ -295,7 +309,7 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
     }
 
     /** @param array<string, mixed> $row */
-    private function reconcileLockedRow(PDO $pdo, array $row, int $actualTokens): void
+    private function reconcileLockedRow(PDO $pdo, array $row, int $actualTokens, bool $estimated): void
     {
         $reservedTokens = (int) $row['reserved_tokens'];
         $windows = [
@@ -327,6 +341,27 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
                 throw new RuntimeException('A provider quota bucket could not be reconciled.');
             }
         }
+
+        $usage = $pdo->prepare(
+            'INSERT INTO ai_usage_records (
+                reservation_id, access_method, api_key_id, chatbot_api_key_id, chatbot_id,
+                operation, usage_tokens, is_estimated, occurred_at, recorded_at
+             ) VALUES (
+                :reservation_id, :access_method, :api_key_id, :chatbot_api_key_id, :chatbot_id,
+                :operation, :usage_tokens, :is_estimated, :occurred_at, UTC_TIMESTAMP(6)
+             )',
+        );
+        $usage->execute([
+            'reservation_id' => $row['id'],
+            'access_method' => $row['access_method'],
+            'api_key_id' => (int) $row['api_key_id'] > 0 ? (int) $row['api_key_id'] : null,
+            'chatbot_api_key_id' => isset($row['chatbot_api_key_id']) ? (int) $row['chatbot_api_key_id'] : null,
+            'chatbot_id' => isset($row['chatbot_id']) ? (int) $row['chatbot_id'] : null,
+            'operation' => $row['operation'],
+            'usage_tokens' => $actualTokens,
+            'is_estimated' => $estimated ? 1 : 0,
+            'occurred_at' => $row['created_at'],
+        ]);
 
         $reservation = $pdo->prepare(
             'DELETE FROM provider_quota_reservations WHERE id = :id AND status = \'active\'',

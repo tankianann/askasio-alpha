@@ -34,6 +34,7 @@ final class CleanDatabaseMigrationTest extends DatabaseIntegrationTestCase
         self::assertEqualsCanonicalizing([
             'admin_login_attempts',
             'admin_users',
+            'ai_usage_records',
             'api_keys',
             'api_rate_limit_buckets',
             'api_request_logs',

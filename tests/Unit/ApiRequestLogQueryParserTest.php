@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Api\ApiAccessMethod;
 use App\Domain\Api\ApiRequestAuthenticationState;
 use App\Domain\Api\ApiRequestLogSort;
 use App\Domain\Api\ApiRequestStatusGroup;
@@ -45,6 +46,7 @@ final class ApiRequestLogQueryParserTest extends TestCase
             'duration_max' => '5000',
             'request_id' => '019f78de-6f1c-70f4-b20d-d144a31b7018',
             'authentication' => 'authenticated',
+            'access_method' => 'general_api_key',
             'sort' => 'duration',
             'direction' => 'asc',
         ]));
@@ -55,6 +57,7 @@ final class ApiRequestLogQueryParserTest extends TestCase
         self::assertSame('POST', $query->method);
         self::assertSame(ApiRequestStatusGroup::ClientError, $query->statusGroup);
         self::assertSame(ApiRequestAuthenticationState::Authenticated, $query->authentication);
+        self::assertSame(ApiAccessMethod::GeneralApiKey, $query->accessMethod);
         self::assertSame(ApiRequestLogSort::Duration, $query->sort);
         self::assertSame(SortDirection::Ascending, $query->direction);
         self::assertTrue($query->hasActiveFilters());
@@ -123,6 +126,11 @@ final class ApiRequestLogQueryParserTest extends TestCase
             'api_key_id' => '7',
             'authentication' => 'unauthenticated',
         ]];
+        yield 'General API key with chatbot access method' => [[
+            'api_key_id' => '7',
+            'access_method' => 'chatbot_api_key',
+        ]];
+        yield 'invalid access method' => [['access_method' => 'cookie']];
         yield 'invalid sort' => [['sort' => 'raw_sql']];
         yield 'invalid direction' => [['direction' => 'sideways']];
         yield 'array injection' => [['status_code' => ['500']]];

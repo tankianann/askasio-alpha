@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Domain\ProviderQuota\ProviderQuotaReservation;
+use App\Domain\ProviderQuota\ProviderQuotaAttribution;
 use DateTimeImmutable;
 
 interface ProviderQuotaRepositoryInterface
@@ -17,6 +18,7 @@ interface ProviderQuotaRepositoryInterface
         array $limits,
         DateTimeImmutable $now,
         DateTimeImmutable $expiresAt,
+        ?ProviderQuotaAttribution $attribution = null,
     ): ProviderQuotaReservation;
 
     public function reconcile(string $reservationId, int $actualTokens, bool $estimated = false): void;

@@ -12,7 +12,7 @@ Milestone 13 adds an administrator-only, content-free analytics view and closes 
 - can select one chatbot; and
 - attributes a session to the window and UTC daily bucket containing its `last_activity_at` value.
 
-The view reports session count, active sessions, user-turn count, failed assistant outcomes, provider tokens, production/test mix, up to 90 UTC daily rows, and up to 100 chatbot rows. Installations with more chatbots must select one chatbot rather than request an unbounded grouping.
+The view reports session count, active sessions, user-turn count, failed assistant outcomes, AI usage, production/test mix, up to 90 UTC daily rows, and up to 100 chatbot rows. “AI usage” is the administrator-facing name for the stored embedding/input/output provider-token totals; it is distinct from API-key and session-token credentials. Installations with more chatbots must select one chatbot rather than request an unbounded grouping.
 
 Queries read session/message status and numeric aggregates only. They do not select transcript content, retrieval JSON, citations, tokens, origins, browser identifiers, integration secrets, or external-user references. No estimated monetary cost is shown because versioned model pricing is not implemented. The response uses `Cache-Control: no-store`, escapes rendered values, displays the current request ID, and directs the operator to correlate that ID with safe logs.
 

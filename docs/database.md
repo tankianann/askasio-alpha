@@ -16,6 +16,11 @@ erDiagram
     API_KEYS o|--o{ API_REQUEST_LOGS : correlates
     API_KEYS o|--o{ PROVIDER_QUOTA_BUCKETS : "logical identifier"
     API_KEYS o|--o{ PROVIDER_QUOTA_RESERVATIONS : "logical identifier"
+    CHATBOT_INTEGRATION_CREDENTIALS o|--o{ CHATBOT_SESSIONS : "attributes integration traffic"
+    PROVIDER_QUOTA_RESERVATIONS ||--o| AI_USAGE_RECORDS : reconciles
+    CHATBOTS o|--o{ AI_USAGE_RECORDS : attributes
+    API_KEYS o|--o{ AI_USAGE_RECORDS : attributes
+    CHATBOT_INTEGRATION_CREDENTIALS o|--o{ AI_USAGE_RECORDS : attributes
     CHATBOTS ||--|| CHATBOT_DRAFTS : edits
     CHATBOTS ||--o{ CHATBOT_PUBLICATIONS : publishes
     CHATBOTS o|--o| CHATBOT_PUBLICATIONS : active_publication
@@ -24,7 +29,7 @@ erDiagram
     CHATBOT_SESSIONS ||--o{ CHATBOT_MESSAGES : contains
 ```
 
-The API Activity and provider-quota relationships to API keys are deliberately logical rather than foreign-key constrained where historical numeric correlation must survive key deletion.
+API Activity and AI-usage relationships to keys/chatbots are deliberately logical rather than foreign-key constrained so historical numeric correlation survives deletion. Display queries resolve current names when available and use safe deleted-resource fallbacks otherwise.
 
 ## Tables
 
@@ -91,7 +96,7 @@ Fixed-window counters keyed by scope, hashed identifier, and bucket start. Scope
 
 ### `api_request_logs`
 
-Privacy-minimized API Activity metadata: request ID, numeric API-key ID, HMAC IP hash, method, path-only endpoint, status, duration, error category, numeric usage JSON, and UTC creation time. It never stores bearer tokens, authorization headers, request bodies, questions, retrieved documents, citations, or model answers.
+Privacy-minimized API Activity metadata: request ID, access method, applicable General API key/Chatbot API key/chatbot numeric IDs, HMAC IP hash, method, path-only endpoint, status, duration, error category, numeric usage JSON, and UTC creation time. Access methods distinguish General API keys, Chatbot API keys, browser chatbots, administrator previews, and requests that could not be attributed. It never stores bearer tokens, authorization headers, request bodies, questions, retrieved documents, citations, or model answers.
 
 The key foreign key was removed so numeric historical correlation survives permanent API-key deletion. Indexes support date, key, status, endpoint, duration, pagination, and retention deletion.
 
@@ -101,11 +106,17 @@ Compact daily/monthly global or API-key token totals: consumed and currently res
 
 ### `provider_quota_reservations`
 
-Transient pre-provider-call reservations containing ID, API-key ID, operation, reserved allowance, UTC period starts, and expiry. Successful or conservatively estimated reconciliation updates the four period buckets and deletes the reservation in the same transaction. Only active/crashed reservations should remain.
+Transient pre-provider-call reservations containing ID, operation, reserved allowance, access attribution, UTC period starts, and expiry. Successful or conservatively estimated reconciliation updates the applicable period buckets, appends one immutable AI-usage record, and deletes the reservation in the same transaction. Only active/crashed reservations should remain.
 
-An `api_key_id` value of `0` is reserved for internal customer-facing chatbot execution. Those reservations update only installation-global buckets and do not create or consume an API-key bucket. The API Access summary reports this global-only usage separately from the aggregate of all API-key buckets so its global total can be reconciled with the connection rows. Scoped chatbot/integration limits remain separate future dimensions.
+An `api_key_id` value of `0` is reserved for chatbot/preview execution. Those reservations update only installation-global buckets and do not create or consume a General API-key bucket. The dedicated AI Usage page reconciles installation totals with attributed provider operations; older bucket consumption that predates the ledger is shown as unattributed.
 
 The schema retains nullable actual/status/reconciled fields from its initial design although current finalization deletes rows; a future forward migration may simplify them after compatibility review.
+
+### `ai_usage_records`
+
+Append-only, content-free provider-consumption attribution created when a quota reservation is reconciled. Each reservation can create at most one record. It stores access method, logical General API key/Chatbot API key/chatbot IDs, retrieve/chat operation, actual or conservatively estimated AI usage tokens, and UTC occurrence/recording timestamps. It stores no prompt, answer, source content, bearer token, provider credential, or monetary estimate.
+
+The administrator AI Usage report aggregates this ledger by access method, day, chatbot, General API key, and Chatbot API key. Installation daily/monthly cards remain sourced from the atomic quota buckets, so pre-ledger consumption is visible as unattributed rather than silently assigned.
 
 ### `chatbots`
 
@@ -151,6 +162,7 @@ Durable user turns and assistant outcomes. Rows store role/status, bounded conte
 - API Activity manual/scheduled purges use a database advisory lock and bounded deletes.
 - Quota reservation locks all applicable global/key period buckets and inserts a transient reservation atomically.
 - Quota reconciliation adjusts reserved/consumed counts and deletes the reservation atomically.
+- Quota reconciliation writes its content-free AI-usage attribution in that same transaction.
 - Chatbot identity plus initial draft creation is one transaction.
 - Chatbot identity edits and optimistic draft revision updates are one transaction.
 - Chatbot assignment replacement locks identity/draft, replaces source/origin relations, and increments the common optimistic revision atomically.
@@ -191,6 +203,7 @@ Current migration history:
 | `20260721000018` | Add the public-session scope used by independent message request limits. |
 | `20260721000019` | Separate chatbot integration credentials/scopes and dedicated integration rate-counter scope. |
 | `20260721000020` | Add the bounded chatbot session-activity analytics index. |
+| `20260721000021` | Add API access-method correlation, Chatbot API-key session attribution, and the reconciled AI-usage ledger. |
 
 ## Index and query guidance
 
@@ -199,8 +212,8 @@ Current migration history:
 | Sources | status/deletion, type/deletion, `(updated_at,id)`, `(name,id)`, unique revision number. |
 | Jobs | claim/reservation, `(created_at,id)`, `(status,created_at,id)`, `(attempts,created_at,id)`, `(source_version_id,created_at,id)`. |
 | API keys | unique secret hash, status/expiry, creation/name/last-use order. |
-| API Activity | unique request ID, creation, key+creation, status+creation, endpoint+creation, duration+creation. |
-| Quotas | unique scope/identifier/period, expiry status for active reservations. |
+| API Activity | unique request ID, creation, access+creation, General key+creation, Chatbot key+creation, chatbot+creation, status+creation, endpoint+creation, duration+creation. |
+| Quotas and AI usage | unique scope/identifier/period, expiry status for active reservations, occurrence plus access/key/chatbot occurrence indexes. |
 | Chatbots | unique public/session IDs and token hash, status+updated, updated, name, unique publication number, chatbot+publication time, source dependencies, session test/activity, activity-window analytics, expiry, retention, message chronology/idempotency/pending outcomes. |
 
 Admin result queries filter before pagination, select only display columns, use allowlisted sort expressions, and include deterministic ID tie-breakers. Offset pagination is appropriate for the single administrator and exact totals, but deep offsets and `COUNT(*)` become expensive at very large row counts.
@@ -212,6 +225,7 @@ Run `ANALYZE TABLE` after large imports and use `EXPLAIN ANALYZE` with productio
 - API Activity: configurable 0/30/90/180/365-day policy plus confirmed manual purge.
 - Rate-limit buckets: short-lived, pruned during API activity.
 - Quota reservations: deleted during reconciliation; expired reservations are conservatively reconciled in bounded batches.
+- AI usage records: content-free attribution currently retained without an age-based purge policy.
 - Quota period buckets: retained; expected growth is small per key/day/month but currently has no purge command.
 - Sources, versions, chunks, files, and their jobs: retained through soft deletion and erased only by permanent source deletion.
 - Ingestion jobs not tied to permanently deleted sources: no age-based retention yet.

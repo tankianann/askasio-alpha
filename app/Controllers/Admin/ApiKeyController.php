@@ -62,21 +62,18 @@ final class ApiKeyController
         }
 
         $parameters = $query->queryParameters();
-        $quotaSnapshots = $this->providerQuotas?->dashboardSnapshots(array_map(
+        $quotaSnapshots = $this->providerQuotas?->snapshots(array_map(
             static fn (ApiKey $key): int => $key->id,
             $page->items,
         ));
 
         return Response::html($this->views->render('api_keys/index', [
-            ...$this->layoutData($request, 'API Access'),
+            ...$this->layoutData($request, 'General API Keys'),
             'page' => $page,
             'query' => $query,
             'success' => $this->session->pull(self::FLASH_SUCCESS),
             'filterError' => $this->session->pull(self::FLASH_ERROR),
-            'globalQuota' => $quotaSnapshots['global'] ?? null,
             'apiKeyQuotas' => $quotaSnapshots['api_keys'] ?? [],
-            'apiKeysTotalQuota' => $quotaSnapshots['api_keys_total'] ?? null,
-            'chatbotQuota' => $quotaSnapshots['chatbots'] ?? null,
             'queryUrl' => static fn (array $overrides = []): string => QueryString::url(
                 '/admin/api-keys',
                 $parameters,
@@ -120,7 +117,7 @@ final class ApiKeyController
         }
 
         return Response::html($this->views->render('api_keys/created', [
-            ...$this->layoutData($request, 'Connection created'),
+            ...$this->layoutData($request, 'General API key created'),
             'created' => $created,
         ], 'layouts/admin'), 201)->withHeader('Cache-Control', 'no-store');
     }
@@ -151,7 +148,7 @@ final class ApiKeyController
         int $status = 200,
     ): Response {
         return Response::html($this->views->render('api_keys/create', [
-            ...$this->layoutData($request, 'Create connection'),
+            ...$this->layoutData($request, 'Create General API key'),
             'error' => $error,
             'old' => $old,
         ], 'layouts/admin'), $status);

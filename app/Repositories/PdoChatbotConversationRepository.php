@@ -48,6 +48,7 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
         ?string $normalizedOrigin,
         bool $isTest,
         DateTimeImmutable $now,
+        ?int $chatbotApiKeyId = null,
     ): ChatbotSession {
         return $this->transaction(function (PDO $pdo) use (
             $chatbotId,
@@ -56,6 +57,7 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
             $normalizedOrigin,
             $isTest,
             $now,
+            $chatbotApiKeyId,
         ): ChatbotSession {
             $publication = $pdo->prepare(<<<'SQL'
                 SELECT c.status AS chatbot_status, c.active_publication_id,
@@ -97,14 +99,14 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
             $idleExpiresAt = $now->add(new DateInterval('PT' . (int) $row['idle_expiry_minutes'] . 'M'));
             $statement = $pdo->prepare(<<<'SQL'
                 INSERT INTO chatbot_sessions (
-                    public_id, token_prefix, token_hash, chatbot_id, chatbot_publication_id,
+                    public_id, token_prefix, token_hash, chatbot_id, chatbot_api_key_id, chatbot_publication_id,
                     channel, normalized_origin, is_test, status, message_count,
                     maximum_messages, maximum_message_characters, idle_timeout_minutes,
                     retention_days, input_tokens, output_tokens, embedding_tokens, provider_tokens,
                     started_at, last_activity_at, idle_expires_at, absolute_expires_at,
                     created_at, updated_at
                 ) VALUES (
-                    :public_id, :token_prefix, :token_hash, :chatbot_id, :publication_id,
+                    :public_id, :token_prefix, :token_hash, :chatbot_id, :chatbot_api_key_id, :publication_id,
                     :channel, :origin, :is_test, 'active', 0,
                     :maximum_messages, :maximum_characters, :idle_timeout_minutes,
                     :retention_days, 0, 0, 0, 0,
@@ -118,6 +120,7 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
                 'token_prefix' => $credentials->tokenPrefix,
                 'token_hash' => $credentials->tokenHash,
                 'chatbot_id' => $chatbotId,
+                'chatbot_api_key_id' => $chatbotApiKeyId,
                 'publication_id' => $row['active_publication_id'],
                 'channel' => $channel->value,
                 'origin' => $normalizedOrigin,
@@ -1007,6 +1010,7 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
             isset($row['completed_at']) ? (string) $row['completed_at'] : null,
             isset($row['purge_eligible_at']) ? (string) $row['purge_eligible_at'] : null,
             isset($row['preview_draft_revision']) ? (int) $row['preview_draft_revision'] : null,
+            isset($row['chatbot_api_key_id']) ? (int) $row['chatbot_api_key_id'] : null,
         );
     }
 

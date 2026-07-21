@@ -28,6 +28,7 @@ interface ChatbotConversationRepositoryInterface
         ?string $normalizedOrigin,
         bool $isTest,
         DateTimeImmutable $now,
+        ?int $chatbotApiKeyId = null,
     ): ChatbotSession;
 
     public function createForDraftPreview(

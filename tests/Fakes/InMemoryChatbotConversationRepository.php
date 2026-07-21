@@ -75,6 +75,7 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
         ?string $normalizedOrigin,
         bool $isTest,
         DateTimeImmutable $now,
+        ?int $chatbotApiKeyId = null,
     ): ChatbotSession {
         $definition = $this->chatbots[$chatbotId] ?? null;
 
@@ -117,6 +118,8 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
             $this->format($absolute),
             null,
             null,
+            null,
+            $chatbotApiKeyId,
         );
 
         return $this->sessions[$session->id] = $session;
@@ -502,7 +505,7 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
             $session->startedAt, $lastActivityAt ?? $session->lastActivityAt,
             $idleExpiresAt ?? $session->idleExpiresAt, $session->absoluteExpiresAt,
             $completedAt ?? $session->completedAt, $purgeEligibleAt ?? $session->purgeEligibleAt,
-            $session->previewDraftRevision,
+            $session->previewDraftRevision, $session->chatbotApiKeyId,
         );
     }
 

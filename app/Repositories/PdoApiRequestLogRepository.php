@@ -30,16 +30,21 @@ final class PdoApiRequestLogRepository implements ApiRequestLogRepositoryInterfa
     {
         $statement = $this->connection->pdo()->prepare(
             'INSERT INTO api_request_logs (
-                request_id, api_key_id, ip_hash, method, endpoint, status_code,
+                request_id, api_key_id, access_method, chatbot_api_key_id, chatbot_id,
+                ip_hash, method, endpoint, status_code,
                 duration_ms, error_category, usage_json, created_at
              ) VALUES (
-                :request_id, :api_key_id, :ip_hash, :method, :endpoint, :status_code,
+                :request_id, :api_key_id, :access_method, :chatbot_api_key_id, :chatbot_id,
+                :ip_hash, :method, :endpoint, :status_code,
                 :duration_ms, :error_category, :usage_json, UTC_TIMESTAMP(6)
              )',
         );
         $statement->execute([
             'request_id' => $log->requestId,
             'api_key_id' => $log->apiKeyId,
+            'access_method' => $log->accessMethod->value,
+            'chatbot_api_key_id' => $log->chatbotApiKeyId,
+            'chatbot_id' => $log->chatbotId,
             'ip_hash' => $log->ipHash,
             'method' => $log->method,
             'endpoint' => $log->endpoint,
@@ -165,12 +170,18 @@ final class PdoApiRequestLogRepository implements ApiRequestLogRepositoryInterfa
 
     private function select(): string
     {
-        return 'SELECT logs.request_id, logs.api_key_id, logs.method, logs.endpoint,
+        return 'SELECT logs.request_id, logs.api_key_id, logs.access_method,
+                       logs.chatbot_api_key_id, logs.chatbot_id, logs.method, logs.endpoint,
                        logs.status_code, logs.duration_ms, logs.error_category, logs.usage_json,
                        logs.created_at, api_key_records.name AS api_key_name,
-                       api_key_records.visible_prefix AS api_key_prefix
+                       api_key_records.visible_prefix AS api_key_prefix,
+                       chatbot_key_records.name AS chatbot_api_key_name,
+                       chatbot_key_records.visible_prefix AS chatbot_api_key_prefix,
+                       chatbot_records.name AS chatbot_name
                 FROM api_request_logs logs
-                LEFT JOIN api_keys api_key_records ON api_key_records.id = logs.api_key_id';
+                LEFT JOIN api_keys api_key_records ON api_key_records.id = logs.api_key_id
+                LEFT JOIN chatbot_integration_credentials chatbot_key_records ON chatbot_key_records.id = logs.chatbot_api_key_id
+                LEFT JOIN chatbots chatbot_records ON chatbot_records.id = logs.chatbot_id';
     }
 
     /** @param array<string, mixed> $row */
@@ -193,6 +204,12 @@ final class PdoApiRequestLogRepository implements ApiRequestLogRepositoryInterfa
             (string) $row['created_at'],
             isset($row['api_key_name']) ? (string) $row['api_key_name'] : null,
             isset($row['api_key_prefix']) ? (string) $row['api_key_prefix'] : null,
+            \App\Domain\Api\ApiAccessMethod::from((string) $row['access_method']),
+            isset($row['chatbot_api_key_id']) ? (int) $row['chatbot_api_key_id'] : null,
+            isset($row['chatbot_api_key_name']) ? (string) $row['chatbot_api_key_name'] : null,
+            isset($row['chatbot_api_key_prefix']) ? (string) $row['chatbot_api_key_prefix'] : null,
+            isset($row['chatbot_id']) ? (int) $row['chatbot_id'] : null,
+            isset($row['chatbot_name']) ? (string) $row['chatbot_name'] : null,
         );
     }
 }

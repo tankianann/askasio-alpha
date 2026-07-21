@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Chatbots;
 
 use App\Domain\Chatbots\ChatbotExecutionAudience;
+use App\Domain\Chatbots\ChatbotSessionChannel;
+use App\Domain\Api\ApiAccessMethod;
+use App\Domain\ProviderQuota\ProviderQuotaAttribution;
 use App\Domain\Chatbots\ChatbotExecutionConfiguration;
 use App\Domain\Chatbots\ChatbotExecutionResult;
 use App\Domain\Chatbots\ChatbotMessage;
@@ -12,7 +15,6 @@ use App\Domain\Chatbots\ChatbotMessageCompletion;
 use App\Domain\Chatbots\ChatbotMessageReservation;
 use App\Domain\Chatbots\ChatbotMessageReservationState;
 use App\Domain\Chatbots\ChatbotProviderConfiguration;
-use App\Domain\Chatbots\ChatbotSessionChannel;
 use App\Domain\Chatbots\ChatbotStatus;
 use App\Domain\RAG\RetrievedChunk;
 use App\Exceptions\ChatbotExecutionException;
@@ -124,6 +126,15 @@ final readonly class SharedChatExecutionService
                 $question,
                 $this->maximumContextTokens + $this->history->maximumTokens(),
                 $this->maximumOutputTokens,
+                new ProviderQuotaAttribution(
+                    match ($reservation->session->channel) {
+                        ChatbotSessionChannel::Browser => ApiAccessMethod::BrowserChatbot,
+                        ChatbotSessionChannel::Integration => ApiAccessMethod::ChatbotApiKey,
+                        ChatbotSessionChannel::AdminPreview => ApiAccessMethod::AdminPreview,
+                    },
+                    chatbotApiKeyId: $reservation->session->chatbotApiKeyId,
+                    chatbotId: $reservation->session->chatbotId,
+                ),
             );
             $embeddingBefore = $this->providerUsage->embeddingTokens();
             $started = hrtime(true);

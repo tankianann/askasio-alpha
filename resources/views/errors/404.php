@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?> · Ask Asio</title>
     <link rel="icon" href="/assets/images/ask-asio.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/assets/app.css?v=10">
+    <link rel="stylesheet" href="/assets/app.css?v=18">
 </head>
 <body class="error-body">
 <main class="error-card">

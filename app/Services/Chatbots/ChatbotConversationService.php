@@ -40,6 +40,7 @@ final readonly class ChatbotConversationService
         ?string $origin,
         bool $isTest,
         DateTimeImmutable $now,
+        ?int $chatbotApiKeyId = null,
     ): CreatedChatbotSession {
         if ($chatbotId < 1) {
             throw new \InvalidArgumentException('A valid chatbot ID is required.');
@@ -59,6 +60,10 @@ final readonly class ChatbotConversationService
             throw new ValidationException('Administrator preview sessions must be classified as tests.');
         }
 
+        if ($channel !== ChatbotSessionChannel::Integration && $chatbotApiKeyId !== null) {
+            throw new ValidationException('Only integration sessions may reference a chatbot API key.');
+        }
+
         $credentials = $this->credentials->generate();
         $session = $this->conversations->createForActivePublication(
             $chatbotId,
@@ -67,6 +72,7 @@ final readonly class ChatbotConversationService
             $origin,
             $isTest,
             $now,
+            $chatbotApiKeyId,
         );
 
         return new CreatedChatbotSession($session, $credentials->token);

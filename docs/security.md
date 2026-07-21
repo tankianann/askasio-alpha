@@ -52,7 +52,7 @@
 Stored:
 
 - request ID;
-- numeric API-key ID;
+- access method plus the applicable numeric General API key, Chatbot API key, and chatbot IDs;
 - HMAC-derived IP identifier;
 - HTTP method and matched route template without dynamic resource identifiers;
 - status, duration, error category;

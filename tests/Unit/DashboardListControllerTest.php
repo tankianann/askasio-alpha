@@ -145,7 +145,7 @@ final class DashboardListControllerTest extends TestCase
         self::assertStringContainsString('Page 5 of 5', $response->body());
     }
 
-    public function testApiAccessRendersFilteredEmptyStateAndCanonicalInvalidPage(): void
+    public function testGeneralApiKeysRenderFilteredEmptyStateAndCanonicalInvalidPage(): void
     {
         $keys = new InMemoryApiKeyRepository();
 
@@ -161,7 +161,7 @@ final class DashboardListControllerTest extends TestCase
             attributes: ['admin_user' => $this->admin()],
         ));
         self::assertSame(200, $empty->status());
-        self::assertStringContainsString('No connections match these filters', $empty->body());
+        self::assertStringContainsString('No General API keys match these filters', $empty->body());
 
         $redirect = $controller->index(new Request(
             'GET',
@@ -173,7 +173,7 @@ final class DashboardListControllerTest extends TestCase
         self::assertSame('/admin/api-keys?page=2', $redirect->headers()['Location']);
     }
 
-    public function testApiAccessExplainsGlobalUsageThatDoesNotBelongToAConnection(): void
+    public function testGeneralApiKeysShowOnlyPerKeyUsageAndLinkToAiUsage(): void
     {
         $keys = new InMemoryApiKeyRepository();
         $key = $keys->create(1, 'Website', 'rag_live_abcd', hash('sha256', 'secret'), null);
@@ -191,9 +191,10 @@ final class DashboardListControllerTest extends TestCase
         ));
 
         self::assertSame(200, $response->status());
-        self::assertStringContainsString('12 API connections · 25 chatbots', $response->body());
         self::assertStringContainsString('<strong>12</strong> today', $response->body());
-        self::assertStringContainsString('Global usage includes all API connections and customer-facing chatbot traffic.', $response->body());
+        self::assertStringContainsString('General API Keys', $response->body());
+        self::assertStringContainsString('href="/admin/ai-usage"', $response->body());
+        self::assertStringNotContainsString('25 chatbots', $response->body());
     }
 
     public function testInvalidListQueryRedirectsWithSafeFeedback(): void

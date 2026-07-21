@@ -53,7 +53,7 @@ The application is suitable for a controlled single-administrator deployment aft
 - Shared validated query state and server-side pagination.
 - API Activity pagination, extensive filters/sorting, URL persistence, counts and empty states.
 - Configurable scheduled retention and confirmed filter-aware manual purge.
-- Paginated/filterable Knowledge Base, Processing, and API Access.
+- Paginated/filterable Knowledge Base, Processing, and General API Keys.
 - Paginated source revision/job histories with large extracted text loaded only on demand.
 - Supporting indexes, query-plan review, privacy regression coverage, and documentation.
 

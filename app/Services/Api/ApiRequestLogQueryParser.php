@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Api;
 
+use App\Domain\Api\ApiAccessMethod;
 use App\Domain\Api\ApiRequestAuthenticationState;
 use App\Domain\Api\ApiRequestLogQuery;
 use App\Domain\Api\ApiRequestLogSort;
@@ -105,9 +106,15 @@ final class ApiRequestLogQueryParser
         }
 
         $authentication = $this->authentication($request);
+        $accessMethod = $this->accessMethod($request);
 
         if ($apiKeyId !== null && $authentication === ApiRequestAuthenticationState::Unauthenticated) {
             throw new ValidationException('An API connection cannot be combined with unauthenticated requests.');
+        }
+
+        if ($apiKeyId !== null
+            && !in_array($accessMethod, [ApiAccessMethod::All, ApiAccessMethod::GeneralApiKey], true)) {
+            throw new ValidationException('A General API key can only be combined with the General API Key access method.');
         }
 
         return new ApiRequestLogQuery(
@@ -127,7 +134,19 @@ final class ApiRequestLogQueryParser
             $authentication,
             $this->sort($request),
             $this->direction($request),
+            $accessMethod,
         );
+    }
+
+    private function accessMethod(Request $request): ApiAccessMethod
+    {
+        $value = $this->string($request, 'access_method') ?? ApiAccessMethod::All->value;
+
+        try {
+            return ApiAccessMethod::from($value);
+        } catch (ValueError) {
+            throw new ValidationException('Choose a valid API Activity access method.');
+        }
     }
 
     /** @return array{?string, ?string} */

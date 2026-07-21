@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#f4f7fa">
     <title><?= $escape($title) ?> · Ask Asio</title>
     <link rel="icon" href="/assets/images/ask-asio.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/assets/app.css?v=10">
+    <link rel="stylesheet" href="/assets/app.css?v=18">
 </head>
 <body class="auth-body">
 <main class="auth-shell">

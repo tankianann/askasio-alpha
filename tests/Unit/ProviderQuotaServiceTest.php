@@ -6,6 +6,8 @@ namespace Tests\Unit;
 
 use App\Exceptions\ProviderQuotaExceededException;
 use App\Services\ProviderQuota\ProviderQuotaService;
+use App\Domain\Api\ApiAccessMethod;
+use App\Domain\ProviderQuota\ProviderQuotaAttribution;
 use PHPUnit\Framework\TestCase;
 use Tests\Fakes\InMemoryProviderQuotaRepository;
 
@@ -85,6 +87,28 @@ final class ProviderQuotaServiceTest extends TestCase
         self::assertSame(25, $service->snapshots([])['global']->dailyConsumed);
         self::assertSame(49_975, $usage['quota_daily_remaining_tokens']);
         self::assertArrayNotHasKey(0, $service->snapshots([])['api_keys']);
+    }
+
+    public function testReservationsCarryContentFreeAccessAttribution(): void
+    {
+        $service = new ProviderQuotaService(new InMemoryProviderQuotaRepository(), 50_000, 500_000, 20_000, 200_000, 900);
+        $general = $service->reserveRetrieve(7, 'Question');
+        $chatbot = $service->reserveInstallationChat(
+            'Question',
+            1_000,
+            200,
+            new ProviderQuotaAttribution(
+                ApiAccessMethod::ChatbotApiKey,
+                chatbotApiKeyId: 11,
+                chatbotId: 4,
+            ),
+        );
+
+        self::assertSame(ApiAccessMethod::GeneralApiKey, $general->attribution->accessMethod);
+        self::assertSame(7, $general->attribution->apiKeyId);
+        self::assertSame(ApiAccessMethod::ChatbotApiKey, $chatbot->attribution->accessMethod);
+        self::assertSame(11, $chatbot->attribution->chatbotApiKeyId);
+        self::assertSame(4, $chatbot->attribution->chatbotId);
     }
 
     public function testDashboardSeparatesApiConnectionAndChatbotUsage(): void

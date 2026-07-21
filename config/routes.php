@@ -8,6 +8,7 @@ use App\Controllers\Api\ChatbotIntegrationController;
 use App\Controllers\Admin\AuthController;
 use App\Controllers\Admin\ApiKeyController;
 use App\Controllers\Admin\ApiRequestLogController;
+use App\Controllers\Admin\AiUsageController;
 use App\Controllers\Admin\DashboardController;
 use App\Controllers\Admin\ChatbotController;
 use App\Controllers\Admin\ChatbotConversationController;
@@ -43,6 +44,7 @@ return [
         JobController $jobController,
         ApiKeyController $apiKeyController,
         ApiRequestLogController $apiRequestLogController,
+        AiUsageController $aiUsageController,
         ChatbotConversationController $chatbotConversationController,
         Closure $retrieveHandler,
         Closure $chatHandler,
@@ -181,6 +183,7 @@ return [
                 $jobController,
                 $apiKeyController,
                 $apiRequestLogController,
+                $aiUsageController,
                 $chatbotConversationController,
                 $chatbotIntegrationCredentialController,
             ): void {
@@ -236,6 +239,7 @@ return [
                 $router->post('/api-keys/{apiKeyId}/revoke', [$apiKeyController, 'revoke'], name: 'admin.api_keys.revoke');
                 $router->post('/api-keys/{apiKeyId}/delete', [$apiKeyController, 'delete'], name: 'admin.api_keys.delete');
                 $router->get('/api-requests', $apiRequestLogController, name: 'admin.api_requests.index');
+                $router->get('/ai-usage', $aiUsageController, name: 'admin.ai_usage.index');
                 $router->get('/api-requests/purge', [$apiRequestLogController, 'purge'], name: 'admin.api_requests.purge');
                 $router->post('/api-requests/purge/preview', [$apiRequestLogController, 'previewPurge'], name: 'admin.api_requests.purge_preview');
                 $router->post('/api-requests/purge', [$apiRequestLogController, 'executePurge'], name: 'admin.api_requests.purge_execute');

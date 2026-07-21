@@ -6,6 +6,8 @@ namespace App\Domain\Api;
 
 final class ApiRequestLog
 {
+    public readonly ApiAccessMethod $accessMethod;
+
     /** @param array<string, int|float> $usage */
     public function __construct(
         public readonly string $requestId,
@@ -20,6 +22,14 @@ final class ApiRequestLog
         public readonly ?string $createdAt = null,
         public readonly ?string $apiKeyName = null,
         public readonly ?string $apiKeyPrefix = null,
+        ?ApiAccessMethod $accessMethod = null,
+        public readonly ?int $chatbotApiKeyId = null,
+        public readonly ?string $chatbotApiKeyName = null,
+        public readonly ?string $chatbotApiKeyPrefix = null,
+        public readonly ?int $chatbotId = null,
+        public readonly ?string $chatbotName = null,
     ) {
+        $this->accessMethod = $accessMethod
+            ?? ($apiKeyId !== null ? ApiAccessMethod::GeneralApiKey : ApiAccessMethod::Unauthenticated);
     }
 }

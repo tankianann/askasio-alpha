@@ -31,7 +31,7 @@ final class ApiRequestLogPurgeSqlQueryBuilderTest extends TestCase
 
         self::assertStringContainsString('created_at >= :created_from', $where['sql']);
         self::assertStringContainsString('status_code BETWEEN :status_minimum AND :status_maximum', $where['sql']);
-        self::assertStringContainsString('api_key_id IS NOT NULL', $where['sql']);
+        self::assertStringContainsString("access_method <> 'unauthenticated'", $where['sql']);
         self::assertStringContainsString('id <= :maximum_id', $where['sql']);
         self::assertSame('/api/v1/chat', $where['parameters']['endpoint']);
         self::assertSame(500, $where['parameters']['status_minimum']);

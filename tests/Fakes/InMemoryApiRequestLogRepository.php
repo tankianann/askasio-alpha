@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Fakes;
 
 use App\Domain\Api\ApiRequestAuthenticationState;
+use App\Domain\Api\ApiAccessMethod;
 use App\Domain\Api\ApiRequestConnectionOption;
 use App\Domain\Api\ApiRequestLog;
 use App\Domain\Api\ApiRequestLogPurgeCriteria;
@@ -84,12 +85,17 @@ final class InMemoryApiRequestLogRepository implements ApiRequestLogRepositoryIn
                 return false;
             }
 
-            if ($query->authentication === ApiRequestAuthenticationState::Authenticated && $log->apiKeyId === null) {
+            if ($query->authentication === ApiRequestAuthenticationState::Authenticated
+                && $log->accessMethod === ApiAccessMethod::Unauthenticated) {
                 return false;
             }
 
-            return $query->authentication !== ApiRequestAuthenticationState::Unauthenticated
-                || $log->apiKeyId === null;
+            if ($query->authentication === ApiRequestAuthenticationState::Unauthenticated
+                && $log->accessMethod !== ApiAccessMethod::Unauthenticated) {
+                return false;
+            }
+
+            return $query->accessMethod === ApiAccessMethod::All || $log->accessMethod === $query->accessMethod;
         }));
         $direction = $query->direction === SortDirection::Ascending ? 1 : -1;
         usort($logs, static function (ApiRequestLog $left, ApiRequestLog $right) use ($query, $direction): int {
@@ -98,7 +104,10 @@ final class InMemoryApiRequestLogRepository implements ApiRequestLogRepositoryIn
                 ApiRequestLogSort::Duration => $left->durationMilliseconds <=> $right->durationMilliseconds,
                 ApiRequestLogSort::Status => $left->statusCode <=> $right->statusCode,
                 ApiRequestLogSort::Endpoint => strcmp($left->endpoint, $right->endpoint),
-                ApiRequestLogSort::Connection => strcmp((string) $left->apiKeyName, (string) $right->apiKeyName),
+                ApiRequestLogSort::Connection => strcmp(
+                    $left->apiKeyName ?? $left->chatbotApiKeyName ?? $left->chatbotName ?? $left->accessMethod->value,
+                    $right->apiKeyName ?? $right->chatbotApiKeyName ?? $right->chatbotName ?? $right->accessMethod->value,
+                ),
             };
 
             return ($comparison !== 0 ? $comparison : strcmp($left->requestId, $right->requestId)) * $direction;
@@ -133,7 +142,7 @@ final class InMemoryApiRequestLogRepository implements ApiRequestLogRepositoryIn
         usort($options, static fn (ApiRequestConnectionOption $left, ApiRequestConnectionOption $right): int =>
             strcasecmp($left->name, $right->name));
 
-        return array_values($options);
+        return $options;
     }
 
     public function pruneOlderThan(string $cutoff, int $limit = 1000): int
@@ -258,10 +267,16 @@ final class InMemoryApiRequestLogRepository implements ApiRequestLogRepositoryIn
             return false;
         }
 
-        if ($criteria->authentication === ApiRequestAuthenticationState::Authenticated && $log->apiKeyId === null) {
+        if ($criteria->authentication === ApiRequestAuthenticationState::Authenticated
+            && $log->accessMethod === ApiAccessMethod::Unauthenticated) {
             return false;
         }
 
-        return $criteria->authentication !== ApiRequestAuthenticationState::Unauthenticated || $log->apiKeyId === null;
+        if ($criteria->authentication === ApiRequestAuthenticationState::Unauthenticated
+            && $log->accessMethod !== ApiAccessMethod::Unauthenticated) {
+            return false;
+        }
+
+        return $criteria->accessMethod === ApiAccessMethod::All || $log->accessMethod === $criteria->accessMethod;
     }
 }

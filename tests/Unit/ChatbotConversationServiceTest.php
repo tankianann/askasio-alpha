@@ -70,6 +70,21 @@ final class ChatbotConversationServiceTest extends TestCase
         }
     }
 
+    public function testIntegrationSessionRetainsItsChatbotApiKeyAttribution(): void
+    {
+        [$service] = $this->fixture();
+        $created = $service->createSession(
+            1,
+            ChatbotSessionChannel::Integration,
+            null,
+            false,
+            new DateTimeImmutable('2026-07-20 10:00:00 UTC'),
+            41,
+        );
+
+        self::assertSame(41, $created->session->chatbotApiKeyId);
+    }
+
     public function testMessageReservationIsIdempotentAndAtomicallyCountsUserTurns(): void
     {
         [$service, $repository, $credentials] = $this->fixture(maximumMessages: 1);

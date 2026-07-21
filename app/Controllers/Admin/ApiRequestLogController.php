@@ -278,7 +278,7 @@ final class ApiRequestLogController
                 }
             }
 
-            $filters[] = 'Connection: ' . ($name ?? '#' . $query->apiKeyId);
+            $filters[] = 'General API key: ' . ($name ?? '#' . $query->apiKeyId);
         }
 
         if ($query->endpoint !== null) {
@@ -313,6 +313,10 @@ final class ApiRequestLogController
 
         if ($query->authentication->value !== 'all') {
             $filters[] = 'Authentication: ' . ucfirst($query->authentication->value);
+        }
+
+        if ($query->accessMethod->value !== 'all') {
+            $filters[] = 'Access method: ' . $query->accessMethod->label();
         }
 
         return $filters;

@@ -11,6 +11,7 @@ final class ProviderQuotaReservation
         public readonly int $apiKeyId,
         public readonly string $operation,
         public readonly int $reservedTokens,
+        public readonly ?ProviderQuotaAttribution $attribution = null,
     ) {
     }
 }

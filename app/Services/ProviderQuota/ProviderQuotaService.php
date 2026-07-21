@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\ProviderQuota;
 
+use App\Domain\Api\ApiAccessMethod;
+use App\Domain\ProviderQuota\ProviderQuotaAttribution;
 use App\Domain\ProviderQuota\ProviderQuotaReservation;
 use App\Domain\ProviderQuota\ProviderQuotaSnapshot;
 use App\Repositories\ProviderQuotaRepositoryInterface;
@@ -46,7 +48,12 @@ final class ProviderQuotaService
 
     public function reserveRetrieve(int $apiKeyId, string $query): ProviderQuotaReservation
     {
-        return $this->reserve($apiKeyId, 'retrieve', max(1, strlen($query)));
+        return $this->reserve(
+            $apiKeyId,
+            'retrieve',
+            max(1, strlen($query)),
+            new ProviderQuotaAttribution(ApiAccessMethod::GeneralApiKey, apiKeyId: $apiKeyId),
+        );
     }
 
     public function reserveChat(
@@ -61,13 +68,19 @@ final class ProviderQuotaService
             + $maximumOutputTokens
             + self::PROMPT_OVERHEAD_RESERVATION_TOKENS;
 
-        return $this->reserve($apiKeyId, 'chat', $tokens);
+        return $this->reserve(
+            $apiKeyId,
+            'chat',
+            $tokens,
+            new ProviderQuotaAttribution(ApiAccessMethod::GeneralApiKey, apiKeyId: $apiKeyId),
+        );
     }
 
     public function reserveInstallationChat(
         string $question,
         int $maximumContextTokens,
         int $maximumOutputTokens,
+        ?ProviderQuotaAttribution $attribution = null,
     ): ProviderQuotaReservation {
         $questionBytes = max(1, strlen($question));
         $tokens = ($questionBytes * 2)
@@ -75,7 +88,7 @@ final class ProviderQuotaService
             + $maximumOutputTokens
             + self::PROMPT_OVERHEAD_RESERVATION_TOKENS;
 
-        return $this->reserve(0, 'chat', $tokens);
+        return $this->reserve(0, 'chat', $tokens, $attribution);
     }
 
     /** @return array<string, int> */
@@ -150,7 +163,12 @@ final class ProviderQuotaService
         return $this->repository->reconcileExpired($limit);
     }
 
-    private function reserve(int $apiKeyId, string $operation, int $tokens): ProviderQuotaReservation
+    private function reserve(
+        int $apiKeyId,
+        string $operation,
+        int $tokens,
+        ?ProviderQuotaAttribution $attribution = null,
+    ): ProviderQuotaReservation
     {
         $this->repository->reconcileExpired(50);
         $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
@@ -162,6 +180,7 @@ final class ProviderQuotaService
             $this->limits,
             $now,
             $now->modify('+' . $this->reservationTtlSeconds . ' seconds'),
+            $attribution,
         );
     }
 

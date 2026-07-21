@@ -36,7 +36,8 @@ final readonly class ChatbotIntegrationController
     {
         if ($this->json->object($request)!==[]) { throw new HttpException(422,'Session creation does not accept request fields.','invalid_request'); }
         $chatbot=$this->chatbot($request);
-        try { $created=$this->conversations->createSession($chatbot->id,ChatbotSessionChannel::Integration,null,false,$this->now()); }
+        $credential=$this->credential($request);
+        try { $created=$this->conversations->createSession($chatbot->id,ChatbotSessionChannel::Integration,null,false,$this->now(),$credential->id); }
         catch (ChatbotSessionUnavailableException) { throw new HttpException(404,'The chatbot was not found.','chatbot_not_found'); }
         return Response::json([...PublicChatbotSession::fromCreated($created)->toArray(),'request_id'=>$request->attribute('request_id')],201)->withHeader('Cache-Control','no-store');
     }
@@ -57,12 +58,13 @@ final readonly class ChatbotIntegrationController
         catch(ChatbotSessionUnavailableException){throw new HttpException(410,'The session is no longer available.','session_expired');}
         catch(ValidationException $e){throw new HttpException(422,$e->getMessage(),'invalid_request');}
         catch(ChatbotExecutionException $e){throw new HttpException($e->statusCode,$e->getMessage(),$e->errorCode);}
-        $credential=$request->attribute('chatbot_integration_credential');
-        if($credential instanceof ChatbotIntegrationCredential){$this->credentials->addProviderTokens($credential->id,(int)($result->usage['provider_total_tokens']??0));}
+        $credential=$this->credential($request);
+        $this->credentials->addProviderTokens($credential->id,(int)($result->usage['provider_total_tokens']??0));
         return Response::json([...PublicChatbotMessage::fromResult($session,$result)->toArray(),'request_id'=>$request->attribute('request_id')])->withHeader('Cache-Control','no-store');
     }
 
     private function chatbot(Request $request): Chatbot { $c=$request->attribute('integration_chatbot'); return $c instanceof Chatbot?$c:throw new \LogicException('Scoped integration chatbot is missing.'); }
+    private function credential(Request $request): ChatbotIntegrationCredential { $c=$request->attribute('chatbot_integration_credential'); return $c instanceof ChatbotIntegrationCredential?$c:throw new \LogicException('Scoped chatbot API key is missing.'); }
     private function session(Request $request): ChatbotSession
     {
         $token=$this->sessionToken($request);

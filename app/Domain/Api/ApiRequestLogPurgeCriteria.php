@@ -20,6 +20,7 @@ final readonly class ApiRequestLogPurgeCriteria
         public ?int $maximumDurationMilliseconds = null,
         public ?string $requestId = null,
         public ApiRequestAuthenticationState $authentication = ApiRequestAuthenticationState::All,
+        public ApiAccessMethod $accessMethod = ApiAccessMethod::All,
     ) {
         if ($scope === ApiRequestLogPurgeScope::MatchingFilters && !$this->hasFilters()) {
             throw new \InvalidArgumentException('A matching-filter purge requires at least one active filter.');
@@ -46,6 +47,7 @@ final readonly class ApiRequestLogPurgeCriteria
             maximumDurationMilliseconds: $query->maximumDurationMilliseconds,
             requestId: $query->requestId,
             authentication: $query->authentication,
+            accessMethod: $query->accessMethod,
         );
     }
 
@@ -61,7 +63,8 @@ final readonly class ApiRequestLogPurgeCriteria
             || $this->minimumDurationMilliseconds !== null
             || $this->maximumDurationMilliseconds !== null
             || $this->requestId !== null
-            || $this->authentication !== ApiRequestAuthenticationState::All;
+            || $this->authentication !== ApiRequestAuthenticationState::All
+            || $this->accessMethod !== ApiAccessMethod::All;
     }
 
     /** @return array<string, int|string|null> */
@@ -81,6 +84,7 @@ final readonly class ApiRequestLogPurgeCriteria
             'duration_max' => $this->maximumDurationMilliseconds,
             'request_id' => $this->requestId,
             'authentication' => $this->authentication->value,
+            'access_method' => $this->accessMethod->value,
         ];
     }
 
@@ -103,6 +107,7 @@ final readonly class ApiRequestLogPurgeCriteria
             self::nullableInt($data, 'duration_max'),
             self::nullableString($data, 'request_id'),
             ApiRequestAuthenticationState::from((string) ($data['authentication'] ?? 'all')),
+            ApiAccessMethod::from((string) ($data['access_method'] ?? 'all')),
         );
     }
 

@@ -2,6 +2,14 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Administrator terminology alignment — 2026-07-21
+
+- Renamed **API Access** to **General API Keys** and moved installation-wide consumption into a dedicated **AI Usage** report, leaving per-key usage with each key.
+- Renamed **Chatbot Integrations** to **Chatbot API Keys** throughout the administrator interface while retaining the existing routes, `chatint_live_` format, and internal integration-credential contracts.
+- Renamed user-facing provider-token and token-usage labels to **AI usage**, distinguishing model consumption from authentication keys and session tokens.
+- Attributed provider operations and API Activity to General API keys, Chatbot API keys, browser chatbots, and administrator previews without storing bearer material or conversation content.
+- Added per-Chatbot-API-key today/month/message usage and preserved the pre-existing lifetime request/token counters as historical totals.
+
 ## Chatbot editor workflow — 2026-07-21
 
 - Split chatbot administration into URL-backed Settings, Knowledge, Access, and Lifecycle tabs while keeping preview, publication state, and publish controls in a shared header.

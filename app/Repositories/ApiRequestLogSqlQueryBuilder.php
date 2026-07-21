@@ -66,9 +66,14 @@ final class ApiRequestLogSqlQueryBuilder
         }
 
         if ($query->authentication === ApiRequestAuthenticationState::Authenticated) {
-            $clauses[] = 'logs.api_key_id IS NOT NULL';
+            $clauses[] = 'logs.access_method <> \'unauthenticated\'';
         } elseif ($query->authentication === ApiRequestAuthenticationState::Unauthenticated) {
-            $clauses[] = 'logs.api_key_id IS NULL';
+            $clauses[] = 'logs.access_method = \'unauthenticated\'';
+        }
+
+        if ($query->accessMethod->value !== 'all') {
+            $clauses[] = 'logs.access_method = :access_method';
+            $parameters['access_method'] = $query->accessMethod->value;
         }
 
         return [
@@ -84,7 +89,7 @@ final class ApiRequestLogSqlQueryBuilder
             ApiRequestLogSort::Duration => 'logs.duration_ms',
             ApiRequestLogSort::Status => 'logs.status_code',
             ApiRequestLogSort::Endpoint => 'logs.endpoint',
-            ApiRequestLogSort::Connection => "COALESCE(api_key_records.name, '')",
+            ApiRequestLogSort::Connection => "COALESCE(api_key_records.name, chatbot_key_records.name, chatbot_records.name, logs.access_method, '')",
         };
         $direction = strtoupper($query->direction->value);
 

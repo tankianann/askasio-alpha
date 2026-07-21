@@ -13,7 +13,7 @@
 
 ## Authentication
 
-Create API keys through **Admin → API Access**. A key is shown in full once. The database stores only a safe visible prefix and SHA-256 hash. Active, unexpired, non-revoked keys are accepted.
+Create keys through **Admin → General API Keys**. A key is shown in full once. The database stores only a safe visible prefix and SHA-256 hash. Active, unexpired, non-revoked keys are accepted.
 
 ```http
 Authorization: Bearer rag_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

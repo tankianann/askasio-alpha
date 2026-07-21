@@ -1,7 +1,7 @@
 <div class="page-heading page-heading-compact">
     <div>
-        <p class="breadcrumbs"><a href="/admin/api-keys">API Access</a> <span>/</span> Connection created</p>
-        <h1>Connection created</h1>
+        <p class="breadcrumbs"><a href="/admin/api-keys">General API Keys</a> <span>/</span> Created</p>
+        <h1>General API key created</h1>
         <p class="muted"><?= $escape($created->apiKey->name) ?></p>
     </div>
 </div>

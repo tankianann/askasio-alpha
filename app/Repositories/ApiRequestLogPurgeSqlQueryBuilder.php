@@ -34,9 +34,14 @@ final class ApiRequestLogPurgeSqlQueryBuilder
         $this->add($clauses, $parameters, 'request_id = :request_id', 'request_id', $criteria->requestId);
 
         if ($criteria->authentication === ApiRequestAuthenticationState::Authenticated) {
-            $clauses[] = 'api_key_id IS NOT NULL';
+            $clauses[] = 'access_method <> \'unauthenticated\'';
         } elseif ($criteria->authentication === ApiRequestAuthenticationState::Unauthenticated) {
-            $clauses[] = 'api_key_id IS NULL';
+            $clauses[] = 'access_method = \'unauthenticated\'';
+        }
+
+        if ($criteria->accessMethod->value !== 'all') {
+            $clauses[] = 'access_method = :access_method';
+            $parameters['access_method'] = $criteria->accessMethod->value;
         }
 
         $this->add($clauses, $parameters, 'id <= :maximum_id', 'maximum_id', $maximumId);

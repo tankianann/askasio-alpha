@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Domain\Api\ApiAccessMethod;
 use App\Domain\Api\ApiRequestLog;
+use App\Domain\Chatbots\ChatbotIntegrationCredential;
+use App\Domain\Chatbots\PublicChatbotContext;
+use App\Domain\Chatbots\ChatbotSession;
 use App\Exceptions\HttpException;
 use App\Http\Request;
 use App\Http\Response;
@@ -67,6 +71,7 @@ final class ApiRequestLoggingMiddleware implements MiddlewareInterface
             : $request->path();
 
         try {
+            [$accessMethod, $chatbotApiKeyId, $chatbotId] = $this->accessAttribution($request);
             $this->logs->record(new ApiRequestLog(
                 is_string($requestId) && $requestId !== '' ? $requestId : bin2hex(random_bytes(16)),
                 $this->context->apiKeyId,
@@ -77,6 +82,9 @@ final class ApiRequestLoggingMiddleware implements MiddlewareInterface
                 max(0, (int) ((hrtime(true) - $started) / 1_000_000)),
                 $errorCategory,
                 $usage,
+                accessMethod: $accessMethod,
+                chatbotApiKeyId: $chatbotApiKeyId,
+                chatbotId: $chatbotId,
             ));
 
         } catch (Throwable $exception) {
@@ -85,6 +93,42 @@ final class ApiRequestLoggingMiddleware implements MiddlewareInterface
                 'exception' => $exception,
             ]);
         }
+    }
+
+    /** @return array{ApiAccessMethod, ?int, ?int} */
+    private function accessAttribution(Request $request): array
+    {
+        if ($this->context->apiKeyId !== null) {
+            return [ApiAccessMethod::GeneralApiKey, null, null];
+        }
+
+        $credential = $request->attribute('chatbot_integration_credential');
+        $chatbot = $request->attribute('integration_chatbot');
+
+        if ($credential instanceof ChatbotIntegrationCredential) {
+            return [
+                ApiAccessMethod::ChatbotApiKey,
+                $credential->id,
+                $chatbot instanceof \App\Domain\Chatbots\Chatbot ? $chatbot->id : null,
+            ];
+        }
+
+        $context = $request->attribute('public_chatbot_context');
+        $session = $request->attribute('public_chatbot_session');
+
+        if ($context instanceof PublicChatbotContext || $session instanceof ChatbotSession) {
+            return [
+                ApiAccessMethod::BrowserChatbot,
+                null,
+                $context instanceof PublicChatbotContext ? $context->chatbot->id : $session->chatbotId,
+            ];
+        }
+
+        if (str_starts_with($request->path(), '/api/public/v1/')) {
+            return [ApiAccessMethod::BrowserChatbot, null, null];
+        }
+
+        return [ApiAccessMethod::Unauthenticated, null, null];
     }
 
     private function errorCategory(Response $response): ?string

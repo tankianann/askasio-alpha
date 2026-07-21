@@ -33,6 +33,7 @@ final readonly class ChatbotSession
         public ?string $completedAt,
         public ?string $purgeEligibleAt,
         public ?int $previewDraftRevision = null,
+        public ?int $chatbotApiKeyId = null,
     ) {
     }
 }

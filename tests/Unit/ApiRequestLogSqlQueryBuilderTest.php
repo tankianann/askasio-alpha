@@ -27,6 +27,7 @@ final class ApiRequestLogSqlQueryBuilderTest extends TestCase
                 'duration_max' => '5000',
                 'request_id' => 'request-123',
                 'authentication' => 'authenticated',
+                'access_method' => 'general_api_key',
                 'sort' => 'duration',
                 'direction' => 'asc',
             ],
@@ -43,7 +44,9 @@ final class ApiRequestLogSqlQueryBuilderTest extends TestCase
         self::assertStringContainsString('logs.duration_ms >= :duration_minimum', $where['sql']);
         self::assertStringContainsString('logs.duration_ms <= :duration_maximum', $where['sql']);
         self::assertStringContainsString('logs.request_id = :request_id', $where['sql']);
-        self::assertStringContainsString('logs.api_key_id IS NOT NULL', $where['sql']);
+        self::assertStringContainsString("logs.access_method <> 'unauthenticated'", $where['sql']);
+        self::assertStringContainsString('logs.access_method = :access_method', $where['sql']);
+        self::assertSame('general_api_key', $where['parameters']['access_method']);
         self::assertSame('/api/v1/chat', $where['parameters']['endpoint']);
         self::assertSame(400, $where['parameters']['status_minimum']);
         self::assertSame(499, $where['parameters']['status_maximum']);
@@ -64,7 +67,7 @@ final class ApiRequestLogSqlQueryBuilderTest extends TestCase
 
         self::assertStringContainsString('logs.status_code = :status_code', $where['sql']);
         self::assertStringNotContainsString('BETWEEN', $where['sql']);
-        self::assertStringContainsString('logs.api_key_id IS NULL', $where['sql']);
+        self::assertStringContainsString("logs.access_method = 'unauthenticated'", $where['sql']);
         self::assertSame(401, $where['parameters']['status_code']);
     }
 

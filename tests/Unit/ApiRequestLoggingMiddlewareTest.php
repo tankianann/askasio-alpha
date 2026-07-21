@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Http\Middleware\ApiRequestLoggingMiddleware;
+use App\Domain\Api\ApiAccessMethod;
+use App\Domain\Chatbots\ChatbotIntegrationCredential;
 use App\Http\Request;
 use App\Http\Response;
 use App\Services\Api\ApiRequestContext;
@@ -42,6 +44,7 @@ final class ApiRequestLoggingMiddlewareTest extends TestCase
         self::assertCount(1, $repository->logs);
         $log = $repository->logs[0];
         self::assertSame(7, $log->apiKeyId);
+        self::assertSame(ApiAccessMethod::GeneralApiKey, $log->accessMethod);
         self::assertSame('/api/v1/retrieve', $log->endpoint);
         self::assertSame(['retrieved_chunks' => 4], $log->usage);
         self::assertSame(64, strlen($log->ipHash));
@@ -65,6 +68,7 @@ final class ApiRequestLoggingMiddlewareTest extends TestCase
         self::assertSame(401, $repository->logs[0]->statusCode);
         self::assertSame('unauthorized', $repository->logs[0]->errorCategory);
         self::assertNull($repository->logs[0]->apiKeyId);
+        self::assertSame(ApiAccessMethod::Unauthenticated, $repository->logs[0]->accessMethod);
     }
 
     public function testPrivacyBoundaryExcludesCredentialsBodiesPromptsRetrievedTextAndAnswers(): void
@@ -110,6 +114,7 @@ final class ApiRequestLoggingMiddlewareTest extends TestCase
         self::assertSame('/api/v1/chat', $repository->logs[0]->endpoint);
         self::assertSame(['retrieved_chunks' => 3, 'output_tokens' => 42], $repository->logs[0]->usage);
         self::assertSame([
+            'accessMethod',
             'requestId',
             'apiKeyId',
             'ipHash',
@@ -122,6 +127,11 @@ final class ApiRequestLoggingMiddlewareTest extends TestCase
             'createdAt',
             'apiKeyName',
             'apiKeyPrefix',
+            'chatbotApiKeyId',
+            'chatbotApiKeyName',
+            'chatbotApiKeyPrefix',
+            'chatbotId',
+            'chatbotName',
         ], array_keys(get_object_vars($repository->logs[0])));
     }
 
@@ -150,7 +160,36 @@ final class ApiRequestLoggingMiddlewareTest extends TestCase
             '/api/public/v1/chatbots/{chatbotPublicId}/sessions/{sessionId}/messages',
             $repository->logs[0]->endpoint,
         );
+        self::assertSame(ApiAccessMethod::BrowserChatbot, $repository->logs[0]->accessMethod);
         self::assertStringNotContainsString('PUBLIC_IDENTIFIER', serialize($repository->logs[0]));
         self::assertStringNotContainsString('SESSION_IDENTIFIER', serialize($repository->logs[0]));
+    }
+
+    public function testItAttributesAuthenticatedChatbotApiKeysWithoutLoggingTheSecret(): void
+    {
+        $repository = new InMemoryApiRequestLogRepository();
+        $middleware = new ApiRequestLoggingMiddleware(
+            $repository,
+            new ApiRequestContext(),
+            new NullLogger(),
+            str_repeat('s', 32),
+        );
+        $credential = new ChatbotIntegrationCredential(
+            14, 1, 'CRM', 'chatint_live_safe', hash('sha256', 'secret'), 'active', [3], 0, 0,
+            '2026-07-21 00:00:00', null, null, null,
+        );
+        $request = (new Request(
+            'POST',
+            '/api/integrations/v1/chatbots/cb_secret/sessions',
+            headers: ['authorization' => 'Bearer chatint_live_PRIVATE'],
+        ))
+            ->withAttribute('request_id', 'chatbot-key-request')
+            ->withAttribute('chatbot_integration_credential', $credential);
+
+        $middleware->process($request, static fn (): Response => Response::json(['ok' => true]));
+
+        self::assertSame(ApiAccessMethod::ChatbotApiKey, $repository->logs[0]->accessMethod);
+        self::assertSame(14, $repository->logs[0]->chatbotApiKeyId);
+        self::assertStringNotContainsString('chatint_live_PRIVATE', serialize($repository->logs[0]));
     }
 }
