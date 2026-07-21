@@ -25,14 +25,26 @@ final readonly class PublicChatbotCorsMiddleware implements MiddlewareInterface
 
     public function process(Request $request, Closure $next): Response
     {
-        $origin = $request->header('origin');
+        $originHeader = $request->header('origin');
+        $origin = $originHeader;
+        $corsRequest = is_string($originHeader) && $originHeader !== '';
+        $sameOriginRequest = !$corsRequest
+            && strtolower((string) $request->header('sec-fetch-site', '')) === 'same-origin';
+
+        if ($sameOriginRequest) {
+            $host = trim((string) $request->header('host', ''));
+            $origin = ($request->isSecure() ? 'https://' : 'http://') . $host;
+        }
 
         try {
             $context = $this->access->authorize((string) $request->route('chatbotPublicId'), $origin);
         } catch (Throwable $exception) {
-            return $this->errors->handle($request, $exception)
-                ->withHeader('Cache-Control', 'no-store')
-                ->withHeader('Vary', 'Origin');
+            $response = $this->errors->handle($request, $exception)
+                ->withHeader('Cache-Control', 'no-store');
+
+            return ($corsRequest || !$sameOriginRequest)
+                ? $response->withHeader('Vary', 'Origin')
+                : $response;
         }
 
         $request = $request->withAttribute('public_chatbot_context', $context);
@@ -45,12 +57,17 @@ final readonly class PublicChatbotCorsMiddleware implements MiddlewareInterface
             $response = $this->errors->handle($request, $exception);
         }
 
+        $response = $response->withHeader('Cache-Control', 'no-store');
+
+        if (!$corsRequest) {
+            return $response;
+        }
+
         return $response
-            ->withHeader('Access-Control-Allow-Origin', trim((string) $origin))
+            ->withHeader('Access-Control-Allow-Origin', trim((string) $originHeader))
             ->withHeader('Vary', $request->method() === 'OPTIONS'
                 ? 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers'
-                : 'Origin')
-            ->withHeader('Cache-Control', 'no-store');
+                : 'Origin');
     }
 
     private function preflight(Request $request): Response

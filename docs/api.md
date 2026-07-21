@@ -74,7 +74,7 @@ X-RateLimit-Remaining: 9
 
 A rate rejection includes those headers, `Retry-After`, and `Cache-Control: no-store`.
 
-Public configuration and session creation use separate 60-second namespaces. Defaults are respectively 120/IP and 600/chatbot, then 20/IP and 120/chatbot. Identifiers are HMAC-derived and counters are atomic in MySQL.
+Public configuration, session creation, and message submission use separate 60-second namespaces. Defaults are respectively 120/IP and 600/chatbot; 20/IP and 120/chatbot; then 30/IP, 300/chatbot, and 20/session. Identifiers are HMAC-derived and counters are atomic in MySQL.
 
 Separate global/per-key UTC daily/monthly provider-token budgets reserve conservatively before an embedding/chat call. An insufficient budget returns `quota_exceeded` before any provider call. Successful usage can include:
 
@@ -90,7 +90,7 @@ Separate global/per-key UTC daily/monthly provider-token budgets reserve conserv
 
 Remaining fields are omitted when all applicable limits are configured as unlimited (`0`). `quota_reserved_tokens` describes the conservative preflight allowance, not the final charge.
 
-## Public chatbot configuration and session creation
+## Public chatbot API
 
 Implemented browser routes:
 
@@ -99,11 +99,26 @@ GET     /api/public/v1/chatbots/{cb_…}/config
 OPTIONS /api/public/v1/chatbots/{cb_…}/config
 POST    /api/public/v1/chatbots/{cb_…}/sessions
 OPTIONS /api/public/v1/chatbots/{cb_…}/sessions
+POST    /api/public/v1/chatbots/{cb_…}/sessions/{cs_…}/messages
+OPTIONS /api/public/v1/chatbots/{cb_…}/sessions/{cs_…}/messages
+POST    /api/public/v1/chatbots/{cb_…}/sessions/{cs_…}/complete
+OPTIONS /api/public/v1/chatbots/{cb_…}/sessions/{cs_…}/complete
 ```
 
 All require an exact published allowlisted `Origin`. Allowed responses echo that origin, never `*`, and return `Vary: Origin` plus `Cache-Control: no-store`. Configuration exposes only the versioned public presentation/capability/privacy DTO; it excludes instructions, models, credentials, source/internal IDs, origins, and diagnostics.
 
-Session creation requires `Content-Type: application/json` with exactly `{}` and returns `201` with `session_id`, one-time `session_token`, idle/absolute UTC expiry, and `request_id`. The token contains 256 random bits and only its SHA-256 hash/safe prefix are stored. Public message, delete, and restart routes are not implemented yet. See the detailed [public configuration/session contract](customer-facing-chatbot/public-configuration-and-session-api.md).
+Session creation requires `Content-Type: application/json` with exactly `{}` and returns `201` with `session_id`, one-time `session_token`, idle/absolute UTC expiry, and `request_id`. The token contains 256 random bits and only its SHA-256 hash/safe prefix are stored.
+
+Messages require that token as a Bearer credential and exactly:
+
+```json
+{
+  "message": "What is the refund policy?",
+  "idempotency_key": "019f..."
+}
+```
+
+A successful response contains the session/message public IDs, grounded `answer`, allowlisted public `citations`, `usage.retrieved_chunks`, `fallback`, `replayed`, and `request_id`. Completion requires the same bearer and exactly `{}`, returns `204`, and is the widget's restart primitive. Public transcript retrieval and deletion are not implemented. See [Public configuration/session](customer-facing-chatbot/public-configuration-and-session-api.md), [Public messages](customer-facing-chatbot/public-message-api.md), and [Widget foundation](customer-facing-chatbot/widget-foundation.md).
 
 ## `GET /api/v1/health`
 

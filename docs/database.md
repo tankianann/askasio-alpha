@@ -87,7 +87,7 @@ Application connection metadata: creator, name, safe prefix, SHA-256 secret hash
 
 ### `api_rate_limit_buckets`
 
-Fixed-window counters keyed by scope, hashed identifier, and bucket start. Scopes support API keys, HMAC-derived IP signals, and public chatbot IDs; endpoint namespaces are included before hashing. Expired buckets are deleted in bounded batches on API activity. This prune-on-request write is a known scaling trade-off.
+Fixed-window counters keyed by scope, hashed identifier, and bucket start. Scopes support API keys, HMAC-derived IP signals, public chatbot IDs, and public session IDs; endpoint namespaces are included before hashing. Expired buckets are deleted in bounded batches on API activity. This prune-on-request write is a known scaling trade-off.
 
 ### `api_request_logs`
 
@@ -188,6 +188,7 @@ Current migration history:
 | `20260720000015` | Publication-bound chatbot sessions/messages, hash-only authorization, idempotency, expiry, usage, and retention indexes. |
 | `20260720000016` | Mutually exclusive immutable draft-preview execution snapshots on test sessions; publication binding becomes nullable only for those rows. |
 | `20260721000017` | Add the public-chatbot scope to atomic fixed-window request counters. |
+| `20260721000018` | Add the public-session scope used by independent message request limits. |
 
 ## Index and query guidance
 

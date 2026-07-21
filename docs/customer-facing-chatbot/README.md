@@ -5,7 +5,7 @@
 This directory is the living specification for Ask Asio's customer-facing chatbot feature. It establishes the documentation baseline before feature code is written.
 
 - Specification status: proposed for implementation review.
-- Implementation status: milestone 8 public configuration/session API complete; public message submission and the widget remain unavailable.
+- Implementation status: milestones 9 and 10 public messaging and widget foundation complete; conversation administration/retention is next.
 - Decision milestone: ADRs 027–033 recorded; draft/publication execution bindings and shared execution policy accepted.
 - Product boundary: one installation, one administrator, one tenant/account.
 - Current baseline: environment-configured OpenAI provider, shared knowledge-source catalog, compatible grounded `/api/v1/chat`, hash-only credentials, durable publication/draft-preview conversations, administrator preview, and exact-origin public configuration/session creation.
@@ -27,6 +27,8 @@ Requirements use **must** for release requirements, **should** for preferred beh
 | [Shared chat execution](shared-chat-execution.md) | Implemented milestone 6 source-scoped grounding, history, fallback, citations, persistence, failures, quota reconciliation, and compatibility. |
 | [Administrator preview](admin-preview.md) | Implemented milestone 7 immutable draft-preview sessions, admin routes/UI, safe diagnostics, test classification, migration, and tests. |
 | [Public configuration and session API](public-configuration-and-session-api.md) | Implemented milestone 8 public DTOs, exact-origin CORS, session creation, hash-only tokens, request limits, migration, and tests. |
+| [Public message API](public-message-api.md) | Implemented milestone 9 bearer authorization, execution, idempotency, failure recovery, usage, limits, migration, and tests. |
+| [Widget foundation](widget-foundation.md) | Implemented milestone 10 loader, isolated accessible UI, browser storage, API calls, restart, safe rendering, responsiveness, and compatibility. |
 | [Public API and integrations](public-api-and-integrations.md) | Browser API, session/message contracts, widget, CORS, WordPress, and server-to-server access. |
 | [Security and privacy](security-and-privacy.md) | Trust boundaries, resource scoping, abuse controls, secrets, retention, and content safety. |
 | [Quality and operations](quality-and-operations.md) | Grounding, reliability, observability, caching, test strategy, deployment, and definition of done. |

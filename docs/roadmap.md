@@ -2,7 +2,7 @@
 
 ## Current state
 
-Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestone 8 adds exact-origin public configuration and production session creation with strict DTOs, hash-only tokens, CORS, and IP/chatbot limits; public messaging and widget behavior do not exist yet.
+Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestones 9 and 10 add authenticated non-streaming public messages and an accessible isolated widget over exact-origin production sessions.
 
 The application is suitable for a controlled single-administrator deployment after the operator completes the production checklist. The largest remaining architecture limit is full-corpus vector scoring in PHP. The most immediate deployment-security gap is trusted reverse-proxy handling.
 
@@ -66,7 +66,7 @@ The application is suitable for a controlled single-administrator deployment aft
 
 ### Customer-facing chatbot implementation
 
-The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–8 add migrations `20260720000013`–`20260721000017`, chatbot identity/drafts, immutable scoped publications, authenticated administration/preview, publication/draft-bound persistence, shared grounding, and public configuration/session creation. The next reviewable milestone is authenticated public message submission.
+The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–10 add migrations `20260720000013`–`20260721000018`, chatbot identity/drafts, immutable scoped publications, authenticated administration/preview, publication/draft-bound persistence, shared grounding, public sessions/messages, and the widget foundation. The next reviewable milestone is bounded conversation administration and retention.
 
 Trusted reverse-proxy support remains a production security dependency for reliable client-IP rate limiting when deployed behind a TLS terminator.
 

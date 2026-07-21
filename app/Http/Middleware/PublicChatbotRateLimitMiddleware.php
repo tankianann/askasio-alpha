@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Domain\Chatbots\PublicChatbotContext;
+use App\Domain\Chatbots\ChatbotSession;
 use App\Http\Request;
 use App\Http\Response;
 use App\Services\Chatbots\PublicChatbotRateLimiter;
@@ -24,7 +25,12 @@ final readonly class PublicChatbotRateLimitMiddleware implements MiddlewareInter
             throw new \LogicException('Authorized public chatbot context is missing.');
         }
 
-        $decision = $this->limiter->consume($context->chatbot->publicId, $request->clientIp());
+        $session = $request->attribute('public_chatbot_session');
+        $decision = $this->limiter->consume(
+            $context->chatbot->publicId,
+            $request->clientIp(),
+            $session instanceof ChatbotSession ? $session->publicId : null,
+        );
 
         if (!$decision->allowed) {
             $requestId = $request->attribute('request_id');

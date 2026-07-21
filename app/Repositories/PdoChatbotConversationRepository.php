@@ -257,6 +257,62 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
         return $this->findSession('token_hash = :value', $tokenHash);
     }
 
+    public function recoverStalePendingMessage(
+        int $sessionId,
+        string $idempotencyKeyHash,
+        DateTimeImmutable $staleBefore,
+        DateTimeImmutable $now,
+    ): bool {
+        return $this->transaction(function (PDO $pdo) use (
+            $sessionId,
+            $idempotencyKeyHash,
+            $staleBefore,
+            $now,
+        ): bool {
+            $this->lockSessionRow($pdo, $sessionId);
+            $statement = $pdo->prepare(
+                "SELECT * FROM chatbot_messages
+                 WHERE session_id = :session_id AND role = 'user' AND status = 'pending'
+                   AND idempotency_key_hash = :idempotency_key_hash AND created_at <= :stale_before
+                 LIMIT 1 FOR UPDATE",
+            );
+            $statement->execute([
+                'session_id' => $sessionId,
+                'idempotency_key_hash' => $idempotencyKeyHash,
+                'stale_before' => $this->format($staleBefore),
+            ]);
+            $user = $statement->fetch();
+
+            if (!is_array($user)) {
+                return false;
+            }
+
+            $timestamp = $this->format($now);
+            $pdo->prepare(
+                "UPDATE chatbot_messages SET status = 'completed', completed_at = :completed_at WHERE id = :id",
+            )->execute(['completed_at' => $timestamp, 'id' => $user['id']]);
+            $insert = $pdo->prepare(<<<'SQL'
+                INSERT INTO chatbot_messages (
+                    session_id, reply_to_message_id, role, status, content, content_hash,
+                    idempotency_key_hash, request_id, input_tokens, output_tokens,
+                    embedding_tokens, provider_tokens, error_code, created_at, completed_at
+                ) VALUES (
+                    :session_id, :reply_to_message_id, 'assistant', 'failed', NULL, NULL,
+                    NULL, :request_id, 0, 0, 0, 0, 'stale_message_recovered', :created_at, :completed_at
+                )
+                SQL);
+            $insert->execute([
+                'session_id' => $sessionId,
+                'reply_to_message_id' => $user['id'],
+                'request_id' => $user['request_id'],
+                'created_at' => $timestamp,
+                'completed_at' => $timestamp,
+            ]);
+
+            return true;
+        });
+    }
+
     public function reserveUserMessage(
         int $sessionId,
         string $idempotencyKeyHash,

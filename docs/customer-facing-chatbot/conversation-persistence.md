@@ -33,7 +33,7 @@ Every session receives:
 - copied maximum user turns, maximum message characters, idle timeout, and `0|7|30|90` retention;
 - status, user-turn count, usage totals, activity, expiry, terminal, and purge-eligibility timestamps.
 
-The plaintext bearer token is returned once by the internal service and is not recoverable from the domain record or database. Authentication resolves the indexed token hash, then uses constant-time comparisons for both hash and public session ID. HTTP bearer handling and per-tab `sessionStorage` remain milestone 8 work; no token is currently exposed publicly.
+The plaintext bearer token is returned once by the service and is not recoverable from the domain record or database. Authentication resolves the indexed token hash, then uses constant-time comparisons for both hash and public session ID. Milestones 8–10 subsequently exposed the one-time token through public session creation and keep it only in per-tab widget `sessionStorage`.
 
 Browser sessions are always production traffic. Administrator preview sessions are always test traffic. Integration sessions retain an explicit immutable `is_test` classification for the later scoped integration contract.
 

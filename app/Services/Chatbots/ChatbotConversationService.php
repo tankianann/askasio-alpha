@@ -18,6 +18,7 @@ use App\Exceptions\InvalidChatbotSessionTokenException;
 use App\Exceptions\ValidationException;
 use App\Repositories\ChatbotConversationRepositoryInterface;
 use DateTimeImmutable;
+use DateInterval;
 use JsonException;
 
 final readonly class ChatbotConversationService
@@ -26,7 +27,11 @@ final readonly class ChatbotConversationService
         private ChatbotConversationRepositoryInterface $conversations,
         private ChatbotSessionCredentialGeneratorInterface $credentials,
         private ChatbotOriginNormalizer $origins = new ChatbotOriginNormalizer(),
+        private int $pendingTimeoutSeconds = 120,
     ) {
+        if ($this->pendingTimeoutSeconds < 30 || $this->pendingTimeoutSeconds > 3_600) {
+            throw new \InvalidArgumentException('The chatbot pending-message timeout is invalid.');
+        }
     }
 
     public function createSession(
@@ -149,9 +154,17 @@ final readonly class ChatbotConversationService
             throw new ValidationException('The request ID must be a valid UUID.');
         }
 
+        $idempotencyKeyHash = hash('sha256', $idempotencyKey);
+        $this->conversations->recoverStalePendingMessage(
+            $session->id,
+            $idempotencyKeyHash,
+            $now->sub(new DateInterval('PT' . $this->pendingTimeoutSeconds . 'S')),
+            $now,
+        );
+
         return $this->conversations->reserveUserMessage(
             $session->id,
-            hash('sha256', $idempotencyKey),
+            $idempotencyKeyHash,
             $content,
             hash('sha256', $content),
             strtolower($requestId),

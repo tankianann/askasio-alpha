@@ -173,6 +173,37 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
         return null;
     }
 
+    public function recoverStalePendingMessage(
+        int $sessionId,
+        string $idempotencyKeyHash,
+        DateTimeImmutable $staleBefore,
+        DateTimeImmutable $now,
+    ): bool {
+        foreach ($this->messages as $id => $message) {
+            if ($message->sessionId !== $sessionId
+                || $message->role !== ChatbotMessageRole::User
+                || $message->status !== ChatbotMessageStatus::Pending
+                || $message->idempotencyKeyHash !== $idempotencyKeyHash
+                || $this->date($message->createdAt) > $staleBefore
+                || $this->assistantFor($message->id) !== null) {
+                continue;
+            }
+
+            $this->messages[$id] = $this->copyMessageStatus($message, ChatbotMessageStatus::Completed, $now);
+            $assistant = new ChatbotMessage(
+                $this->nextMessageId++, $sessionId, $message->id, ChatbotMessageRole::Assistant,
+                ChatbotMessageStatus::Failed, null, null, null, $message->requestId, null, null, null,
+                0, 0, 0, 0, null, null, 'stale_message_recovered',
+                $this->format($now), $this->format($now),
+            );
+            $this->messages[$assistant->id] = $assistant;
+
+            return true;
+        }
+
+        return false;
+    }
+
     public function reserveUserMessage(
         int $sessionId,
         string $idempotencyKeyHash,

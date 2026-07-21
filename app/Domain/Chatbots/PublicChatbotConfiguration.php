@@ -8,7 +8,7 @@ final readonly class PublicChatbotConfiguration
 {
     /**
      * @param list<string> $suggestedQuestions
-     * @param array{accent: string, theme: string, position: string, size: string} $appearance
+     * @param array{accent: string, theme: string, position: string, launcher_label: string, launcher_icon: string, panel_title: string, size: string} $appearance
      */
     public function __construct(
         public string $id,
@@ -45,6 +45,9 @@ final readonly class PublicChatbotConfiguration
                 'accent' => is_string($appearance['accent'] ?? null) ? $appearance['accent'] : '#2457d6',
                 'theme' => is_string($appearance['theme'] ?? null) ? $appearance['theme'] : 'light',
                 'position' => is_string($appearance['position'] ?? null) ? $appearance['position'] : 'right',
+                'launcher_label' => is_string($appearance['launcher_label'] ?? null) ? $appearance['launcher_label'] : 'Chat',
+                'launcher_icon' => is_string($appearance['launcher_icon'] ?? null) ? $appearance['launcher_icon'] : 'chat',
+                'panel_title' => is_string($appearance['panel_title'] ?? null) ? $appearance['panel_title'] : 'Chat',
                 'size' => is_string($appearance['size'] ?? null) ? $appearance['size'] : 'standard',
             ],
             $configuration->citationsEnabled,

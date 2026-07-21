@@ -37,6 +37,13 @@ interface ChatbotConversationRepositoryInterface
 
     public function findSessionByTokenHash(string $tokenHash): ?ChatbotSession;
 
+    public function recoverStalePendingMessage(
+        int $sessionId,
+        string $idempotencyKeyHash,
+        DateTimeImmutable $staleBefore,
+        DateTimeImmutable $now,
+    ): bool;
+
     public function reserveUserMessage(
         int $sessionId,
         string $idempotencyKeyHash,

@@ -2,6 +2,14 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot public messages and widget — 2026-07-21
+
+- Added bearer-authenticated non-streaming message and completion routes with exact chatbot/session/origin binding, strict DTOs, source-scoped shared execution, persistence, public-safe citations, and usage/quota reconciliation.
+- Added atomic idempotency replay/conflict/in-progress handling, stale-pending recovery, copied message limits, safe persisted provider failures, and independent HMAC IP/chatbot/session rate limits.
+- Added migration `20260721000018` for the session counter scope plus message-rate and pending-timeout configuration.
+- Added the async versioned Shadow DOM widget with per-tab `sessionStorage`, lazy sessions, completion-backed restart, safe DOM rendering, accessible interactions, responsive/high-contrast/reduced-motion behavior, and compatibility contracts.
+- Added HTTP/security, failure-recovery, rendering-safety, and browser-facing compatibility coverage without paid provider calls.
+
 ## Customer-facing chatbot public configuration/session API — 2026-07-21
 
 - Added versioned public configuration/session routes and strict allowlisted DTOs without exposing internal IDs, source scope, prompts, models, credentials, or diagnostics.

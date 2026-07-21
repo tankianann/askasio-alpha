@@ -6,7 +6,7 @@ Ask Asio is a standalone, single-administrator Retrieval-Augmented Generation ap
 
 The application deliberately uses PHP 8.3+, PDO, MySQL 8, Composer packages, server-rendered PHP templates, and vanilla JavaScript without an application framework. It is single-tenant today, but integration boundaries and repository/service layers make later provider or vector-store replacement possible.
 
-The customer-facing chatbot now has administration, publication/draft-preview persistence, a shared grounding boundary, authenticated preview, and exact-origin public configuration/session creation with hash-only tokens and IP/chatbot limits. Public messaging and widget behavior remain unavailable. See [Public configuration and session API](customer-facing-chatbot/public-configuration-and-session-api.md), [Administrator preview](customer-facing-chatbot/admin-preview.md), and [Shared chat execution](customer-facing-chatbot/shared-chat-execution.md).
+The customer-facing chatbot now has administration, publication/draft-preview persistence, a shared grounding boundary, authenticated preview, exact-origin public sessions/messages, and an isolated accessible widget with per-tab hash-only credentials. See [Public message API](customer-facing-chatbot/public-message-api.md), [Widget foundation](customer-facing-chatbot/widget-foundation.md), and [Shared chat execution](customer-facing-chatbot/shared-chat-execution.md).
 
 ## System context
 

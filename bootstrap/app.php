@@ -30,6 +30,7 @@ use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\SessionStartMiddleware;
 use App\Http\Middleware\PublicChatbotCorsMiddleware;
 use App\Http\Middleware\PublicChatbotRateLimitMiddleware;
+use App\Http\Middleware\PublicChatbotSessionAuthenticationMiddleware;
 use App\Http\Router;
 use App\Logging\LoggerFactory;
 use App\Maintenance\ApiRequestLogMaintenanceLock;
@@ -221,6 +222,7 @@ $conversationRepository = new PdoChatbotConversationRepository($connection);
 $conversationService = new ChatbotConversationService(
     $conversationRepository,
     new RandomChatbotSessionCredentialGenerator(),
+    pendingTimeoutSeconds: $config->requireInt('api.public_chatbot_pending_timeout_seconds'),
 );
 $sourceDeletion = new SourcePermanentDeletionService($sources, $sourceFileStorage, $logger, $chatbots);
 $router = new Router();
@@ -258,6 +260,7 @@ $sourceController = new SourceController(
     new SourceHistoryQueryParser($timezone),
 );
 $chatbotPreviewService = null;
+$sharedChatExecutionService = null;
 
 if ($chatbotProviderConfigured) {
     try {
@@ -275,22 +278,23 @@ if ($chatbotProviderConfigured) {
             new PromptBuilder(),
             (new ChatProviderFactory($config))->create(),
         );
+        $sharedChatExecutionService = new SharedChatExecutionService(
+            $chatbots,
+            $conversationRepository,
+            $previewAnswers,
+            new ChatbotHistorySelector($previewTokens, $config->requireInt('rag.chat_history_maximum_tokens')),
+            new CitationProjector(),
+            new ChatExecutionErrorMapper(),
+            $providerQuotas,
+            $previewUsage,
+            $chatbotProvider,
+            $previewTokens,
+            $config->requireInt('rag.chat_context_maximum_tokens'),
+            $config->requireInt('providers.openai.chat_maximum_output_tokens'),
+        );
         $chatbotPreviewService = new ChatbotPreviewService(
             $conversationService,
-            new SharedChatExecutionService(
-                $chatbots,
-                $conversationRepository,
-                $previewAnswers,
-                new ChatbotHistorySelector($previewTokens, $config->requireInt('rag.chat_history_maximum_tokens')),
-                new CitationProjector(),
-                new ChatExecutionErrorMapper(),
-                $providerQuotas,
-                $previewUsage,
-                $chatbotProvider,
-                $previewTokens,
-                $config->requireInt('rag.chat_context_maximum_tokens'),
-                $config->requireInt('providers.openai.chat_maximum_output_tokens'),
-            ),
+            $sharedChatExecutionService,
             $session,
             $chatbotProvider,
         );
@@ -330,6 +334,8 @@ $publicChatbotAccess = new PublicChatbotAccessService(
 $publicChatbotController = new PublicChatbotController(
     $conversationService,
     new JsonRequestParser($config->requireInt('rag.api_maximum_body_bytes')),
+    executor: $sharedChatExecutionService,
+    applicationSecret: $appSecret,
 );
 $jobController = new JobController(
     $queue,
@@ -410,6 +416,15 @@ $publicChatbotSessionCorsMiddleware = new PublicChatbotCorsMiddleware(
     ['POST'],
     ['Content-Type'],
 );
+$publicChatbotMessageCorsMiddleware = new PublicChatbotCorsMiddleware(
+    $publicChatbotAccess,
+    $errorHandler,
+    ['POST'],
+    ['Authorization', 'Content-Type'],
+);
+$publicChatbotSessionAuthenticationMiddleware = new PublicChatbotSessionAuthenticationMiddleware(
+    $conversationService,
+);
 $publicChatbotConfigRateLimitMiddleware = new PublicChatbotRateLimitMiddleware(
     new PublicChatbotRateLimiter(
         new PdoApiRateLimitRepository($connection),
@@ -428,6 +443,17 @@ $publicChatbotSessionRateLimitMiddleware = new PublicChatbotRateLimitMiddleware(
         $config->requireInt('api.public_chatbot_session_rate_limit_per_ip'),
         $config->requireInt('api.public_chatbot_session_rate_limit_per_chatbot'),
         'public_session',
+    ),
+);
+$publicChatbotMessageRateLimitMiddleware = new PublicChatbotRateLimitMiddleware(
+    new PublicChatbotRateLimiter(
+        new PdoApiRateLimitRepository($connection),
+        $appSecret,
+        $config->requireInt('api.public_chatbot_rate_limit_window_seconds'),
+        $config->requireInt('api.public_chatbot_message_rate_limit_per_ip'),
+        $config->requireInt('api.public_chatbot_message_rate_limit_per_chatbot'),
+        'public_message',
+        $config->requireInt('api.public_chatbot_message_rate_limit_per_session'),
     ),
 );
 $sessionMiddleware = new SessionStartMiddleware($session);
@@ -524,6 +550,9 @@ $registerRoutes(
     $publicChatbotSessionCorsMiddleware,
     $publicChatbotConfigRateLimitMiddleware,
     $publicChatbotSessionRateLimitMiddleware,
+    $publicChatbotMessageCorsMiddleware,
+    $publicChatbotSessionAuthenticationMiddleware,
+    $publicChatbotMessageRateLimitMiddleware,
 );
 
 return [

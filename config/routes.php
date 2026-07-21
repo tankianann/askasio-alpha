@@ -19,6 +19,7 @@ use App\Http\Middleware\CsrfMiddleware;
 use App\Http\Middleware\SessionStartMiddleware;
 use App\Http\Middleware\PublicChatbotCorsMiddleware;
 use App\Http\Middleware\PublicChatbotRateLimitMiddleware;
+use App\Http\Middleware\PublicChatbotSessionAuthenticationMiddleware;
 use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
@@ -49,6 +50,9 @@ return [
         PublicChatbotCorsMiddleware $publicChatbotSessionCorsMiddleware,
         PublicChatbotRateLimitMiddleware $publicChatbotConfigRateLimitMiddleware,
         PublicChatbotRateLimitMiddleware $publicChatbotSessionRateLimitMiddleware,
+        PublicChatbotCorsMiddleware $publicChatbotMessageCorsMiddleware,
+        PublicChatbotSessionAuthenticationMiddleware $publicChatbotSessionAuthenticationMiddleware,
+        PublicChatbotRateLimitMiddleware $publicChatbotMessageRateLimitMiddleware,
     ): void {
         $router->group('/api/public/v1', [], static function (Router $router) use (
             $publicChatbotController,
@@ -57,6 +61,9 @@ return [
             $publicChatbotSessionCorsMiddleware,
             $publicChatbotConfigRateLimitMiddleware,
             $publicChatbotSessionRateLimitMiddleware,
+            $publicChatbotMessageCorsMiddleware,
+            $publicChatbotSessionAuthenticationMiddleware,
+            $publicChatbotMessageRateLimitMiddleware,
         ): void {
             $router->get(
                 '/chatbots/{chatbotPublicId}/config',
@@ -83,6 +90,41 @@ return [
                 static fn (Request $request): Response => new Response('', 204),
                 [$publicChatbotSessionCorsMiddleware],
                 'api.public.v1.chatbots.sessions.options',
+            );
+            $router->post(
+                '/chatbots/{chatbotPublicId}/sessions/{sessionId}/messages',
+                [$publicChatbotController, 'message'],
+                [
+                    $publicChatbotMessageCorsMiddleware,
+                    $publicChatbotSessionAuthenticationMiddleware,
+                    $publicApiRequestLoggingMiddleware,
+                    $publicChatbotMessageRateLimitMiddleware,
+                ],
+                'api.public.v1.chatbots.sessions.messages.create',
+            );
+            $router->add(
+                'OPTIONS',
+                '/chatbots/{chatbotPublicId}/sessions/{sessionId}/messages',
+                static fn (Request $request): Response => new Response('', 204),
+                [$publicChatbotMessageCorsMiddleware],
+                'api.public.v1.chatbots.sessions.messages.options',
+            );
+            $router->post(
+                '/chatbots/{chatbotPublicId}/sessions/{sessionId}/complete',
+                [$publicChatbotController, 'completeSession'],
+                [
+                    $publicChatbotMessageCorsMiddleware,
+                    $publicChatbotSessionAuthenticationMiddleware,
+                    $publicApiRequestLoggingMiddleware,
+                ],
+                'api.public.v1.chatbots.sessions.complete',
+            );
+            $router->add(
+                'OPTIONS',
+                '/chatbots/{chatbotPublicId}/sessions/{sessionId}/complete',
+                static fn (Request $request): Response => new Response('', 204),
+                [$publicChatbotMessageCorsMiddleware],
+                'api.public.v1.chatbots.sessions.complete.options',
             );
         });
 

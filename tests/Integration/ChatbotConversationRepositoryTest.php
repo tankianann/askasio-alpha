@@ -135,7 +135,7 @@ final class ChatbotConversationRepositoryTest extends DatabaseIntegrationTestCas
         )->fetch(PDO::FETCH_ASSOC);
         self::assertIsArray($storedCredential);
         self::assertSame(hash('sha256', $token), $storedCredential['token_hash']);
-        self::assertNotContains($token, $storedCredential, true);
+        self::assertFalse(in_array($token, $storedCredential, true));
 
         $reservation = $service->reserveMessage(
             $created->session->publicId,

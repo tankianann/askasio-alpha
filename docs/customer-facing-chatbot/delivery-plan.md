@@ -93,14 +93,18 @@ Outcome: authenticated/CSRF-protected draft preview, immutable revision/configur
 
 Outcome: versioned public configuration/session routes and preflights, immutable publication-only DTO projection, exact normalized publication-origin authorization, origin-aware safe JSON errors, strict empty-object session schema, transactional production session creation, one-time 256-bit bearer response with hash-only persistence, independent HMAC IP/chatbot fixed-window limits, privacy-minimized Activity, migration `20260721000017`, and HTTP/security tests. No public message/delete/restart endpoint, widget, browser storage implementation, streaming, or integration credential was added. See [Public configuration and session API](public-configuration-and-session-api.md).
 
-### 9 — Public message API
+### 9 — Public message API (complete)
 
 - Add non-streaming message submission, idempotency, session/chatbot/origin validation, execution, persistence, limits, failure recovery, and usage integration.
 
-### 10 — Widget foundation
+Outcome: bearer-authenticated production message/completion routes, strict request DTOs, exact session/chatbot/origin/publication binding, shared grounded execution, idempotent replay/conflict/in-progress semantics, stale-pending recovery, durable safe failures and usage, per-IP/chatbot/session limits, migration `20260721000018`, and HTTP/security tests. See [Public message API](public-message-api.md).
+
+### 10 — Widget foundation (complete)
 
 - Add versioned async loader and isolated accessible UI.
 - Implement configuration/session/message calls, browser storage, restart, error states, responsive behavior, rendering safety, and compatibility tests.
+
+Outcome: async versioned `v1` loader and stylesheet, Shadow DOM isolation, accessible keyboard/focus/live-region behavior, public API integration, per-tab hash-token bearer storage, lazy sessions, completion-backed restart, bounded friendly errors, safe text/citation rendering, responsive/high-contrast/reduced-motion styles, and compatibility/browser checks. See [Widget foundation](widget-foundation.md).
 
 ### 11 — Conversation administration and retention
 
@@ -130,9 +134,8 @@ Outcome: versioned public configuration/session routes and preflights, immutable
 ## Open decisions
 
 1. Exact numeric bounds/defaults for message/session expiry and retrieval settings (set during typed validation/config implementation without changing ADR-031).
-2. Iframe versus Shadow DOM widget isolation.
-3. Whether trusted-proxy hardening must precede any internet deployment.
+2. Whether trusted-proxy hardening must precede any internet deployment.
 
 ## First implementation recommendation
 
-After review of milestone 8, begin with milestone 9 only: authenticated non-streaming public message submission over the shared executor. The widget remains a later milestone.
+After review of milestones 9 and 10, begin milestone 11 with bounded conversation administration and retention enforcement.

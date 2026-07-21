@@ -43,6 +43,9 @@ The current `/api/v1/chat` and `/api/v1/retrieve` remain authenticated server-to
       "accent": "#2457d6",
       "theme": "light",
       "position": "right",
+      "launcher_label": "Chat",
+      "launcher_icon": "chat",
+      "panel_title": "Support",
       "size": "standard"
     },
     "capabilities": {
@@ -179,7 +182,7 @@ The protocol must define `session`, `response_start`, `text_delta`, `citation`, 
 
 ## JavaScript widget
 
-Proposed installation:
+Implemented v1 installation:
 
 ```html
 <script
@@ -189,12 +192,12 @@ Proposed installation:
 </script>
 ```
 
-The loader must:
+The loader:
 
 - use only a public chatbot ID;
 - fetch client-safe configuration and communicate only with Ask Asio;
 - load asynchronously and fail safely;
-- isolate styles/DOM using an iframe or Shadow DOM design approved before implementation;
+- isolates styles and DOM with Shadow DOM while preserving the embedding page origin for authorization;
 - avoid arbitrary host-page code execution and global namespace pollution;
 - support current desktop/mobile browsers with a documented matrix;
 - keep a versioned URL and backward-compatible v1 contract;
