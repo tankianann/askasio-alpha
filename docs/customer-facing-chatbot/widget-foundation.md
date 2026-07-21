@@ -11,6 +11,8 @@ Milestone 10 serves a versioned loader and stylesheet from the public web root:
   async></script>
 ```
 
+For local development, Ask Asio is served by Laravel Herd at `https://askasio.test`, so external client demos should load `https://askasio.test/chat-widget/v1.js`. The client site's own exact origin must be added to the chatbot draft and published as described below.
+
 Add the embedding page's exact origin to the chatbot draft and publish it before loading the widget. The loader derives the API origin from its own `src`; it does not accept a caller-supplied API URL or credential. Duplicate loaders for the same API origin/public ID collapse to one instance.
 
 For a strict Content Security Policy, allow the Ask Asio origin in `script-src`, `style-src`, and `connect-src`. The embedding page must provide modern browser primitives: Shadow DOM, Fetch, Promises, Web Crypto, `sessionStorage`, and standard DOM APIs. The supported baseline is current evergreen Chrome, Edge, Firefox, and Safari; Internet Explorer is not supported.

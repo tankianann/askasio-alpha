@@ -42,14 +42,14 @@ Check health at `http://127.0.0.1:8080/api/v1/health` and sign in at `/admin/log
 
 ### Laravel Herd
 
-Herd must serve the application's `public/` directory. Example:
+The current Herd development site is `https://askasio.test`. Herd must serve the application's `public/` directory:
 
 ```dotenv
-APP_URL=https://ragserver.test
+APP_URL=https://askasio.test
 SESSION_SECURE_COOKIE=auto
 ```
 
-Visiting the site root redirects to `/admin`; unauthenticated users then redirect to `/admin/login`. A 404 at the root usually means Herd is serving the repository root or lacks front-controller routing.
+Visit `https://askasio.test` to open the site. The root redirects to `/admin`; unauthenticated users then redirect to `/admin/login`. A 404 at the root usually means Herd is serving the repository root or lacks front-controller routing.
 
 ### Optional Docker database
 

@@ -17,6 +17,8 @@ The application is framework-free. Begin at `public/index.php`, then `bootstrap/
 
 Requirements and full configuration are in [Deployment](deployment.md). Minimal local workflow:
 
+The current development site is served by Laravel Herd at `https://askasio.test`. Use the built-in PHP server commands below only when you need an alternative to Herd.
+
 ```bash
 composer install
 cp .env.example .env

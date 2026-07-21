@@ -255,18 +255,18 @@ The endpoint returns HTTP 200 when both application and database are healthy, or
 
 ## Laravel Herd
 
-When the repository is parked in Herd, Herd should serve `public/` as the document root. Configure the local URL to match the secured Herd site:
+The current Herd development site is available at `https://askasio.test`. Herd should serve `public/` as the document root. Configure the local URL to match the secured Herd site:
 
 ```dotenv
-APP_URL=https://ragserver.test
+APP_URL=https://askasio.test
 SESSION_SECURE_COOKIE=auto
 ```
 
-Then visit `https://ragserver.test`. The root route redirects to the protected administrator dashboard, and unauthenticated visitors are redirected to `/admin/login`. In `auto` mode the session cookie receives the `Secure` attribute whenever the current request uses HTTPS.
+Then visit `https://askasio.test`. The root route redirects to the protected administrator dashboard, and unauthenticated visitors are redirected to `/admin/login`. In `auto` mode the session cookie receives the `Secure` attribute whenever the current request uses HTTPS.
 
-After signing in, source management is available at `https://ragserver.test/admin/sources`.
-Queue status is available at `https://ragserver.test/admin/jobs`.
-API keys are managed at `https://ragserver.test/admin/api-keys`, and recent API activity is available at `https://ragserver.test/admin/api-requests`.
+After signing in, source management is available at `https://askasio.test/admin/sources`.
+Queue status is available at `https://askasio.test/admin/jobs`.
+API keys are managed at `https://askasio.test/admin/api-keys`, and recent API activity is available at `https://askasio.test/admin/api-requests`.
 
 ## Optional Docker database
 
