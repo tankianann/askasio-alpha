@@ -22,6 +22,7 @@ final class SourceCreationService
         private readonly SourceUploadValidator $uploads,
         private readonly SourceFileStorage $storage,
         private readonly IngestionQueue $queue,
+        private readonly MarkdownFrontMatterTitleParser $frontMatterTitles,
     ) {
     }
 
@@ -43,6 +44,20 @@ final class SourceCreationService
     {
         $name = $this->validateName($name);
         $mimeType = $this->uploads->validate($file, $type);
+
+        return $this->persistUpload($name, $type, $file, $mimeType);
+    }
+
+    public function createMarkdownFromFrontMatter(UploadedFile $file): Source
+    {
+        $mimeType = $this->uploads->validate($file, SourceType::Markdown);
+        $name = $this->validateName($this->frontMatterTitles->title($file));
+
+        return $this->persistUpload($name, SourceType::Markdown, $file, $mimeType);
+    }
+
+    private function persistUpload(string $name, SourceType $type, UploadedFile $file, string $mimeType): Source
+    {
         $hash = $file->sha256();
         $fileSize = $file->actualSize();
         $storedPath = null;
@@ -84,7 +99,7 @@ final class SourceCreationService
     {
         $name = trim($name);
 
-        if ($name === '' || strlen($name) > 190 || preg_match('/[\x00-\x1F\x7F]/', $name) === 1) {
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 190 || preg_match('/[\x00-\x1F\x7F]/', $name) === 1) {
             throw new ValidationException('Name is required and must not exceed 190 characters.');
         }
 

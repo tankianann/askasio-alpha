@@ -15,6 +15,7 @@ use App\Security\SourceUploadValidator;
 use App\Security\UrlSourceValidator;
 use App\Services\Ingestion\IngestionQueue;
 use App\Services\Sources\SourceCreationService;
+use App\Services\Sources\MarkdownFrontMatterTitleParser;
 use App\Services\Sources\SourceFileStorage;
 use App\Services\Sources\SourceHistoryQueryParser;
 use App\Services\Sources\SourceListQueryParser;
@@ -155,7 +156,7 @@ final class SourceDetailHistoryTest extends TestCase
 
         return new SourceController(
             $sources,
-            new SourceCreationService($sources, $urls, $uploads, $storage, $queue),
+            new SourceCreationService($sources, $urls, $uploads, $storage, $queue, new MarkdownFrontMatterTitleParser()),
             new ViewRenderer(dirname(__DIR__, 2) . '/resources/views'),
             new CsrfTokenManager($session),
             $session,

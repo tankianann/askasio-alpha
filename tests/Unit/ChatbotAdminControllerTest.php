@@ -178,6 +178,133 @@ final class ChatbotAdminControllerTest extends TestCase
         self::assertStringContainsString('Configure the installation chat and embedding models', $followed->body());
     }
 
+    public function testEditUsesServerRoutedTaskTabs(): void
+    {
+        [$controller, $chatbots, $sources] = $this->controller();
+        $chatbot = $chatbots->create('cb_tabs', 'Support', null, ChatbotFixtures::draft());
+        $source = $sources->createSource('Support handbook', SourceType::Markdown);
+        $chatbots->defineSource($source->id);
+
+        $settings = $controller->edit($this->request(
+            'GET',
+            '/admin/chatbots/1/edit?tab=settings',
+            query: ['tab' => 'settings'],
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+        self::assertStringContainsString('href="/admin/chatbots/1/edit?tab=knowledge"', $settings->body());
+        self::assertStringContainsString('aria-current="page"', $settings->body());
+        self::assertStringContainsString('Save draft settings', $settings->body());
+        self::assertStringNotContainsString('Source catalog', $settings->body());
+        self::assertStringContainsString('Assign at least one knowledge source.', $settings->body());
+        self::assertStringContainsString('Add at least one allowed browser origin.', $settings->body());
+
+        $knowledge = $controller->edit($this->request(
+            'GET',
+            '/admin/chatbots/1/edit?tab=knowledge',
+            query: ['tab' => 'knowledge'],
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+        self::assertStringContainsString('Source catalog', $knowledge->body());
+        self::assertStringContainsString('name="source_ids[]"', $knowledge->body());
+        self::assertStringNotContainsString('Save draft settings', $knowledge->body());
+
+        $access = $controller->edit($this->request(
+            'GET',
+            '/admin/chatbots/1/edit?tab=access',
+            query: ['tab' => 'access'],
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+        self::assertStringContainsString('Save allowed origins', $access->body());
+        self::assertStringNotContainsString('Source catalog', $access->body());
+
+        $lifecycle = $controller->edit($this->request(
+            'GET',
+            '/admin/chatbots/1/edit?tab=lifecycle',
+            query: ['tab' => 'lifecycle'],
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+        self::assertStringContainsString('Rotate public ID', $lifecycle->body());
+        self::assertStringNotContainsString('Save allowed origins', $lifecycle->body());
+    }
+
+    public function testBatchSourceAssignmentsAreAtomicAndPreserveKnowledgeFilters(): void
+    {
+        [$controller, $chatbots, $sources] = $this->controller();
+        $chatbot = $chatbots->create('cb_batch', 'Support', null, ChatbotFixtures::draft());
+        $first = $sources->createSource('Handbook one', SourceType::Markdown);
+        $second = $sources->createSource('Handbook two', SourceType::Markdown);
+        $chatbots->defineSource($first->id);
+        $chatbots->defineSource($second->id);
+
+        $added = $controller->updateSources($this->request(
+            'POST',
+            '/admin/chatbots/1/sources?tab=knowledge&search=Handbook',
+            query: ['tab' => 'knowledge', 'search' => 'Handbook'],
+            body: [
+                'revision' => '1',
+                'assignment_action' => 'add',
+                'source_ids' => [(string) $first->id, (string) $second->id],
+            ],
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+
+        self::assertSame(303, $added->status());
+        self::assertSame('/admin/chatbots/1/edit?search=Handbook&tab=knowledge', $added->headers()['Location']);
+        $afterAdd = $chatbots->findById(1);
+        self::assertNotNull($afterAdd);
+        self::assertSame([$first->id, $second->id], $afterAdd->assignments->sourceIds);
+        self::assertSame(2, $afterAdd->draft->revision);
+
+        $removed = $controller->updateSources($this->request(
+            'POST',
+            '/admin/chatbots/1/sources?tab=knowledge',
+            query: ['tab' => 'knowledge'],
+            body: [
+                'revision' => '2',
+                'assignment_action' => 'remove',
+                'source_ids' => [(string) $first->id],
+            ],
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+
+        self::assertSame(303, $removed->status());
+        $afterRemove = $chatbots->findById(1);
+        self::assertNotNull($afterRemove);
+        self::assertSame([$second->id], $afterRemove->assignments->sourceIds);
+        self::assertSame(3, $afterRemove->draft->revision);
+    }
+
+    public function testInvalidEditTabAndEmptyBatchSelectionFailSafely(): void
+    {
+        [$controller, $chatbots] = $this->controller();
+        $chatbot = $chatbots->create('cb_safe', 'Support', null, ChatbotFixtures::draft());
+        $invalid = $controller->edit($this->request(
+            'GET',
+            '/admin/chatbots/1/edit?tab=secrets',
+            query: ['tab' => 'secrets'],
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+        self::assertSame('/admin/chatbots/1/edit?tab=settings', $invalid->headers()['Location']);
+
+        $empty = $controller->updateSources($this->request(
+            'POST',
+            '/admin/chatbots/1/sources?tab=knowledge',
+            query: ['tab' => 'knowledge'],
+            body: ['revision' => '1', 'assignment_action' => 'add'],
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+        self::assertSame('/admin/chatbots/1/edit?tab=knowledge', $empty->headers()['Location']);
+        self::assertSame(1, $chatbots->findById(1)?->draft->revision);
+
+        $followed = $controller->edit($this->request(
+            'GET',
+            '/admin/chatbots/1/edit?tab=knowledge',
+            query: ['tab' => 'knowledge'],
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+        self::assertStringContainsString('Select between 1 and 100 sources.', $followed->body());
+    }
+
     /** @return array{ChatbotController, InMemoryChatbotRepository, InMemorySourceRepository} */
     private function controller(
         array $publicIds = ['cb_default'],

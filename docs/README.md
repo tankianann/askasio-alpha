@@ -27,6 +27,7 @@ These documents are the single source of truth for future Ask Asio development. 
 - Worker/document safety hardening: complete.
 - Provider quota enforcement: complete for authenticated chat and retrieval.
 - Customer-facing chatbot: milestones 1–14 implementation complete. Production approval remains conditional on the documented browser, production restore, provider-account/model, and deployment-topology checks.
+- Bulk Markdown upload: complete, including YAML-frontmatter document names and per-file queue results.
 - Recommended next milestone: trusted reverse-proxy support and production scheme/IP correctness. See [Roadmap](roadmap.md#recommended-next-milestone).
 
 ## Source of truth rules

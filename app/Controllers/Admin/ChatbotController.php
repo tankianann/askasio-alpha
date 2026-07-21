@@ -37,6 +37,7 @@ final class ChatbotController
 {
     private const FLASH_SUCCESS = '_flash_chatbot_success';
     private const FLASH_ERROR = '_flash_chatbot_error';
+    private const EDIT_TABS = ['settings', 'knowledge', 'access', 'lifecycle'];
 
     public function __construct(
         private readonly ChatbotRepositoryInterface $chatbots,
@@ -225,12 +226,19 @@ final class ChatbotController
                 $this->forms->draft($request, $revision),
             );
         } catch (ValidationException|StaleChatbotDraftException $exception) {
-            return $this->editView($request, $chatbot, $exception->getMessage(), $this->forms->old($request), 422);
+            return $this->editView(
+                $request,
+                $chatbot,
+                $exception->getMessage(),
+                $this->forms->old($request),
+                422,
+                'settings',
+            );
         }
 
         $this->session->put(self::FLASH_SUCCESS, 'Draft settings saved. Publish when the changes are ready.');
 
-        return Response::redirect('/admin/chatbots/' . $updated->id . '/edit', 303);
+        return Response::redirect($this->editUrl($updated->id, 'settings'), 303);
     }
 
     public function updateOrigins(Request $request): Response
@@ -249,7 +257,7 @@ final class ChatbotController
             $this->session->put(self::FLASH_ERROR, $exception->getMessage());
         }
 
-        return Response::redirect('/admin/chatbots/' . $chatbot->id . '/edit', 303);
+        return Response::redirect($this->editUrl($chatbot->id, 'access'), 303);
     }
 
     public function assignSource(Request $request): Response
@@ -260,6 +268,60 @@ final class ChatbotController
     public function removeSource(Request $request): Response
     {
         return $this->changeSourceAssignment($request, false);
+    }
+
+    public function updateSources(Request $request): Response
+    {
+        $chatbot = $this->chatbotFromRequest($request);
+        $action = $request->input('assignment_action');
+
+        try {
+            if (!is_string($action) || !in_array($action, ['add', 'remove'], true)) {
+                throw new ValidationException('Choose whether to add or remove the selected sources.');
+            }
+
+            $selectedIds = $this->selectedSourceIds($request);
+            $sourceIds = $chatbot->assignments->sourceIds;
+
+            if ($action === 'add') {
+                foreach ($selectedIds as $sourceId) {
+                    $source = $this->sources->findById($sourceId);
+
+                    if (!$source instanceof Source || $source->isDeleted()) {
+                        throw new ValidationException('One or more selected sources are no longer available.');
+                    }
+
+                    $sourceIds[] = $sourceId;
+                }
+            } else {
+                $selected = array_fill_keys($selectedIds, true);
+                $sourceIds = array_values(array_filter(
+                    $sourceIds,
+                    static fn (int $sourceId): bool => !isset($selected[$sourceId]),
+                ));
+            }
+
+            $this->service->updateAssignments(
+                $chatbot->id,
+                $this->forms->expectedRevision($request),
+                $sourceIds,
+                $chatbot->assignments->origins,
+            );
+            $this->session->put(
+                self::FLASH_SUCCESS,
+                sprintf(
+                    '%d %s %s %s.',
+                    count($selectedIds),
+                    count($selectedIds) === 1 ? 'source' : 'sources',
+                    count($selectedIds) === 1 ? 'was' : 'were',
+                    $action === 'add' ? 'added to the chatbot draft' : 'removed from the chatbot draft',
+                ),
+            );
+        } catch (ValidationException|StaleChatbotDraftException $exception) {
+            $this->session->put(self::FLASH_ERROR, $exception->getMessage());
+        }
+
+        return Response::redirect($this->knowledgeUrl($chatbot->id, $request), 303);
     }
 
     public function publish(Request $request): Response
@@ -315,7 +377,7 @@ final class ChatbotController
         if (!hash_equals($chatbot->name, $confirmation)) {
             $this->session->put(self::FLASH_ERROR, 'Type the chatbot name exactly to confirm permanent deletion.');
 
-            return Response::redirect('/admin/chatbots/' . $chatbot->id . '/edit', 303);
+            return Response::redirect($this->editUrl($chatbot->id, 'lifecycle'), 303);
         }
 
         try {
@@ -323,7 +385,7 @@ final class ChatbotController
         } catch (ValidationException $exception) {
             $this->session->put(self::FLASH_ERROR, $exception->getMessage());
 
-            return Response::redirect('/admin/chatbots/' . $chatbot->id . '/edit', 303);
+            return Response::redirect($this->editUrl($chatbot->id, 'lifecycle'), 303);
         }
 
         $this->session->put(self::FLASH_SUCCESS, sprintf('“%s” was permanently deleted.', $chatbot->name));
@@ -342,7 +404,12 @@ final class ChatbotController
             $this->session->put(self::FLASH_ERROR, $exception->getMessage());
         }
 
-        return Response::redirect('/admin/chatbots/' . $chatbot->id . '/edit', 303);
+        $tab = $this->requestedTab($request);
+
+        return Response::redirect($this->editUrl(
+            $chatbot->id,
+            in_array($tab, self::EDIT_TABS, true) ? $tab : 'settings',
+        ), 303);
     }
 
     private function changeSourceAssignment(Request $request, bool $assign): Response
@@ -383,7 +450,7 @@ final class ChatbotController
             $this->session->put(self::FLASH_ERROR, $exception->getMessage());
         }
 
-        return Response::redirect('/admin/chatbots/' . $chatbot->id . '/edit', 303);
+        return Response::redirect($this->editUrl($chatbot->id, 'knowledge'), 303);
     }
 
     /** @param array<string, mixed> $old */
@@ -393,23 +460,37 @@ final class ChatbotController
         ?string $formError = null,
         array $old = [],
         int $status = 200,
+        ?string $forcedTab = null,
     ): Response {
-        try {
-            $sourceQuery = $this->sourceQueries->parse($request);
-        } catch (ValidationException $exception) {
-            $this->session->put(self::FLASH_ERROR, $exception->getMessage());
+        $activeTab = $forcedTab ?? $this->requestedTab($request);
 
-            return Response::redirect('/admin/chatbots/' . $chatbot->id . '/edit');
+        if (!in_array($activeTab, self::EDIT_TABS, true)) {
+            $this->session->put(self::FLASH_ERROR, 'The chatbot configuration tab is invalid.');
+
+            return Response::redirect($this->editUrl($chatbot->id, 'settings'));
         }
 
-        $sourcePage = $this->sources->paginate($sourceQuery);
+        $sourceQuery = null;
+        $sourcePage = null;
 
-        if ($sourcePage->pageRequest->page !== $sourceQuery->pagination->page) {
-            return Response::redirect(QueryString::url(
-                '/admin/chatbots/' . $chatbot->id . '/edit',
-                $sourceQuery->queryParameters(),
-                ['page' => $sourcePage->pageRequest->page === 1 ? null : $sourcePage->pageRequest->page],
-            ));
+        if ($activeTab === 'knowledge') {
+            try {
+                $sourceQuery = $this->sourceQueries->parse($request);
+            } catch (ValidationException $exception) {
+                $this->session->put(self::FLASH_ERROR, $exception->getMessage());
+
+                return Response::redirect($this->editUrl($chatbot->id, 'knowledge'));
+            }
+
+            $sourcePage = $this->sources->paginate($sourceQuery);
+
+            if ($sourcePage->pageRequest->page !== $sourceQuery->pagination->page) {
+                return Response::redirect(QueryString::url(
+                    '/admin/chatbots/' . $chatbot->id . '/edit',
+                    ['tab' => 'knowledge', ...$sourceQuery->queryParameters()],
+                    ['page' => $sourcePage->pageRequest->page === 1 ? null : $sourcePage->pageRequest->page],
+                ));
+            }
         }
 
         $assignedSources = [];
@@ -422,9 +503,10 @@ final class ChatbotController
             }
         }
 
+        $sourcePageItems = $sourcePage === null ? [] : $sourcePage->items;
         $readinessIds = array_values(array_unique([
             ...$chatbot->assignments->sourceIds,
-            ...array_map(static fn (Source $source): int => $source->id, $sourcePage->items),
+            ...array_map(static fn (Source $source): int => $source->id, $sourcePageItems),
         ]));
         $readiness = [];
 
@@ -432,7 +514,7 @@ final class ChatbotController
             $readiness[$item->sourceId] = $item;
         }
 
-        $parameters = $sourceQuery->queryParameters();
+        $parameters = $sourceQuery?->queryParameters() ?? [];
 
         return Response::html($this->views->render('chatbots/edit', [
             ...$this->layoutData($request, $chatbot->name),
@@ -441,6 +523,7 @@ final class ChatbotController
             'providerConfigured' => $this->providerConfigured,
             'maximumTopK' => $this->maximumTopK,
             'maximumMessageCharacters' => $this->maximumMessageCharacters,
+            'activeTab' => $activeTab,
             'assignedSources' => $assignedSources,
             'sourcePage' => $sourcePage,
             'sourceQuery' => $sourceQuery,
@@ -451,10 +534,62 @@ final class ChatbotController
             'error' => $this->session->pull(self::FLASH_ERROR),
             'queryUrl' => static fn (array $overrides = []): string => QueryString::url(
                 '/admin/chatbots/' . $chatbot->id . '/edit',
-                $parameters,
+                ['tab' => 'knowledge', ...$parameters],
                 $overrides,
             ),
+            'sourceAssignmentUrl' => QueryString::url(
+                '/admin/chatbots/' . $chatbot->id . '/sources',
+                ['tab' => 'knowledge', ...$parameters],
+            ),
         ], 'layouts/admin'), $status);
+    }
+
+    private function requestedTab(Request $request): string
+    {
+        $tab = $request->query('tab', 'settings');
+
+        return is_string($tab) ? $tab : 'invalid';
+    }
+
+    private function editUrl(int $chatbotId, string $tab): string
+    {
+        return QueryString::url('/admin/chatbots/' . $chatbotId . '/edit', ['tab' => $tab]);
+    }
+
+    private function knowledgeUrl(int $chatbotId, Request $request): string
+    {
+        try {
+            $parameters = $this->sourceQueries->parse($request)->queryParameters();
+        } catch (ValidationException) {
+            $parameters = [];
+        }
+
+        return QueryString::url('/admin/chatbots/' . $chatbotId . '/edit', [
+            'tab' => 'knowledge',
+            ...$parameters,
+        ]);
+    }
+
+    /** @return list<int> */
+    private function selectedSourceIds(Request $request): array
+    {
+        $values = $request->input('source_ids', []);
+
+        if (!is_array($values) || $values === [] || count($values) > 100) {
+            throw new ValidationException('Select between 1 and 100 sources.');
+        }
+
+        $sourceIds = [];
+
+        foreach ($values as $value) {
+            if (!is_string($value) || !ctype_digit($value) || (int) $value < 1) {
+                throw new ValidationException('The selected sources are invalid.');
+            }
+
+            $sourceIds[] = (int) $value;
+        }
+
+        return array_values(array_unique($sourceIds));
     }
 
     /** @param array<string, string> $old */

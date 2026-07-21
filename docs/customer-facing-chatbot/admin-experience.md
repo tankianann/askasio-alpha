@@ -28,6 +28,10 @@ Duplicate creates a new draft with a new public ID and no conversation history. 
 
 ## Create and edit
 
+The chatbot editor uses server-routed **Settings**, **Knowledge**, **Access**, and **Lifecycle** tabs. Tab state is represented in the URL so refresh, back/forward navigation, validation feedback, and direct links remain predictable without requiring JavaScript. Preview and publish remain shared header actions; unmet publication requirements link to the tab that resolves them.
+
+Knowledge assignment is a batch workflow. The Knowledge tab shows assigned/ready/attention counts, supports filtered and paginated source discovery, and lets the administrator add or remove multiple selected sources in one optimistic-revision update. Submitting a batch returns to the same filters. Checkbox selection and its sticky summary are progressively enhanced; normal form submission remains authoritative.
+
 ### Basic information
 
 - internal name and description;
@@ -84,6 +88,8 @@ Initial settings should remain intentionally small: display name, launcher label
 - public ID rotation;
 - scoped server integration access when implemented;
 - privacy notice URL and disclosure/consent copy.
+
+Allowed browser origins belong to the Access tab. Immediate status changes, public-ID rotation, archive, and confirmed permanent deletion belong to the separate Lifecycle tab so infrequent or destructive operations are not mixed into routine draft editing.
 
 ## Publication lifecycle
 

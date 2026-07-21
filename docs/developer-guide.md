@@ -198,6 +198,8 @@ Check whether `DB_HOST=127.0.0.1` requires a MySQL account for `'user'@'127.0.0.
 
 Raise PHP-FPM/web `upload_max_filesize` and `post_max_size` above `MAX_UPLOAD_SIZE_MB`, then restart/reload FPM. Keep the application limit finite.
 
+The bulk Markdown page uploads files sequentially, one multipart request per file. `max_file_uploads` therefore does not limit the selected batch, while `upload_max_filesize`, `post_max_size`, and `MAX_UPLOAD_SIZE_MB` still apply to every individual file.
+
 ### Jobs remain pending
 
 Run `php bin/process-jobs.php --once`, inspect exit code/log, verify OpenAI/OCR/storage configuration, and ensure the worker service is active. The worker refuses invalid timeout relationships.

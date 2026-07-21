@@ -6,7 +6,7 @@ Milestone 4 is implemented. The authenticated, CSRF-protected administrator dash
 
 ## Routes and access boundary
 
-All routes live below `/admin/chatbots` inside the existing session-authentication and CSRF middleware group. GET routes render the list, create form, and edit screen. POST routes create/update drafts, add or remove one source, replace origins, publish, enable/disable, rotate the public ID, archive, and permanently delete.
+All routes live below `/admin/chatbots` inside the existing session-authentication and CSRF middleware group. GET routes render the list, create form, and URL-backed edit tabs. POST routes create/update drafts, batch add/remove sources (with the original single-source routes retained for compatibility), replace origins, publish, enable/disable, rotate the public ID, archive, and permanently delete.
 
 Controllers resolve numeric chatbot/source route identifiers and return the existing safe 404 boundary when a resource is absent or mismatched. Mutations use service validation and Post/Redirect/Get flash messages except invalid configuration edits, which return escaped old input with status `422`.
 
@@ -27,20 +27,20 @@ No system instructions, descriptions, JSON settings, origins, provider secrets, 
 
 Creation asks only for an internal name and optional description. It creates a private draft with validated installation-derived retrieval limits and documented defaults, then redirects to editing. It does not publish or enable a public endpoint.
 
-The edit screen is split into bounded sections:
+The edit screen is split into server-routed Settings, Knowledge, Access, and Lifecycle tabs with shared state metadata plus persistent Preview/Publish header actions:
 
 - read-only immediate status, public ID, installation provider/model metadata, and publication state;
 - basic identity and public display name;
 - grounded server instructions, fallback, top-K, similarity, and citation display;
 - welcome/input/starter text, message/session limits, expiry, retention, privacy URL, and disclosure;
 - validated appearance enums/text/accent;
-- separately saved exact origins;
-- paginated source assignment;
-- immediate lifecycle controls.
+- separately saved exact origins under Access;
+- filtered, paginated, batch source assignment under Knowledge;
+- immediate and destructive controls under Lifecycle.
 
 Configuration and assignment forms carry the shared expected draft revision. Stale submissions fail rather than overwrite newer edits. Saving a draft never publishes it.
 
-The source picker reuses the SQL-paginated knowledge-source list instead of loading the full catalog. Add/remove mutations merge one source with the current assignment set under optimistic revision. Both assigned rows and picker rows show publication readiness based on the active source version, including disabled/deleted/missing-active-version/embedding-incompatible states. A newer pending replacement does not hide a ready active revision.
+The source picker reuses the SQL-paginated knowledge-source list instead of loading the full catalog. Checkbox batches merge all selected additions or removals with the current assignment set in one optimistic-revision update, then return to the preserved Knowledge filters. Both assigned rows and picker rows show publication readiness based on the active source version, including disabled/deleted/missing-active-version/embedding-incompatible states. A newer pending replacement does not hide a ready active revision.
 
 ## Provider-degraded state
 

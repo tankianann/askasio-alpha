@@ -95,10 +95,33 @@ final class ProviderQuotaRepositoryTest extends DatabaseIntegrationTestCase
         $usage = $repository->usage([], $now);
 
         self::assertSame(25, $usage['global']['daily']['consumed']);
+        self::assertSame(0, $repository->usageAcrossApiKeys($now)['daily']['consumed']);
         self::assertSame(
             0,
             (int) self::$database?->query("SELECT COUNT(*) FROM provider_quota_buckets WHERE scope = 'api_key'")->fetchColumn(),
         );
+    }
+
+    public function testApiKeyUsageTotalIncludesEveryConnection(): void
+    {
+        $repository = $this->repository();
+        $limits = [
+            'global_daily' => 1_000,
+            'global_monthly' => 5_000,
+            'api_key_daily' => 500,
+            'api_key_monthly' => 2_500,
+        ];
+        $now = new DateTimeImmutable('2026-07-20 12:00:00', new DateTimeZone('UTC'));
+        $first = $repository->reserve(7, 'retrieve', 100, $limits, $now, $now->modify('+15 minutes'));
+        $second = $repository->reserve(8, 'retrieve', 100, $limits, $now, $now->modify('+15 minutes'));
+        $repository->reconcile($first->id, 12);
+        $repository->reconcile($second->id, 18);
+
+        $usage = $repository->usageAcrossApiKeys($now);
+
+        self::assertSame(30, $usage['daily']['consumed']);
+        self::assertSame(30, $usage['monthly']['consumed']);
+        self::assertSame(0, $usage['daily']['reserved']);
     }
 
     protected function setUp(): void

@@ -2,6 +2,20 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Chatbot editor workflow — 2026-07-21
+
+- Split chatbot administration into URL-backed Settings, Knowledge, Access, and Lifecycle tabs while keeping preview, publication state, and publish controls in a shared header.
+- Added publication-readiness links to missing source/origin requirements.
+- Replaced one-source-at-a-time assignment with checkbox-based batch add/remove actions that preserve source filters and advance the optimistic draft revision once per batch.
+- Added assigned/ready/attention summaries, responsive sticky selection actions, progressive-enhancement behavior, and controller/rendering regression coverage.
+
+## Bulk Markdown knowledge import — 2026-07-21
+
+- Added an administrator bulk Markdown page with multi-file selection, sequential per-file uploads, live progress, and independent success/error results.
+- Required valid YAML frontmatter with a text `title` for bulk items and used it as each source name while excluding frontmatter from indexed content.
+- Reused upload validation, private randomized storage, immutable source versions, transactional ingestion queueing, and failed-file cleanup without a schema change.
+- Added Symfony YAML parsing, frontmatter/controller coverage, responsive UI styling, and upload/deployment documentation.
+
 ## Customer-facing chatbot security/accessibility release gate — 2026-07-21
 
 - Ran the complete local and real-MySQL quality, HTTP, security, CORS, abuse, failure, migration, and restore gates without paid provider calls.

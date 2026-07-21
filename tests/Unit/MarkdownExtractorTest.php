@@ -20,7 +20,7 @@ final class MarkdownExtractorTest extends TestCase
     {
         $directory = sys_get_temp_dir() . '/rag-md-' . bin2hex(random_bytes(6));
         mkdir($directory, 0700);
-        file_put_contents($directory . '/document.md', "# Returns\n\nRefunds take five days.\n\n<script>bad()</script>\n\n## Timing\n\nContact support.");
+        file_put_contents($directory . '/document.md', "\xEF\xBB\xBF---\ntitle: Refund policy\nsource_id: 1314\n---\n\n# Returns\n\nRefunds take five days.\n\n<script>bad()</script>\n\n## Timing\n\nContact support.");
 
         try {
             $version = new SourceVersion(
@@ -36,6 +36,7 @@ final class MarkdownExtractorTest extends TestCase
             self::assertSame('Returns', $document->title);
             self::assertStringContainsString('Refunds take five days.', $document->content);
             self::assertStringNotContainsString('bad()', $document->content);
+            self::assertStringNotContainsString('source_id', $document->content);
             self::assertSame(['Returns', 'Timing'], $document->sections[1]->headingHierarchy);
         } finally {
             @unlink($directory . '/document.md');

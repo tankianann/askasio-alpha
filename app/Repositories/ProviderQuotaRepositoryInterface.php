@@ -28,4 +28,9 @@ interface ProviderQuotaRepositoryInterface
      * @return array<string, array{daily: array{consumed: int, reserved: int}, monthly: array{consumed: int, reserved: int}}>
      */
     public function usage(array $apiKeyIds, DateTimeImmutable $now): array;
+
+    /**
+     * @return array{daily: array{consumed: int, reserved: int}, monthly: array{consumed: int, reserved: int}}
+     */
+    public function usageAcrossApiKeys(DateTimeImmutable $now): array;
 }

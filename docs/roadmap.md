@@ -22,6 +22,7 @@ The application is suitable for a controlled single-administrator deployment aft
 
 - Sources and immutable versions for URL, Markdown, and PDF.
 - Secure upload validation/storage, lists/details/history, enable/disable, and soft deletion.
+- Sequential bulk Markdown upload using required YAML-frontmatter titles with independent per-file results and ingestion jobs.
 
 ### Milestone 4 — Ingestion jobs
 

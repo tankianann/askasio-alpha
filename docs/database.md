@@ -103,7 +103,7 @@ Compact daily/monthly global or API-key token totals: consumed and currently res
 
 Transient pre-provider-call reservations containing ID, API-key ID, operation, reserved allowance, UTC period starts, and expiry. Successful or conservatively estimated reconciliation updates the four period buckets and deletes the reservation in the same transaction. Only active/crashed reservations should remain.
 
-An `api_key_id` value of `0` is reserved for internal customer-facing chatbot execution. Those reservations update only installation-global buckets and do not create or consume an API-key bucket. Scoped chatbot/integration limits remain separate future dimensions.
+An `api_key_id` value of `0` is reserved for internal customer-facing chatbot execution. Those reservations update only installation-global buckets and do not create or consume an API-key bucket. The API Access summary reports this global-only usage separately from the aggregate of all API-key buckets so its global total can be reconciled with the connection rows. Scoped chatbot/integration limits remain separate future dimensions.
 
 The schema retains nullable actual/status/reconciled fields from its initial design although current finalization deletes rows; a future forward migration may simplify them after compatibility review.
 

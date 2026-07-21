@@ -10,6 +10,7 @@ use App\Controllers\Admin\SourceController;
 use App\Domain\Admin\AdminUser;
 use App\Domain\Sources\SourceType;
 use App\Http\Request;
+use App\Http\UploadedFile;
 use App\Security\CsrfTokenManager;
 use App\Security\SourceUploadValidator;
 use App\Security\UrlSourceValidator;
@@ -17,8 +18,10 @@ use App\Services\ApiKeys\ApiKeyListQueryParser;
 use App\Services\ApiKeys\ApiKeyService;
 use App\Services\Ingestion\IngestionJobListQueryParser;
 use App\Services\Ingestion\IngestionQueue;
+use App\Services\ProviderQuota\ProviderQuotaService;
 use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
+use App\Services\Sources\MarkdownFrontMatterTitleParser;
 use App\Services\Sources\SourceListQueryParser;
 use App\Services\Sources\SourceHistoryQueryParser;
 use App\Services\Sources\SourcePermanentDeletionService;
@@ -28,11 +31,50 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Tests\Fakes\InMemoryApiKeyRepository;
 use Tests\Fakes\InMemoryIngestionJobRepository;
+use Tests\Fakes\InMemoryProviderQuotaRepository;
 use Tests\Fakes\InMemorySessionStore;
 use Tests\Fakes\InMemorySourceRepository;
 
 final class DashboardListControllerTest extends TestCase
 {
+    public function testBulkMarkdownPageExplainsFrontmatterAndAcceptsMultipleFiles(): void
+    {
+        $response = $this->sourceController(new InMemorySourceRepository())->bulkMarkdown(new Request(
+            'GET',
+            '/admin/sources/bulk-markdown',
+            attributes: ['admin_user' => $this->admin()],
+        ));
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Bulk upload Markdown', $response->body());
+        self::assertStringContainsString('multiple', $response->body());
+        self::assertStringContainsString('title: "Document name"', $response->body());
+    }
+
+    public function testBulkMarkdownUploadReturnsAFileSpecificValidationError(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'bulk-controller-test-');
+        self::assertIsString($path);
+        file_put_contents($path, "# Missing frontmatter\n");
+        $sources = new InMemorySourceRepository();
+
+        try {
+            $response = $this->sourceController($sources)->storeBulkMarkdown(new Request(
+                'POST',
+                '/admin/sources/bulk-markdown',
+                attributes: ['admin_user' => $this->admin()],
+                files: ['markdown_file' => new UploadedFile('missing.md', $path, UPLOAD_ERR_OK, (int) filesize($path))],
+            ));
+        } finally {
+            unlink($path);
+        }
+
+        self::assertSame(422, $response->status());
+        self::assertSame('application/json; charset=utf-8', $response->headers()['Content-Type']);
+        self::assertStringContainsString('must begin with YAML frontmatter', $response->body());
+        self::assertSame([], $sources->all());
+    }
+
     public function testKnowledgeBaseRendersServerPaginationAndPreservesFilters(): void
     {
         $sources = new InMemorySourceRepository();
@@ -53,6 +95,22 @@ final class DashboardListControllerTest extends TestCase
         self::assertStringContainsString('search=Policy', $response->body());
         self::assertStringContainsString('type=pdf', $response->body());
         self::assertStringNotContainsString('Policy 30</a>', $response->body());
+        self::assertStringContainsString('data-split-button', $response->body());
+        self::assertStringContainsString('aria-label="More ways to add knowledge"', $response->body());
+        self::assertStringContainsString('Bulk upload Markdown', $response->body());
+    }
+
+    public function testSingleSourceFormLinksToTheBulkMarkdownUploader(): void
+    {
+        $response = $this->sourceController(new InMemorySourceRepository())->create(new Request(
+            'GET',
+            '/admin/sources/create',
+            attributes: ['admin_user' => $this->admin()],
+        ));
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('Adding several Markdown files?', $response->body());
+        self::assertStringContainsString('href="/admin/sources/bulk-markdown"', $response->body());
     }
 
     public function testProcessingReplacesThePreviousHundredRecordCapWithPagination(): void
@@ -115,6 +173,29 @@ final class DashboardListControllerTest extends TestCase
         self::assertSame('/admin/api-keys?page=2', $redirect->headers()['Location']);
     }
 
+    public function testApiAccessExplainsGlobalUsageThatDoesNotBelongToAConnection(): void
+    {
+        $keys = new InMemoryApiKeyRepository();
+        $key = $keys->create(1, 'Website', 'rag_live_abcd', hash('sha256', 'secret'), null);
+        $quotaRepository = new InMemoryProviderQuotaRepository();
+        $quotas = new ProviderQuotaService($quotaRepository, 50_000, 500_000, 20_000, 200_000, 900);
+        $apiReservation = $quotas->reserveRetrieve($key->id, 'Question');
+        $quotas->reconcile($apiReservation, 12);
+        $chatbotReservation = $quotas->reserveInstallationChat('Question', 1_000, 200);
+        $quotas->reconcile($chatbotReservation, 25);
+
+        $response = $this->apiKeyController($keys, providerQuotas: $quotas)->index(new Request(
+            'GET',
+            '/admin/api-keys',
+            attributes: ['admin_user' => $this->admin()],
+        ));
+
+        self::assertSame(200, $response->status());
+        self::assertStringContainsString('12 API connections · 25 chatbots', $response->body());
+        self::assertStringContainsString('<strong>12</strong> today', $response->body());
+        self::assertStringContainsString('Global usage includes all API connections and customer-facing chatbot traffic.', $response->body());
+    }
+
     public function testInvalidListQueryRedirectsWithSafeFeedback(): void
     {
         $keys = new InMemoryApiKeyRepository();
@@ -149,7 +230,7 @@ final class DashboardListControllerTest extends TestCase
 
         return new SourceController(
             $sources,
-            new SourceCreationService($sources, $urls, $uploads, $storage, $queue),
+            new SourceCreationService($sources, $urls, $uploads, $storage, $queue, new MarkdownFrontMatterTitleParser()),
             $this->views(),
             new CsrfTokenManager($session),
             $session,
@@ -166,6 +247,7 @@ final class DashboardListControllerTest extends TestCase
     private function apiKeyController(
         InMemoryApiKeyRepository $keys,
         ?InMemorySessionStore $session = null,
+        ?ProviderQuotaService $providerQuotas = null,
     ): ApiKeyController {
         $session ??= new InMemorySessionStore();
 
@@ -178,6 +260,7 @@ final class DashboardListControllerTest extends TestCase
             'testing',
             'Asia/Singapore',
             new ApiKeyListQueryParser('Asia/Singapore'),
+            $providerQuotas,
         );
     }
 

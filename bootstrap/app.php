@@ -67,6 +67,7 @@ use App\Security\SourceUploadValidator;
 use App\Security\UrlSourceValidator;
 use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
+use App\Services\Sources\MarkdownFrontMatterTitleParser;
 use App\Services\Sources\SourcePermanentDeletionService;
 use App\Repositories\PdoChatbotRepository;
 use App\Repositories\PdoChatbotConversationRepository;
@@ -194,6 +195,7 @@ $sourceCreation = new SourceCreationService(
     $sourceUploadValidator,
     $sourceFileStorage,
     $queue,
+    new MarkdownFrontMatterTitleParser(),
 );
 $sourceUpdates = new SourceUpdateService(
     $sources,

@@ -86,4 +86,21 @@ final class ProviderQuotaServiceTest extends TestCase
         self::assertSame(49_975, $usage['quota_daily_remaining_tokens']);
         self::assertArrayNotHasKey(0, $service->snapshots([])['api_keys']);
     }
+
+    public function testDashboardSeparatesApiConnectionAndChatbotUsage(): void
+    {
+        $repository = new InMemoryProviderQuotaRepository();
+        $service = new ProviderQuotaService($repository, 50_000, 500_000, 20_000, 200_000, 900);
+        $apiReservation = $service->reserveRetrieve(7, 'Question');
+        $service->reconcile($apiReservation, 12);
+        $chatbotReservation = $service->reserveInstallationChat('Question', 1_000, 200);
+        $service->reconcile($chatbotReservation, 25);
+
+        $snapshots = $service->dashboardSnapshots([7]);
+
+        self::assertSame(37, $snapshots['global']->dailyConsumed);
+        self::assertSame(12, $snapshots['api_keys'][7]->dailyConsumed);
+        self::assertSame(12, $snapshots['api_keys_total']->dailyConsumed);
+        self::assertSame(25, $snapshots['chatbots']->dailyConsumed);
+    }
 }

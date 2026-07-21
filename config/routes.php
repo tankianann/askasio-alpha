@@ -189,6 +189,8 @@ return [
                 $router->get('/sources', [$sourceController, 'index'], name: 'admin.sources.index');
                 $router->get('/sources/create', [$sourceController, 'create'], name: 'admin.sources.create');
                 $router->post('/sources', [$sourceController, 'store'], name: 'admin.sources.store');
+                $router->get('/sources/bulk-markdown', [$sourceController, 'bulkMarkdown'], name: 'admin.sources.bulk_markdown');
+                $router->post('/sources/bulk-markdown', [$sourceController, 'storeBulkMarkdown'], name: 'admin.sources.bulk_markdown.store');
                 $router->get('/sources/{sourceId}', [$sourceController, 'show'], name: 'admin.sources.show');
                 $router->get('/sources/{sourceId}/versions/{versionId}', [$sourceController, 'version'], name: 'admin.sources.versions.show');
                 $router->get('/sources/{sourceId}/replace', [$sourceController, 'replace'], name: 'admin.sources.replace');
@@ -208,6 +210,7 @@ return [
                 $router->post('/chatbots/{chatbotId}/preview/restart', [$chatbotController, 'restartPreview'], name: 'admin.chatbots.preview.restart');
                 $router->post('/chatbots/{chatbotId}', [$chatbotController, 'update'], name: 'admin.chatbots.update');
                 $router->post('/chatbots/{chatbotId}/origins', [$chatbotController, 'updateOrigins'], name: 'admin.chatbots.origins');
+                $router->post('/chatbots/{chatbotId}/sources', [$chatbotController, 'updateSources'], name: 'admin.chatbots.sources.update');
                 $router->post('/chatbots/{chatbotId}/sources/{sourceId}/assign', [$chatbotController, 'assignSource'], name: 'admin.chatbots.sources.assign');
                 $router->post('/chatbots/{chatbotId}/sources/{sourceId}/remove', [$chatbotController, 'removeSource'], name: 'admin.chatbots.sources.remove');
                 $router->post('/chatbots/{chatbotId}/publish', [$chatbotController, 'publish'], name: 'admin.chatbots.publish');

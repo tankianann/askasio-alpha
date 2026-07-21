@@ -15,6 +15,8 @@ $oldUrl = $old['url'] ?? '';
     <div class="alert alert-error" role="alert"><?= $escape($error) ?></div>
 <?php endif; ?>
 
+<p class="form-alternative">Adding several Markdown files? <a class="text-link" href="/admin/sources/bulk-markdown">Use the bulk uploader</a>.</p>
+
 <form method="post" action="/admin/sources" enctype="multipart/form-data" class="panel form-panel">
     <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
 

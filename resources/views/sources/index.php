@@ -4,10 +4,33 @@
         <h1>Knowledge Base</h1>
         <p class="muted">Manage the URLs, Markdown, and PDF content Ask Asio can learn from.</p>
     </div>
-    <a class="button button-primary" href="/admin/sources/create">
-        <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
-        <span>Add knowledge</span>
-    </a>
+    <div class="page-heading-actions">
+        <div class="split-button" data-split-button>
+            <a class="button button-primary split-button-main" href="/admin/sources/create">
+                <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-plus"></use></svg>
+                <span>Add knowledge</span>
+            </a>
+            <button
+                class="button button-primary split-button-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-haspopup="menu"
+                aria-controls="add-knowledge-menu"
+                aria-label="More ways to add knowledge"
+                data-split-button-toggle
+            ><span class="split-button-chevron" aria-hidden="true"></span></button>
+            <div class="split-button-menu" id="add-knowledge-menu" role="menu" data-split-button-menu hidden>
+                <a href="/admin/sources/create" role="menuitem">
+                    <strong>Add one source</strong>
+                    <span>Choose a URL, Markdown file, or PDF.</span>
+                </a>
+                <a href="/admin/sources/bulk-markdown" role="menuitem">
+                    <strong>Bulk upload Markdown</strong>
+                    <span>Import multiple Markdown files in one batch.</span>
+                </a>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?php if (is_string($success) && $success !== ''): ?><div class="alert alert-success" role="status"><?= $escape($success) ?></div><?php endif; ?>

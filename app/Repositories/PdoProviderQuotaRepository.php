@@ -233,6 +233,37 @@ final class PdoProviderQuotaRepository implements ProviderQuotaRepositoryInterfa
         return $usage;
     }
 
+    public function usageAcrossApiKeys(DateTimeImmutable $now): array
+    {
+        $statement = $this->connection->pdo()->prepare(
+            'SELECT period_type, SUM(consumed_tokens) AS consumed_tokens,
+                    SUM(reserved_tokens) AS reserved_tokens
+             FROM provider_quota_buckets
+             WHERE scope = \'api_key\'
+               AND ((period_type = \'daily\' AND period_start = :daily_start)
+                 OR (period_type = \'monthly\' AND period_start = :monthly_start))
+             GROUP BY period_type',
+        );
+        $statement->execute([
+            'daily_start' => $now->format('Y-m-d'),
+            'monthly_start' => $now->format('Y-m-01'),
+        ]);
+        $usage = [
+            'daily' => ['consumed' => 0, 'reserved' => 0],
+            'monthly' => ['consumed' => 0, 'reserved' => 0],
+        ];
+
+        foreach ($statement->fetchAll() as $row) {
+            $period = (string) $row['period_type'];
+            $usage[$period] = [
+                'consumed' => (int) $row['consumed_tokens'],
+                'reserved' => (int) $row['reserved_tokens'],
+            ];
+        }
+
+        return $usage;
+    }
+
     /**
      * @param array{global_daily: int, global_monthly: int, api_key_daily: int, api_key_monthly: int} $limits
      * @return list<array{scope: string, identifier_id: int, period_type: string, period_start: string, limit: int}>

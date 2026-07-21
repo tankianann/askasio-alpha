@@ -11,6 +11,7 @@ use App\Security\SourceUploadValidator;
 use App\Security\UrlSourceValidator;
 use App\Services\Sources\SourceCreationService;
 use App\Services\Sources\SourceFileStorage;
+use App\Services\Sources\MarkdownFrontMatterTitleParser;
 use PHPUnit\Framework\TestCase;
 use Tests\Fakes\InMemorySourceRepository;
 use Tests\Fakes\InMemoryIngestionJobRepository;
@@ -29,6 +30,7 @@ final class SourceCreationServiceTest extends TestCase
             new SourceUploadValidator(1024),
             new SourceFileStorage(sys_get_temp_dir()),
             new IngestionQueue($jobs, 3, 30, 3600, 900),
+            new MarkdownFrontMatterTitleParser(),
         );
 
         $source = $service->createUrl('  Refund policy  ', 'https://example.com/refunds');
@@ -53,6 +55,7 @@ final class SourceCreationServiceTest extends TestCase
             new SourceUploadValidator(1024),
             new SourceFileStorage(sys_get_temp_dir()),
             new IngestionQueue(new InMemoryIngestionJobRepository(), 3, 30, 3600, 900),
+            new MarkdownFrontMatterTitleParser(),
         );
 
         try {

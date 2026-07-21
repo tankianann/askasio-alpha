@@ -62,7 +62,7 @@ final class ApiKeyController
         }
 
         $parameters = $query->queryParameters();
-        $quotaSnapshots = $this->providerQuotas?->snapshots(array_map(
+        $quotaSnapshots = $this->providerQuotas?->dashboardSnapshots(array_map(
             static fn (ApiKey $key): int => $key->id,
             $page->items,
         ));
@@ -75,6 +75,8 @@ final class ApiKeyController
             'filterError' => $this->session->pull(self::FLASH_ERROR),
             'globalQuota' => $quotaSnapshots['global'] ?? null,
             'apiKeyQuotas' => $quotaSnapshots['api_keys'] ?? [],
+            'apiKeysTotalQuota' => $quotaSnapshots['api_keys_total'] ?? null,
+            'chatbotQuota' => $quotaSnapshots['chatbots'] ?? null,
             'queryUrl' => static fn (array $overrides = []): string => QueryString::url(
                 '/admin/api-keys',
                 $parameters,

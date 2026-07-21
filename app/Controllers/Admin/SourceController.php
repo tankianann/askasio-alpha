@@ -143,6 +143,47 @@ final class SourceController
         return Response::redirect('/admin/sources/' . $source->id, 303);
     }
 
+    public function bulkMarkdown(Request $request): Response
+    {
+        return Response::html($this->views->render('sources/bulk_markdown', [
+            ...$this->layoutData($request, 'Bulk upload Markdown'),
+            'maximumUploadMegabytes' => $this->maximumUploadMegabytes,
+        ], 'layouts/admin'));
+    }
+
+    public function storeBulkMarkdown(Request $request): Response
+    {
+        $file = $request->file('markdown_file');
+
+        if ($file === null) {
+            return Response::json([
+                'error' => [
+                    'code' => 'validation_error',
+                    'message' => 'Choose a Markdown file to upload.',
+                ],
+            ], 422);
+        }
+
+        try {
+            $source = $this->creation->createMarkdownFromFrontMatter($file);
+        } catch (ValidationException $exception) {
+            return Response::json([
+                'error' => [
+                    'code' => 'validation_error',
+                    'message' => $exception->getMessage(),
+                ],
+            ], 422);
+        }
+
+        return Response::json([
+            'source' => [
+                'id' => $source->id,
+                'name' => $source->name,
+                'url' => '/admin/sources/' . $source->id,
+            ],
+        ], 201);
+    }
+
     public function show(Request $request): Response
     {
         $source = $this->sourceFromRequest($request);

@@ -109,23 +109,40 @@ final class ProviderQuotaService
     {
         $this->repository->reconcileExpired(100);
         $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        $usage = $this->repository->usage($apiKeyIds, $now);
-        $global = $this->snapshot(
-            $usage['global'] ?? null,
-            $this->limits['global_daily'],
-            $this->limits['global_monthly'],
+
+        return $this->snapshotsAt($apiKeyIds, $now);
+    }
+
+    /**
+     * @param list<int> $apiKeyIds
+     * @return array{
+     *     global: ProviderQuotaSnapshot,
+     *     api_keys: array<int, ProviderQuotaSnapshot>,
+     *     api_keys_total: ProviderQuotaSnapshot,
+     *     chatbots: ProviderQuotaSnapshot
+     * }
+     */
+    public function dashboardSnapshots(array $apiKeyIds): array
+    {
+        $this->repository->reconcileExpired(100);
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $snapshots = $this->snapshotsAt($apiKeyIds, $now);
+        $apiKeysTotal = $this->snapshot($this->repository->usageAcrossApiKeys($now), 0, 0);
+        $global = $snapshots['global'];
+        $chatbots = new ProviderQuotaSnapshot(
+            max(0, $global->dailyConsumed - $apiKeysTotal->dailyConsumed),
+            max(0, $global->dailyReserved - $apiKeysTotal->dailyReserved),
+            0,
+            max(0, $global->monthlyConsumed - $apiKeysTotal->monthlyConsumed),
+            max(0, $global->monthlyReserved - $apiKeysTotal->monthlyReserved),
+            0,
         );
-        $keys = [];
 
-        foreach ($apiKeyIds as $apiKeyId) {
-            $keys[$apiKeyId] = $this->snapshot(
-                $usage['api_key:' . $apiKeyId] ?? null,
-                $this->limits['api_key_daily'],
-                $this->limits['api_key_monthly'],
-            );
-        }
-
-        return ['global' => $global, 'api_keys' => $keys];
+        return [
+            ...$snapshots,
+            'api_keys_total' => $apiKeysTotal,
+            'chatbots' => $chatbots,
+        ];
     }
 
     public function reconcileExpired(int $limit = 100): int
@@ -146,6 +163,31 @@ final class ProviderQuotaService
             $now,
             $now->modify('+' . $this->reservationTtlSeconds . ' seconds'),
         );
+    }
+
+    /**
+     * @param list<int> $apiKeyIds
+     * @return array{global: ProviderQuotaSnapshot, api_keys: array<int, ProviderQuotaSnapshot>}
+     */
+    private function snapshotsAt(array $apiKeyIds, DateTimeImmutable $now): array
+    {
+        $usage = $this->repository->usage($apiKeyIds, $now);
+        $global = $this->snapshot(
+            $usage['global'] ?? null,
+            $this->limits['global_daily'],
+            $this->limits['global_monthly'],
+        );
+        $keys = [];
+
+        foreach ($apiKeyIds as $apiKeyId) {
+            $keys[$apiKeyId] = $this->snapshot(
+                $usage['api_key:' . $apiKeyId] ?? null,
+                $this->limits['api_key_daily'],
+                $this->limits['api_key_monthly'],
+            );
+        }
+
+        return ['global' => $global, 'api_keys' => $keys];
     }
 
     /** @param array{daily: array{consumed: int, reserved: int}, monthly: array{consumed: int, reserved: int}}|null $usage */

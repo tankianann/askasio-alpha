@@ -41,6 +41,7 @@ A framework-free PHP application for managing knowledge sources and answering gr
 - Explicit permanent deletion of versions, chunks, embeddings, jobs, and private files after soft deletion and exact-name confirmation
 - Public URL policy that rejects non-HTTP protocols, credentials, localhost, literal private/reserved addresses, and metadata hosts
 - Markdown MIME, extension, UTF-8, binary-content, and size validation
+- Sequential bulk Markdown uploads with YAML-frontmatter titles, per-file results, and independent queueing
 - PDF MIME, extension, `%PDF-` signature, and size validation
 - SHA-256 hashing for uploaded files
 - Cryptographically randomized stored filenames outside `/public`
@@ -135,7 +136,7 @@ Before either API endpoint can contact OpenAI, it atomically reserves a conserva
 
 On success, the reservation is replaced with actual provider-reported chat and embedding token usage. If embedding usage is unavailable, the application uses its local token estimate. A request that fails after provider access may have been billed even when no response arrived, so its full reservation is conservatively charged as estimated usage. Active reservations abandoned by a crashed PHP process expire after the configured TTL and are similarly reconciled before the next reservation or usage view. Finalization moves the charge into compact period buckets and deletes the transient reservation in the same transaction, so reservation rows do not grow indefinitely.
 
-Successful `/api/v1/retrieve` and `/api/v1/chat` responses include `provider_total_tokens`, `quota_charged_tokens`, `quota_reserved_tokens`, and applicable effective daily/monthly remaining values in `usage`. The API Access screen shows global daily/monthly usage plus the current page's per-connection usage. Only numeric usage is copied into API Activity; prompts, responses, provider credentials, and bearer tokens remain excluded.
+Successful `/api/v1/retrieve` and `/api/v1/chat` responses include `provider_total_tokens`, `quota_charged_tokens`, `quota_reserved_tokens`, and applicable effective daily/monthly remaining values in `usage`. The API Access screen shows global daily/monthly usage, attributes those totals between API connections and customer-facing chatbots, and shows the current page's per-connection usage. The API-connection subtotal includes deleted connections and connections outside the current page or filters. Only numeric usage is copied into API Activity; prompts, responses, provider credentials, and bearer tokens remain excluded.
 
 These customer-request budgets cover the authenticated retrieval and chat endpoints. Administrator-triggered source ingestion is not attributable to an application API key and remains controlled by document/chunk limits and the provider account's own project budget. Keep an OpenAI project-level hard budget as the final ceiling for all provider activity.
 
@@ -646,6 +647,16 @@ Secure HTTPS responses include HSTS, all administrator responses are marked `Cac
 The database connection sets its session timezone to UTC. Application timestamps exposed by health use UTC; `APP_TIMEZONE` is retained for future display-layer localization.
 
 ## Source uploads and storage
+
+The administrator Knowledge Base exposes its bulk Markdown uploader from the **Add knowledge** split-button and from the single-source form. Select any number of `.md` or `.markdown` files; the browser sends them one at a time so PHP's `max_file_uploads` and aggregate multipart limits do not cap the batch. Every file must begin with valid YAML frontmatter containing a text `title` field. That title becomes the source name, while the frontmatter block is excluded from extracted knowledge content. Valid files are created and queued independently, and one rejected file does not roll back successful files in the same browser batch.
+
+```markdown
+---
+title: "Refund policy"
+---
+
+# Refunds
+```
 
 ### Source update and deletion lifecycle
 

@@ -8,14 +8,17 @@
         <article class="metric-card">
             <span>Provider tokens today (UTC)</span>
             <strong><?= $escape(number_format($globalQuota->dailyConsumed)) ?><?= $globalQuota->dailyLimit > 0 ? ' / ' . $escape(number_format($globalQuota->dailyLimit)) : '' ?></strong>
+            <?php if ($apiKeysTotalQuota instanceof \App\Domain\ProviderQuota\ProviderQuotaSnapshot && $chatbotQuota instanceof \App\Domain\ProviderQuota\ProviderQuotaSnapshot): ?><small><?= $escape(number_format($apiKeysTotalQuota->dailyConsumed)) ?> API connections · <?= $escape(number_format($chatbotQuota->dailyConsumed)) ?> chatbots</small><?php endif; ?>
             <small><?= $escape(number_format($globalQuota->dailyReserved)) ?> reserved<?= $globalQuota->dailyLimit === 0 ? ' · unlimited' : '' ?></small>
         </article>
         <article class="metric-card">
             <span>Provider tokens this month (UTC)</span>
             <strong><?= $escape(number_format($globalQuota->monthlyConsumed)) ?><?= $globalQuota->monthlyLimit > 0 ? ' / ' . $escape(number_format($globalQuota->monthlyLimit)) : '' ?></strong>
+            <?php if ($apiKeysTotalQuota instanceof \App\Domain\ProviderQuota\ProviderQuotaSnapshot && $chatbotQuota instanceof \App\Domain\ProviderQuota\ProviderQuotaSnapshot): ?><small><?= $escape(number_format($apiKeysTotalQuota->monthlyConsumed)) ?> API connections · <?= $escape(number_format($chatbotQuota->monthlyConsumed)) ?> chatbots</small><?php endif; ?>
             <small><?= $escape(number_format($globalQuota->monthlyReserved)) ?> reserved<?= $globalQuota->monthlyLimit === 0 ? ' · unlimited' : '' ?></small>
         </article>
     </section>
+    <p class="muted">Global usage includes all API connections and customer-facing chatbot traffic. Connection totals include deleted connections and connections outside the current page or filters.</p>
 <?php endif; ?>
 
 <form class="panel filter-panel compact-filter-panel" method="get" action="/admin/api-keys">

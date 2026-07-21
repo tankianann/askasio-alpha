@@ -117,6 +117,34 @@ final class InMemoryProviderQuotaRepository implements ProviderQuotaRepositoryIn
         return $usage;
     }
 
+    public function usageAcrossApiKeys(DateTimeImmutable $now): array
+    {
+        $daily = $now->format('Y-m-d');
+        $monthly = $now->format('Y-m-01');
+        $usage = [
+            'daily' => ['consumed' => 0, 'reserved' => 0],
+            'monthly' => ['consumed' => 0, 'reserved' => 0],
+        ];
+
+        foreach ($this->buckets as $key => $bucket) {
+            if (preg_match('/\Aapi_key:\d+:(daily|monthly):(.+)\z/', $key, $matches) !== 1) {
+                continue;
+            }
+
+            $period = $matches[1];
+            $expectedStart = $period === 'daily' ? $daily : $monthly;
+
+            if ($matches[2] !== $expectedStart) {
+                continue;
+            }
+
+            $usage[$period]['consumed'] += $bucket['consumed'];
+            $usage[$period]['reserved'] += $bucket['reserved'];
+        }
+
+        return $usage;
+    }
+
     private function charge(string $reservationId, int $actualTokens): void
     {
         $reservation = $this->reservations[$reservationId];

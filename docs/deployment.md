@@ -78,7 +78,7 @@ The included `rag_password`/root values are local-development defaults and must 
 | `DB_DATABASE` | `rag_app` | Schema name. |
 | `DB_USERNAME`, `DB_PASSWORD` | required | Least-privilege application credentials. |
 | `FILESYSTEM_PATH` | `storage/sources` | Private source root; must resolve outside `public/`. |
-| `MAX_UPLOAD_SIZE_MB` | `20` | Application upload ceiling; PHP/web limits must be at least as high. |
+| `MAX_UPLOAD_SIZE_MB` | `20` | Per-file application upload ceiling; PHP/web limits must be at least as high. Bulk Markdown sends one file per request. |
 | `LOG_LEVEL` | `info` in config (`debug` in example) | Monolog threshold. |
 
 ### Administrator/session security

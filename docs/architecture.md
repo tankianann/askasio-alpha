@@ -115,7 +115,9 @@ The application does not trust forwarded proxy headers. See the trusted-proxy wo
 
 ## Knowledge-source lifecycle
 
-`sources` stores mutable identity and availability; `source_versions` stores immutable revisions. A create, replacement upload, URL refresh, or reprocess operation creates a new version and an ingestion job in one transaction. The previous active revision remains retrievable until the new revision is fully processed.
+`sources` stores mutable identity and availability; `source_versions` stores immutable revisions. A create, bulk Markdown item, replacement upload, URL refresh, or reprocess operation creates a new version and an ingestion job in one transaction. The previous active revision remains retrievable until the new revision is fully processed.
+
+Bulk Markdown selection is a browser-side queue of individual authenticated, CSRF-protected multipart requests. Each request passes the normal upload validator, parses YAML frontmatter with Symfony YAML, requires a text `title`, and uses that value as the source name. Per-file transactions and stored-file cleanup keep failures isolated: a rejected item does not undo other successful items. The worker strips the frontmatter before CommonMark conversion, so metadata is not embedded as readable content.
 
 ```mermaid
 stateDiagram-v2

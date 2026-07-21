@@ -58,7 +58,7 @@ final class MarkdownExtractor implements SourceExtractorInterface
 
         $this->limits?->assertExtractedCharacters(mb_strlen($markdown, 'UTF-8'));
 
-        $markdown = preg_replace('/\A---\s*\R.*?\R---\s*\R/s', '', $markdown) ?? $markdown;
+        $markdown = preg_replace('/\A(?:\xEF\xBB\xBF)?---[\t ]*\R.*?\R---[\t ]*(?:\R|\z)/s', '', $markdown) ?? $markdown;
         $rendered = $this->converter->convert($markdown)->getContent();
         $filename = $version->originalFilename ?? basename($version->storedFilePath);
         $fallbackTitle = pathinfo($filename, PATHINFO_FILENAME);
