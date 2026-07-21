@@ -17,7 +17,10 @@ final class SecurityHeadersMiddleware implements MiddlewareInterface
             ->withHeader('X-Content-Type-Options', 'nosniff')
             ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
             ->withHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-            ->withHeader('Cross-Origin-Resource-Policy', 'same-origin');
+            ->withHeader(
+                'Cross-Origin-Resource-Policy',
+                str_starts_with($request->path(), '/api/public/') ? 'cross-origin' : 'same-origin',
+            );
 
         if (str_starts_with($request->path(), '/admin')) {
             $response = $response->withHeader('Cache-Control', 'no-store');

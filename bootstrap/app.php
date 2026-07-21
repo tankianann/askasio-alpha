@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Controllers\Api\HealthController;
 use App\Controllers\Api\ChatController;
 use App\Controllers\Api\RetrieveController;
+use App\Controllers\Api\PublicChatbotController;
 use App\Auth\AuthenticationService;
 use App\Auth\LoginRateLimiter;
 use App\Auth\NativeSessionStore;
@@ -27,6 +28,8 @@ use App\Http\Middleware\CsrfMiddleware;
 use App\Http\Middleware\RequestIdMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\SessionStartMiddleware;
+use App\Http\Middleware\PublicChatbotCorsMiddleware;
+use App\Http\Middleware\PublicChatbotRateLimitMiddleware;
 use App\Http\Router;
 use App\Logging\LoggerFactory;
 use App\Maintenance\ApiRequestLogMaintenanceLock;
@@ -84,6 +87,8 @@ use App\Services\Chatbots\ChatbotService;
 use App\Services\Chatbots\ChatbotConversationService;
 use App\Services\Chatbots\ChatbotHistorySelector;
 use App\Services\Chatbots\ChatbotPreviewService;
+use App\Services\Chatbots\PublicChatbotAccessService;
+use App\Services\Chatbots\PublicChatbotRateLimiter;
 use App\Services\Chatbots\RandomChatbotSessionCredentialGenerator;
 use App\Services\Chatbots\SharedChatExecutionService;
 use App\Services\Chatbots\InstallationChatbotProviderConfigurationFactory;
@@ -114,6 +119,7 @@ if (strlen($appSecret) < 32) {
 }
 
 $logger = (new LoggerFactory())->create($config);
+$errorHandler = new ErrorHandler($logger, $root . '/resources/views/errors');
 $connection = new Connection($config);
 $admins = new PdoAdminRepository($connection);
 $loginAttempts = new PdoLoginAttemptRepository($connection);
@@ -211,6 +217,11 @@ $chatbotService = new ChatbotService(
     new ChatbotOriginNormalizer(),
     $chatbotProviderConfigured,
 );
+$conversationRepository = new PdoChatbotConversationRepository($connection);
+$conversationService = new ChatbotConversationService(
+    $conversationRepository,
+    new RandomChatbotSessionCredentialGenerator(),
+);
 $sourceDeletion = new SourcePermanentDeletionService($sources, $sourceFileStorage, $logger, $chatbots);
 $router = new Router();
 $router->middleware(new RequestIdMiddleware());
@@ -250,11 +261,6 @@ $chatbotPreviewService = null;
 
 if ($chatbotProviderConfigured) {
     try {
-        $conversationRepository = new PdoChatbotConversationRepository($connection);
-        $conversationService = new ChatbotConversationService(
-            $conversationRepository,
-            new RandomChatbotSessionCredentialGenerator(),
-        );
         $previewUsage = new ProviderUsageAccumulator();
         $previewTokens = new HeuristicTokenEstimator();
         $previewAnswers = new AnswerGenerator(
@@ -315,6 +321,16 @@ $chatbotController = new ChatbotController(
     $chatbotPreviewService,
     $appSecret,
 );
+$publicChatbotAccess = new PublicChatbotAccessService(
+    $chatbots,
+    new ChatbotOriginNormalizer(),
+    $chatbotProvider,
+    $chatbotProviderConfigured,
+);
+$publicChatbotController = new PublicChatbotController(
+    $conversationService,
+    new JsonRequestParser($config->requireInt('rag.api_maximum_body_bytes')),
+);
 $jobController = new JobController(
     $queue,
     $views,
@@ -360,6 +376,12 @@ $apiRequestLoggingMiddleware = new ApiRequestLoggingMiddleware(
     $logger,
     $appSecret,
 );
+$publicApiRequestLoggingMiddleware = new ApiRequestLoggingMiddleware(
+    $apiRequestLogs,
+    new ApiRequestContext(),
+    $logger,
+    $appSecret,
+);
 $apiKeyAuthenticationMiddleware = new ApiKeyAuthenticationMiddleware($apiKeyService, $apiRequestContext);
 $apiRateLimitMiddleware = new ApiRateLimitMiddleware(new ApiRateLimiter(
     new PdoApiRateLimitRepository($connection),
@@ -376,6 +398,38 @@ $chatRateLimitMiddleware = new ApiRateLimitMiddleware(new ApiRateLimiter(
     $config->requireInt('api.chat_rate_limit_per_ip'),
     'chat',
 ));
+$publicChatbotConfigCorsMiddleware = new PublicChatbotCorsMiddleware(
+    $publicChatbotAccess,
+    $errorHandler,
+    ['GET'],
+    [],
+);
+$publicChatbotSessionCorsMiddleware = new PublicChatbotCorsMiddleware(
+    $publicChatbotAccess,
+    $errorHandler,
+    ['POST'],
+    ['Content-Type'],
+);
+$publicChatbotConfigRateLimitMiddleware = new PublicChatbotRateLimitMiddleware(
+    new PublicChatbotRateLimiter(
+        new PdoApiRateLimitRepository($connection),
+        $appSecret,
+        $config->requireInt('api.public_chatbot_rate_limit_window_seconds'),
+        $config->requireInt('api.public_chatbot_config_rate_limit_per_ip'),
+        $config->requireInt('api.public_chatbot_config_rate_limit_per_chatbot'),
+        'public_config',
+    ),
+);
+$publicChatbotSessionRateLimitMiddleware = new PublicChatbotRateLimitMiddleware(
+    new PublicChatbotRateLimiter(
+        new PdoApiRateLimitRepository($connection),
+        $appSecret,
+        $config->requireInt('api.public_chatbot_rate_limit_window_seconds'),
+        $config->requireInt('api.public_chatbot_session_rate_limit_per_ip'),
+        $config->requireInt('api.public_chatbot_session_rate_limit_per_chatbot'),
+        'public_session',
+    ),
+);
 $sessionMiddleware = new SessionStartMiddleware($session);
 $adminAuthenticationMiddleware = new AdminAuthenticationMiddleware($session, $admins);
 $csrfMiddleware = new CsrfMiddleware($csrf);
@@ -464,12 +518,15 @@ $registerRoutes(
     $apiKeyAuthenticationMiddleware,
     $apiRateLimitMiddleware,
     $chatRateLimitMiddleware,
+    $publicChatbotController,
+    $publicApiRequestLoggingMiddleware,
+    $publicChatbotConfigCorsMiddleware,
+    $publicChatbotSessionCorsMiddleware,
+    $publicChatbotConfigRateLimitMiddleware,
+    $publicChatbotSessionRateLimitMiddleware,
 );
 
 return [
     'router' => $router,
-    'error_handler' => new ErrorHandler(
-        $logger,
-        $root . '/resources/views/errors',
-    ),
+    'error_handler' => $errorHandler,
 ];

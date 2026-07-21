@@ -2,13 +2,13 @@
 
 ## Conventions
 
-- Base path: `/api/v1`.
+- Base paths: `/api/v1` for authenticated general RAG and `/api/public/v1` for the browser chatbot contract.
 - Format: JSON for every API endpoint and API error.
 - Character encoding: UTF-8.
 - Request ID: every request receives a UUIDv7 exposed as `X-Request-ID` and in JSON responses/errors where applicable.
 - Paid endpoints require `Authorization: Bearer rag_live_…`.
 - `GET /api/v1/health` is public.
-- No CORS policy is added; integrations are expected to be server-to-server unless same-origin.
+- General `/api/v1` routes have no CORS policy. Implemented chatbot-public routes use their publication's exact origin allowlist.
 - There is no content negotiation or alternate API version yet.
 
 ## Authentication
@@ -74,6 +74,8 @@ X-RateLimit-Remaining: 9
 
 A rate rejection includes those headers, `Retry-After`, and `Cache-Control: no-store`.
 
+Public configuration and session creation use separate 60-second namespaces. Defaults are respectively 120/IP and 600/chatbot, then 20/IP and 120/chatbot. Identifiers are HMAC-derived and counters are atomic in MySQL.
+
 Separate global/per-key UTC daily/monthly provider-token budgets reserve conservatively before an embedding/chat call. An insufficient budget returns `quota_exceeded` before any provider call. Successful usage can include:
 
 ```json
@@ -87,6 +89,21 @@ Separate global/per-key UTC daily/monthly provider-token budgets reserve conserv
 ```
 
 Remaining fields are omitted when all applicable limits are configured as unlimited (`0`). `quota_reserved_tokens` describes the conservative preflight allowance, not the final charge.
+
+## Public chatbot configuration and session creation
+
+Implemented browser routes:
+
+```text
+GET     /api/public/v1/chatbots/{cb_…}/config
+OPTIONS /api/public/v1/chatbots/{cb_…}/config
+POST    /api/public/v1/chatbots/{cb_…}/sessions
+OPTIONS /api/public/v1/chatbots/{cb_…}/sessions
+```
+
+All require an exact published allowlisted `Origin`. Allowed responses echo that origin, never `*`, and return `Vary: Origin` plus `Cache-Control: no-store`. Configuration exposes only the versioned public presentation/capability/privacy DTO; it excludes instructions, models, credentials, source/internal IDs, origins, and diagnostics.
+
+Session creation requires `Content-Type: application/json` with exactly `{}` and returns `201` with `session_id`, one-time `session_token`, idle/absolute UTC expiry, and `request_id`. The token contains 256 random bits and only its SHA-256 hash/safe prefix are stored. Public message, delete, and restart routes are not implemented yet. See the detailed [public configuration/session contract](customer-facing-chatbot/public-configuration-and-session-api.md).
 
 ## `GET /api/v1/health`
 
@@ -265,4 +282,3 @@ The application records request ID, numeric API-key ID, HMAC-derived IP identifi
 ## Compatibility and versioning policy
 
 All public endpoints are under `/api/v1`. Backward-compatible fields may be added. Removing/renaming fields, changing meanings, or tightening accepted values in a client-breaking way requires `/api/v2` or an explicitly announced compatibility plan. Error messages are human-facing and may be refined; clients should branch on HTTP status and `error.code`.
-

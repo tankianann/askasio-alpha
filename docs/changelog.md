@@ -2,6 +2,14 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot public configuration/session API — 2026-07-21
+
+- Added versioned public configuration/session routes and strict allowlisted DTOs without exposing internal IDs, source scope, prompts, models, credentials, or diagnostics.
+- Added exact normalized publication-origin authorization and origin-aware CORS/preflight behavior with no wildcard or cookies.
+- Added transactional production session creation with one-time 256-bit bearer delivery and existing hash-only persistence.
+- Added independent HMAC IP/chatbot fixed-window limits, new environment controls, privacy-minimized Activity, and migration `20260721000017` for chatbot counter scope.
+- Added HTTP/security coverage for schemas, lifecycle concealment, origin confusion, preflight, safe errors, token storage, provider staleness, and limits; public messaging/widget behavior remains deferred.
+
 ## Customer-facing chatbot administrator preview — 2026-07-20
 
 - Added authenticated, CSRF-protected draft preview and restart/message routes over the shared chat execution service.

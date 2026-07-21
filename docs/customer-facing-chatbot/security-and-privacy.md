@@ -82,6 +82,8 @@ Reliable client IP behind a reverse proxy remains an open repository-wide securi
 
 ## CORS and origin validation
 
+Milestone 8 implements this policy for public configuration and session creation. It resolves only the immutable active publication, returns CORS headers only after exact normalized origin authorization, and keeps public message authorization deferred.
+
 - Require an exact allowlist for browser access; no permissive substring or suffix matching.
 - Normalize scheme, ASCII hostname, default/non-default port, case, and trailing dot through one tested policy.
 - Wildcard subdomains are initially unsupported. If added, define label-boundary matching explicitly.

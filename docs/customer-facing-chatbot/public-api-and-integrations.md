@@ -2,7 +2,7 @@
 
 ## API namespace and conventions
 
-Chatbot public endpoints must be versioned separately enough to distinguish them from the existing bearer-authenticated general RAG endpoints while retaining the same JSON/error conventions. Proposed routes:
+Chatbot public endpoints are versioned separately from the existing bearer-authenticated general RAG endpoints while retaining the same JSON/error conventions. Configuration and session creation are implemented; message submission and deletion remain planned:
 
 ```text
 GET    /api/public/v1/chatbots/{public_chatbot_id}/config
@@ -11,7 +11,7 @@ POST   /api/public/v1/chatbots/{public_chatbot_id}/sessions/{session_id}/message
 DELETE /api/public/v1/chatbots/{public_chatbot_id}/sessions/{session_id}
 ```
 
-The public session ID is a non-secret routing identifier. Every message/delete request additionally sends the separate session bearer token in `Authorization`; neither value is accepted from a query string. A combined first-message/session endpoint may be chosen later only through a compatible documented addition.
+The public session ID is a non-secret routing identifier. Creation returns its separate bearer once and stores only its hash. Future message/delete requests send that token in `Authorization`; neither value is accepted from a query string. A combined first-message/session endpoint may be chosen later only through a compatible documented addition.
 
 All endpoints must:
 

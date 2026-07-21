@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controllers\Api\HealthController;
+use App\Controllers\Api\PublicChatbotController;
 use App\Controllers\Admin\AuthController;
 use App\Controllers\Admin\ApiKeyController;
 use App\Controllers\Admin\ApiRequestLogController;
@@ -16,6 +17,8 @@ use App\Http\Middleware\ApiRateLimitMiddleware;
 use App\Http\Middleware\ApiRequestLoggingMiddleware;
 use App\Http\Middleware\CsrfMiddleware;
 use App\Http\Middleware\SessionStartMiddleware;
+use App\Http\Middleware\PublicChatbotCorsMiddleware;
+use App\Http\Middleware\PublicChatbotRateLimitMiddleware;
 use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
@@ -40,7 +43,49 @@ return [
         ApiKeyAuthenticationMiddleware $apiKeyAuthenticationMiddleware,
         ApiRateLimitMiddleware $apiRateLimitMiddleware,
         ApiRateLimitMiddleware $chatRateLimitMiddleware,
+        PublicChatbotController $publicChatbotController,
+        ApiRequestLoggingMiddleware $publicApiRequestLoggingMiddleware,
+        PublicChatbotCorsMiddleware $publicChatbotConfigCorsMiddleware,
+        PublicChatbotCorsMiddleware $publicChatbotSessionCorsMiddleware,
+        PublicChatbotRateLimitMiddleware $publicChatbotConfigRateLimitMiddleware,
+        PublicChatbotRateLimitMiddleware $publicChatbotSessionRateLimitMiddleware,
     ): void {
+        $router->group('/api/public/v1', [], static function (Router $router) use (
+            $publicChatbotController,
+            $publicApiRequestLoggingMiddleware,
+            $publicChatbotConfigCorsMiddleware,
+            $publicChatbotSessionCorsMiddleware,
+            $publicChatbotConfigRateLimitMiddleware,
+            $publicChatbotSessionRateLimitMiddleware,
+        ): void {
+            $router->get(
+                '/chatbots/{chatbotPublicId}/config',
+                [$publicChatbotController, 'configuration'],
+                [$publicChatbotConfigCorsMiddleware, $publicApiRequestLoggingMiddleware, $publicChatbotConfigRateLimitMiddleware],
+                'api.public.v1.chatbots.config',
+            );
+            $router->add(
+                'OPTIONS',
+                '/chatbots/{chatbotPublicId}/config',
+                static fn (Request $request): Response => new Response('', 204),
+                [$publicChatbotConfigCorsMiddleware],
+                'api.public.v1.chatbots.config.options',
+            );
+            $router->post(
+                '/chatbots/{chatbotPublicId}/sessions',
+                [$publicChatbotController, 'createSession'],
+                [$publicChatbotSessionCorsMiddleware, $publicApiRequestLoggingMiddleware, $publicChatbotSessionRateLimitMiddleware],
+                'api.public.v1.chatbots.sessions.create',
+            );
+            $router->add(
+                'OPTIONS',
+                '/chatbots/{chatbotPublicId}/sessions',
+                static fn (Request $request): Response => new Response('', 204),
+                [$publicChatbotSessionCorsMiddleware],
+                'api.public.v1.chatbots.sessions.options',
+            );
+        });
+
         $router->group('/api/v1', [], static function (Router $router) use (
             $healthController,
             $retrieveHandler,

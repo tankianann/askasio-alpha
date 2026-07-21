@@ -5,10 +5,10 @@
 This directory is the living specification for Ask Asio's customer-facing chatbot feature. It establishes the documentation baseline before feature code is written.
 
 - Specification status: proposed for implementation review.
-- Implementation status: milestone 7 administrator preview complete; no public route, CORS, or widget behavior is wired.
+- Implementation status: milestone 8 public configuration/session API complete; public message submission and the widget remain unavailable.
 - Decision milestone: ADRs 027–033 recorded; draft/publication execution bindings and shared execution policy accepted.
 - Product boundary: one installation, one administrator, one tenant/account.
-- Current baseline: environment-configured OpenAI provider, shared knowledge-source catalog, compatible grounded `/api/v1/chat`, hash-only credentials, durable publication/draft-preview conversations, an administrator preview over the shared executor, and no browser CORS support.
+- Current baseline: environment-configured OpenAI provider, shared knowledge-source catalog, compatible grounded `/api/v1/chat`, hash-only credentials, durable publication/draft-preview conversations, administrator preview, and exact-origin public configuration/session creation.
 
 Requirements use **must** for release requirements, **should** for preferred behavior that needs an explicit reason to omit, and **may** for optional behavior. Items labelled **Decision required** are deliberately unresolved and must be settled before their implementation milestone.
 
@@ -26,6 +26,7 @@ Requirements use **must** for release requirements, **should** for preferred beh
 | [Conversation persistence](conversation-persistence.md) | Implemented milestone 5 session/message schema, hash-only tokens, publication binding, idempotency, expiry, retention, migration, and tests. |
 | [Shared chat execution](shared-chat-execution.md) | Implemented milestone 6 source-scoped grounding, history, fallback, citations, persistence, failures, quota reconciliation, and compatibility. |
 | [Administrator preview](admin-preview.md) | Implemented milestone 7 immutable draft-preview sessions, admin routes/UI, safe diagnostics, test classification, migration, and tests. |
+| [Public configuration and session API](public-configuration-and-session-api.md) | Implemented milestone 8 public DTOs, exact-origin CORS, session creation, hash-only tokens, request limits, migration, and tests. |
 | [Public API and integrations](public-api-and-integrations.md) | Browser API, session/message contracts, widget, CORS, WordPress, and server-to-server access. |
 | [Security and privacy](security-and-privacy.md) | Trust boundaries, resource scoping, abuse controls, secrets, retention, and content safety. |
 | [Quality and operations](quality-and-operations.md) | Grounding, reliability, observability, caching, test strategy, deployment, and definition of done. |

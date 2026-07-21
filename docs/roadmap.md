@@ -2,7 +2,7 @@
 
 ## Current state
 
-Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestone 7 adds authenticated draft preview over immutable test-session snapshots and the shared source-scoped executor, with bounded diagnostics and distinct test traffic; no public chatbot route, CORS, or widget behavior exists yet.
+Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestone 8 adds exact-origin public configuration and production session creation with strict DTOs, hash-only tokens, CORS, and IP/chatbot limits; public messaging and widget behavior do not exist yet.
 
 The application is suitable for a controlled single-administrator deployment after the operator completes the production checklist. The largest remaining architecture limit is full-corpus vector scoring in PHP. The most immediate deployment-security gap is trusted reverse-proxy handling.
 
@@ -66,7 +66,7 @@ The application is suitable for a controlled single-administrator deployment aft
 
 ### Customer-facing chatbot implementation
 
-The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–7 add migrations `20260720000013`–`16`, chatbot identity/drafts, immutable scoped publications, authenticated administration and draft preview, publication/draft-bound session persistence, and shared grounded execution. The next reviewable milestone is public configuration and session APIs. Publications and conversations are still not publicly reachable.
+The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–8 add migrations `20260720000013`–`20260721000017`, chatbot identity/drafts, immutable scoped publications, authenticated administration/preview, publication/draft-bound persistence, shared grounding, and public configuration/session creation. The next reviewable milestone is authenticated public message submission.
 
 Trusted reverse-proxy support remains a production security dependency for reliable client-IP rate limiting when deployed behind a TLS terminator.
 

@@ -1,6 +1,6 @@
 # Ask Asio
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening. The customer-facing chatbot now has administration, durable publication/draft-preview conversations, a shared source-scoped execution service, and an administrator test preview; no public chatbot route or widget exists yet.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening. The customer-facing chatbot now has administration, durable publication/draft-preview conversations, shared execution, administrator preview, and exact-origin public configuration/session creation; public messaging and the widget remain unavailable.
 
 ## Implemented functionality
 
@@ -779,6 +779,11 @@ API_RATE_LIMIT_PER_KEY=60
 API_RATE_LIMIT_PER_IP=120
 API_CHAT_RATE_LIMIT_PER_KEY=10
 API_CHAT_RATE_LIMIT_PER_IP=20
+CHATBOT_PUBLIC_RATE_LIMIT_WINDOW_SECONDS=60
+CHATBOT_PUBLIC_CONFIG_RATE_LIMIT_PER_IP=120
+CHATBOT_PUBLIC_CONFIG_RATE_LIMIT_PER_CHATBOT=600
+CHATBOT_PUBLIC_SESSION_RATE_LIMIT_PER_IP=20
+CHATBOT_PUBLIC_SESSION_RATE_LIMIT_PER_CHATBOT=120
 API_REQUEST_LOG_RETENTION_DAYS=30
 API_REQUEST_LOG_PURGE_BATCH_SIZE=1000
 ```

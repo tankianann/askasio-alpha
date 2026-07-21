@@ -35,7 +35,9 @@ final class JsonRequestParser
             throw new HttpException(400, 'The request body contains invalid JSON.', 'invalid_json');
         }
 
-        if (!is_array($payload) || array_is_list($payload)) {
+        $emptyObject = $payload === [] && preg_match('/\A\s*\{\s*\}\s*\z/', $request->rawBody()) === 1;
+
+        if (!is_array($payload) || (array_is_list($payload) && !$emptyObject)) {
             throw new HttpException(400, 'The request body must be a JSON object.', 'invalid_request');
         }
 

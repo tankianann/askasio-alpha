@@ -10,6 +10,11 @@ return [
     'rate_limit_per_ip' => Env::int('API_RATE_LIMIT_PER_IP', 120),
     'chat_rate_limit_per_key' => Env::int('API_CHAT_RATE_LIMIT_PER_KEY', 10),
     'chat_rate_limit_per_ip' => Env::int('API_CHAT_RATE_LIMIT_PER_IP', 20),
+    'public_chatbot_rate_limit_window_seconds' => Env::int('CHATBOT_PUBLIC_RATE_LIMIT_WINDOW_SECONDS', 60),
+    'public_chatbot_config_rate_limit_per_ip' => Env::int('CHATBOT_PUBLIC_CONFIG_RATE_LIMIT_PER_IP', 120),
+    'public_chatbot_config_rate_limit_per_chatbot' => Env::int('CHATBOT_PUBLIC_CONFIG_RATE_LIMIT_PER_CHATBOT', 600),
+    'public_chatbot_session_rate_limit_per_ip' => Env::int('CHATBOT_PUBLIC_SESSION_RATE_LIMIT_PER_IP', 20),
+    'public_chatbot_session_rate_limit_per_chatbot' => Env::int('CHATBOT_PUBLIC_SESSION_RATE_LIMIT_PER_CHATBOT', 120),
     'request_log_retention_days' => Env::int('API_REQUEST_LOG_RETENTION_DAYS', 30),
     'request_log_purge_batch_size' => Env::int('API_REQUEST_LOG_PURGE_BATCH_SIZE', 1000),
 ];

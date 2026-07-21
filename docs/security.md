@@ -5,6 +5,7 @@
 - The public internet may reach only `public/` through HTTPS.
 - Admin browsers authenticate with a secure PHP session and CSRF token.
 - External applications authenticate with hash-only bearer API keys.
+- Public chatbot browsers are restricted by immutable exact-origin publication policy; created sessions receive a separate hash-only bearer token.
 - URL sources and uploaded files are untrusted input.
 - Retrieved text is untrusted data, including when inserted into an AI prompt.
 - OpenAI and public URL origins are external services; TLS and bounded network operations are mandatory.
@@ -24,10 +25,10 @@
 
 - Prepared PDO statements and allowlisted sort/filter SQL.
 - JSON media type, object shape, body size, field type/range validation.
-- API rate limits by key and HMAC IP plus atomic provider-token budgets.
+- API rate limits by key/HMAC IP and public-chatbot creation limits by HMAC IP/chatbot, plus atomic provider-token budgets.
 - UUIDv7 request IDs for client/log correlation.
 - Safe production errors; no stack traces or raw exception messages in HTTP responses.
-- CSP, MIME-sniffing protection, strict referrer policy, permissions policy, same-origin resource policy, no admin caching, and HSTS on direct HTTPS.
+- CSP, MIME-sniffing protection, strict referrer policy, permissions policy, same-origin resource policy except explicitly CORS-authorized public API responses, no admin/public-session caching, and HSTS on direct HTTPS.
 
 ### Source ingestion
 
@@ -111,4 +112,3 @@ The administrator list projection also omits the IP hash. There is intentionally
 7. Document scope, timeline, affected credentials/data, remediation, and follow-up controls.
 
 See [Deployment](deployment.md) for the operational checklist and [Knowledge base](knowledge-base.md) for pitfalls.
-

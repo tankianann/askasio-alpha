@@ -2,7 +2,7 @@
 
 ## Implementation status
 
-Milestone 6 implemented one internal execution service for administrator preview and future public messaging. Milestone 7 now calls it from the authenticated preview. There is still no public route, CORS behavior, widget, integration credential, or streaming protocol.
+Milestone 6 implemented one internal execution service for administrator preview and future public messaging. Milestone 7 calls it from authenticated preview. Milestone 8 adds exact-origin public configuration/session creation but does not execute messages; public messaging, widget, integration credentials, and streaming remain unavailable.
 
 `SharedChatExecutionService` owns the execution of an already-authorized, atomically reserved conversation turn. Preview and public audiences pass through the same immutable execution-configuration validation, source scope, history policy, grounding/fallback, provider mapping, persistence, and quota lifecycle. The audience changes only whether internal bounded retrieval diagnostics are returned; persisted/public citations remain safe.
 

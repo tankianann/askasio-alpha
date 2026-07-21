@@ -87,9 +87,11 @@ Outcome: one internal preview/public execution service over the existing grounde
 
 Outcome: authenticated/CSRF-protected draft preview, immutable revision/configuration/source/provider snapshots, server-session-held one-time bearer tokens, automatic revision/terminal-session rollover, transcript/restart controls, the shared source-scoped executor, bounded administrator-only retrieval and usage diagnostics, and immutable `admin_preview`/`is_test` traffic classification. Migration `20260720000016` adds the exclusive publication-or-draft execution binding. No public endpoint, CORS, widget, integration credential, or production conversation administration was added. See [Administrator preview](admin-preview.md).
 
-### 8 — Public configuration and session API
+### 8 — Public configuration and session API (complete)
 
 - Add public v1 routes, DTOs, exact origin/CORS policy, session creation, rate limits, token handling, strict schemas, safe errors, and HTTP/security tests.
+
+Outcome: versioned public configuration/session routes and preflights, immutable publication-only DTO projection, exact normalized publication-origin authorization, origin-aware safe JSON errors, strict empty-object session schema, transactional production session creation, one-time 256-bit bearer response with hash-only persistence, independent HMAC IP/chatbot fixed-window limits, privacy-minimized Activity, migration `20260721000017`, and HTTP/security tests. No public message/delete/restart endpoint, widget, browser storage implementation, streaming, or integration credential was added. See [Public configuration and session API](public-configuration-and-session-api.md).
 
 ### 9 — Public message API
 
@@ -133,4 +135,4 @@ Outcome: authenticated/CSRF-protected draft preview, immutable revision/configur
 
 ## First implementation recommendation
 
-After review of milestone 7, begin with milestone 8 only: public configuration and session APIs with exact origin/CORS policy. Public message submission and the widget remain later milestones.
+After review of milestone 8, begin with milestone 9 only: authenticated non-streaming public message submission over the shared executor. The widget remains a later milestone.
