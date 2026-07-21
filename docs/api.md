@@ -120,6 +120,10 @@ Messages require that token as a Bearer credential and exactly:
 
 A successful response contains the session/message public IDs, grounded `answer`, allowlisted public `citations`, `usage.retrieved_chunks`, `fallback`, `replayed`, and `request_id`. Completion requires the same bearer and exactly `{}`, returns `204`, and is the widget's restart primitive. Public transcript retrieval and deletion are not implemented. See [Public configuration/session](customer-facing-chatbot/public-configuration-and-session-api.md), [Public messages](customer-facing-chatbot/public-message-api.md), and [Widget foundation](customer-facing-chatbot/widget-foundation.md).
 
+## Scoped chatbot integration API
+
+Trusted servers use the separate `/api/integrations/v1/chatbots/{cb_…}` session/message routes with a one-time `chatint_live_…` bearer. The credential must be active, unexpired, and explicitly related to the path chatbot. Messages also require the returned session bearer in `X-Chatbot-Session-Token`. General `rag_live_` keys cannot call these routes, and integration credentials cannot call general RAG routes. See [Scoped server integration credentials](customer-facing-chatbot/scoped-integration-credentials.md).
+
 ## `GET /api/v1/health`
 
 Public liveness/readiness check for the application and database.

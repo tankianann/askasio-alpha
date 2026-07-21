@@ -19,6 +19,9 @@ return [
     'public_chatbot_message_rate_limit_per_chatbot' => Env::int('CHATBOT_PUBLIC_MESSAGE_RATE_LIMIT_PER_CHATBOT', 300),
     'public_chatbot_message_rate_limit_per_session' => Env::int('CHATBOT_PUBLIC_MESSAGE_RATE_LIMIT_PER_SESSION', 20),
     'public_chatbot_pending_timeout_seconds' => Env::int('CHATBOT_PUBLIC_PENDING_TIMEOUT_SECONDS', 120),
+    'chatbot_conversation_purge_batch_size' => Env::int('CHATBOT_CONVERSATION_PURGE_BATCH_SIZE', 500),
+    'chatbot_integration_rate_limit_per_credential' => Env::int('CHATBOT_INTEGRATION_RATE_LIMIT_PER_CREDENTIAL', 120),
+    'chatbot_integration_rate_limit_per_ip' => Env::int('CHATBOT_INTEGRATION_RATE_LIMIT_PER_IP', 240),
     'request_log_retention_days' => Env::int('API_REQUEST_LOG_RETENTION_DAYS', 30),
     'request_log_purge_batch_size' => Env::int('API_REQUEST_LOG_PURGE_BATCH_SIZE', 1000),
 ];

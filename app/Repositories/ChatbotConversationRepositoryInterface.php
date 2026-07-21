@@ -13,6 +13,9 @@ use App\Domain\Chatbots\ChatbotSessionChannel;
 use App\Domain\Chatbots\ChatbotSessionCredentials;
 use App\Domain\Chatbots\ChatbotSessionStatus;
 use DateTimeImmutable;
+use App\Domain\Chatbots\ChatbotConversationListQuery;
+use App\Domain\Chatbots\ChatbotConversationPurgeSnapshot;
+use App\Support\Pagination\PaginatedResult;
 
 interface ChatbotConversationRepositoryInterface
 {
@@ -79,6 +82,13 @@ interface ChatbotConversationRepositoryInterface
     public function purgeEligible(DateTimeImmutable $now, int $limit): int;
 
     public function permanentlyDelete(int $sessionId): void;
+
+    /** @return PaginatedResult<\App\Domain\Chatbots\ChatbotConversationListItem> */
+    public function paginateSessions(ChatbotConversationListQuery $query): PaginatedResult;
+
+    public function purgeSnapshot(ChatbotConversationListQuery $query, DateTimeImmutable $now): ChatbotConversationPurgeSnapshot;
+
+    public function purgeSnapshotBatch(ChatbotConversationPurgeSnapshot $snapshot, DateTimeImmutable $now, int $limit): int;
 
     /** @return list<ChatbotMessage> */
     public function messagesForSession(int $sessionId): array;

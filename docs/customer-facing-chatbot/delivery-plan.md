@@ -106,14 +106,18 @@ Outcome: bearer-authenticated production message/completion routes, strict reque
 
 Outcome: async versioned `v1` loader and stylesheet, Shadow DOM isolation, accessible keyboard/focus/live-region behavior, public API integration, per-tab hash-token bearer storage, lazy sessions, completion-backed restart, bounded friendly errors, safe text/citation rendering, responsive/high-contrast/reduced-motion styles, and compatibility/browser checks. See [Widget foundation](widget-foundation.md).
 
-### 11 — Conversation administration and retention
+### 11 — Conversation administration and retention (complete)
 
 - Add bounded list/detail views, test/production distinction, filters/pagination, scheduled retention, confirmed manual purge, advisory locking, and audit behavior.
 
-### 12 — Scoped server integration credentials
+Outcome: bounded filtered list/detail views, explicit production/test/channel state, safe escaped transcript diagnostics, scheduled expiry/retention CLI, authoritative confirmed eligible-purge snapshots, shared advisory locking, batched cascade deletion, and content-free audit logs. See [Conversation administration and retention](conversation-administration-and-retention.md).
+
+### 12 — Scoped server integration credentials (complete)
 
 - Add the separate credential model from ADR-030, chatbot scope relation, one-time secret, hash verification, lifecycle UI, middleware, limits, usage, API examples, and tests.
 - A packaged WordPress plugin remains deferred.
+
+Outcome: migration `20260721000019`, separate hash-only `chatint_live_` credentials and scope relations, one-time lifecycle UI, exact scope middleware, credential/IP limits, integration session/message routes, two-layer session authorization, shared execution/usage accounting, examples, and tests. The existing general API keys remain unchanged. See [Scoped server integration credentials](scoped-integration-credentials.md).
 
 ### 13 — Analytics and operational readiness
 
@@ -138,4 +142,4 @@ Outcome: async versioned `v1` loader and stylesheet, Shadow DOM isolation, acces
 
 ## First implementation recommendation
 
-After review of milestones 9 and 10, begin milestone 11 with bounded conversation administration and retention enforcement.
+After review of milestones 11 and 12, begin milestone 13 analytics and operational readiness.

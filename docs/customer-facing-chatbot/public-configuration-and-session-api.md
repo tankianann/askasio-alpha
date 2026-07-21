@@ -11,7 +11,7 @@ POST    /api/public/v1/chatbots/{public_chatbot_id}/sessions
 OPTIONS /api/public/v1/chatbots/{public_chatbot_id}/sessions
 ```
 
-They resolve only an active chatbot's immutable active publication. Milestones 9 and 10 now add authorized messages, completion-backed widget restart, and widget assets; integration credentials, streaming, and public transcript retrieval/deletion remain unavailable.
+They resolve only an active chatbot's immutable active publication. Milestones 9 and 10 add authorized messages, completion-backed widget restart, and widget assets; milestone 12 adds separate server integration credentials outside this browser namespace. Streaming and public transcript retrieval/deletion remain unavailable.
 
 ## Origin and CORS policy
 

@@ -1,6 +1,6 @@
 # Ask Asio
 
-A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening. The customer-facing chatbot now has administration, durable publication/draft-preview conversations, shared execution, exact-origin public messaging, and a versioned isolated accessible widget.
+A framework-free PHP application for managing knowledge sources and answering grounded questions through a versioned REST API. Milestones 1–9 provide the application foundation, secure single-administrator interface, immutable source lifecycle, durable ingestion queue, extraction/chunking, OpenAI embeddings, cosine-similarity retrieval, authenticated application API keys, grounded chat with citations, and production hardening. The customer-facing chatbot now has administration, public/widget messaging, bounded conversation retention, and separate chatbot-scoped server credentials.
 
 ## Implemented functionality
 
@@ -534,6 +534,7 @@ Schedule it once per day. The host cron timezone does not affect retention bound
 
 ```cron
 15 2 * * * www-data cd /var/www/ragserver && /usr/bin/php bin/prune-api-requests.php >/dev/null
+30 2 * * * * www-data cd /var/www/ragserver && /usr/bin/php bin/prune-chatbot-conversations.php >/dev/null
 ```
 
 Failures return a non-zero exit code and are written to the secret-redacted application log. Configure cron or monitoring to alert on command failure. If retention is set to `0`, the command reports that records are kept forever and makes no database changes. Backups may continue to contain records that have already expired from the live database, so apply a separate backup-retention policy where required.
@@ -788,6 +789,9 @@ CHATBOT_PUBLIC_MESSAGE_RATE_LIMIT_PER_IP=30
 CHATBOT_PUBLIC_MESSAGE_RATE_LIMIT_PER_CHATBOT=300
 CHATBOT_PUBLIC_MESSAGE_RATE_LIMIT_PER_SESSION=20
 CHATBOT_PUBLIC_PENDING_TIMEOUT_SECONDS=120
+CHATBOT_CONVERSATION_PURGE_BATCH_SIZE=500
+CHATBOT_INTEGRATION_RATE_LIMIT_PER_CREDENTIAL=120
+CHATBOT_INTEGRATION_RATE_LIMIT_PER_IP=240
 API_REQUEST_LOG_RETENTION_DAYS=30
 API_REQUEST_LOG_PURGE_BATCH_SIZE=1000
 ```

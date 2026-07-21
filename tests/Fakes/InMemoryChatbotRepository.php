@@ -43,6 +43,17 @@ final class InMemoryChatbotRepository implements ChatbotRepositoryInterface
     /** @var array<int, string> */
     private array $sourceNames = [];
 
+    public function listOptions(): array
+    {
+        $options = array_map(static fn (Chatbot $chatbot): array => [
+            'id' => $chatbot->id,
+            'name' => $chatbot->name,
+        ], array_values($this->chatbots));
+        usort($options, static fn (array $left, array $right): int => [$left['name'], $left['id']] <=> [$right['name'], $right['id']]);
+
+        return $options;
+    }
+
     public function defineSource(
         int $sourceId,
         ChatbotSourceReadinessStatus $status = ChatbotSourceReadinessStatus::Ready,

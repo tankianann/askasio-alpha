@@ -36,6 +36,16 @@ final class PdoChatbotRepository implements ChatbotRepositoryInterface, SourceDe
         $this->listQueries = $listQueries ?? new ChatbotListSqlQueryBuilder();
     }
 
+    public function listOptions(): array
+    {
+        $rows = $this->connection->pdo()->query('SELECT id, name FROM chatbots ORDER BY name ASC, id ASC')->fetchAll();
+
+        return array_map(static fn (array $row): array => [
+            'id' => (int) $row['id'],
+            'name' => (string) $row['name'],
+        ], $rows);
+    }
+
     public function paginate(ChatbotListQuery $query): PaginatedResult
     {
         $pdo = $this->connection->pdo();

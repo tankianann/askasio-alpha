@@ -49,6 +49,7 @@ Or use `php bin/process-jobs.php --once` for a single queued job.
 | `php bin/embed-chunks.php --rebuild` | Clear and rebuild all active embeddings. |
 | `composer retrieve -- "query"` | CLI retrieval diagnostic; direct script also supports `--top-k`/`--min-similarity`. |
 | `composer prune-api-requests` | Apply configured API Activity retention. |
+| `composer prune-chatbot-conversations` | Expire due sessions and apply copied chatbot conversation retention. |
 | `composer test` | Run PHPUnit; DB tests skip unless configured. |
 | `composer analyse` | Run PHPStan level 5. |
 
@@ -233,4 +234,3 @@ Provide the engineer/agent with:
 - requirement to inspect current code/tests rather than assume the docs are perfect;
 - required quality gate and prohibition on paid provider calls in tests;
 - expected micro-milestone/commit-sized implementation and documentation updates.
-

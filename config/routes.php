@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 use App\Controllers\Api\HealthController;
 use App\Controllers\Api\PublicChatbotController;
+use App\Controllers\Api\ChatbotIntegrationController;
 use App\Controllers\Admin\AuthController;
 use App\Controllers\Admin\ApiKeyController;
 use App\Controllers\Admin\ApiRequestLogController;
 use App\Controllers\Admin\DashboardController;
 use App\Controllers\Admin\ChatbotController;
+use App\Controllers\Admin\ChatbotConversationController;
+use App\Controllers\Admin\ChatbotIntegrationCredentialController;
 use App\Controllers\Admin\SourceController;
 use App\Controllers\Admin\JobController;
 use App\Http\Middleware\AdminAuthenticationMiddleware;
@@ -20,6 +23,8 @@ use App\Http\Middleware\SessionStartMiddleware;
 use App\Http\Middleware\PublicChatbotCorsMiddleware;
 use App\Http\Middleware\PublicChatbotRateLimitMiddleware;
 use App\Http\Middleware\PublicChatbotSessionAuthenticationMiddleware;
+use App\Http\Middleware\ChatbotIntegrationAuthenticationMiddleware;
+use App\Http\Middleware\ChatbotIntegrationRateLimitMiddleware;
 use App\Http\Request;
 use App\Http\Response;
 use App\Http\Router;
@@ -38,6 +43,7 @@ return [
         JobController $jobController,
         ApiKeyController $apiKeyController,
         ApiRequestLogController $apiRequestLogController,
+        ChatbotConversationController $chatbotConversationController,
         Closure $retrieveHandler,
         Closure $chatHandler,
         ApiRequestLoggingMiddleware $apiRequestLoggingMiddleware,
@@ -53,7 +59,15 @@ return [
         PublicChatbotCorsMiddleware $publicChatbotMessageCorsMiddleware,
         PublicChatbotSessionAuthenticationMiddleware $publicChatbotSessionAuthenticationMiddleware,
         PublicChatbotRateLimitMiddleware $publicChatbotMessageRateLimitMiddleware,
+        ChatbotIntegrationController $chatbotIntegrationController,
+        ChatbotIntegrationAuthenticationMiddleware $chatbotIntegrationAuthenticationMiddleware,
+        ChatbotIntegrationRateLimitMiddleware $chatbotIntegrationRateLimitMiddleware,
+        ChatbotIntegrationCredentialController $chatbotIntegrationCredentialController,
     ): void {
+        $router->group('/api/integrations/v1', [$chatbotIntegrationAuthenticationMiddleware, $chatbotIntegrationRateLimitMiddleware], static function (Router $router) use ($chatbotIntegrationController, $publicApiRequestLoggingMiddleware): void {
+            $router->post('/chatbots/{chatbotPublicId}/sessions', [$chatbotIntegrationController, 'createSession'], [$publicApiRequestLoggingMiddleware], 'api.integrations.v1.sessions.create');
+            $router->post('/chatbots/{chatbotPublicId}/sessions/{sessionId}/messages', [$chatbotIntegrationController, 'message'], [$publicApiRequestLoggingMiddleware], 'api.integrations.v1.messages.create');
+        });
         $router->group('/api/public/v1', [], static function (Router $router) use (
             $publicChatbotController,
             $publicApiRequestLoggingMiddleware,
@@ -167,6 +181,8 @@ return [
                 $jobController,
                 $apiKeyController,
                 $apiRequestLogController,
+                $chatbotConversationController,
+                $chatbotIntegrationCredentialController,
             ): void {
                 $router->get('/', $dashboardController, name: 'admin.dashboard');
                 $router->post('/logout', [$authController, 'logout'], name: 'admin.logout');
@@ -200,6 +216,15 @@ return [
                 $router->post('/chatbots/{chatbotId}/archive', [$chatbotController, 'archive'], name: 'admin.chatbots.archive');
                 $router->post('/chatbots/{chatbotId}/rotate-public-id', [$chatbotController, 'rotatePublicId'], name: 'admin.chatbots.rotate_public_id');
                 $router->post('/chatbots/{chatbotId}/permanent-delete', [$chatbotController, 'permanentlyDelete'], name: 'admin.chatbots.permanent_delete');
+                $router->get('/conversations', [$chatbotConversationController, 'index'], name: 'admin.conversations.index');
+                $router->get('/conversations/{sessionId}', [$chatbotConversationController, 'show'], name: 'admin.conversations.show');
+                $router->post('/conversations/purge/preview', [$chatbotConversationController, 'previewPurge'], name: 'admin.conversations.purge_preview');
+                $router->post('/conversations/purge', [$chatbotConversationController, 'executePurge'], name: 'admin.conversations.purge_execute');
+                $router->get('/integration-credentials', [$chatbotIntegrationCredentialController, 'index'], name: 'admin.integration_credentials.index');
+                $router->get('/integration-credentials/create', [$chatbotIntegrationCredentialController, 'create'], name: 'admin.integration_credentials.create');
+                $router->post('/integration-credentials', [$chatbotIntegrationCredentialController, 'store'], name: 'admin.integration_credentials.store');
+                $router->post('/integration-credentials/{credentialId}/revoke', [$chatbotIntegrationCredentialController, 'revoke'], name: 'admin.integration_credentials.revoke');
+                $router->post('/integration-credentials/{credentialId}/delete', [$chatbotIntegrationCredentialController, 'delete'], name: 'admin.integration_credentials.delete');
                 $router->get('/jobs', $jobController, name: 'admin.jobs.index');
                 $router->get('/api-keys', [$apiKeyController, 'index'], name: 'admin.api_keys.index');
                 $router->get('/api-keys/create', [$apiKeyController, 'create'], name: 'admin.api_keys.create');

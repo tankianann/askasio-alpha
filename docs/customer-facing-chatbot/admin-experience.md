@@ -2,7 +2,7 @@
 
 ## Implementation status
 
-Milestones 4 and 7 implement navigation, chatbot administration, and the draft-capable test preview. See [Administrator list and edit flow](admin-list-and-edit.md) and [Administrator preview](admin-preview.md). Production conversation administration, analytics, integration credentials, embed code, and public behavior remain planned.
+Milestones 4, 7, 11, and 12 implement chatbot administration, draft preview, production/test conversation inspection and retention, and scoped server credentials. See [Administrator list and edit flow](admin-list-and-edit.md), [Administrator preview](admin-preview.md), [Conversation administration and retention](conversation-administration-and-retention.md), and [Scoped server integration credentials](scoped-integration-credentials.md). Analytics and an admin embed-code panel remain planned.
 
 ## General rules
 

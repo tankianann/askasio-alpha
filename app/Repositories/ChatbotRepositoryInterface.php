@@ -17,6 +17,9 @@ use App\Support\Pagination\PaginatedResult;
 
 interface ChatbotRepositoryInterface
 {
+    /** @return list<array{id: int, name: string}> */
+    public function listOptions(): array;
+
     /** @return PaginatedResult<ChatbotListItem> */
     public function paginate(ChatbotListQuery $query): PaginatedResult;
 

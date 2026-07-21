@@ -21,6 +21,9 @@ use App\Exceptions\ChatbotSessionUnavailableException;
 use App\Repositories\ChatbotConversationRepositoryInterface;
 use DateInterval;
 use DateTimeImmutable;
+use App\Domain\Chatbots\ChatbotConversationListQuery;
+use App\Domain\Chatbots\ChatbotConversationPurgeSnapshot;
+use App\Support\Pagination\PaginatedResult;
 
 final class InMemoryChatbotConversationRepository implements ChatbotConversationRepositoryInterface
 {
@@ -399,6 +402,21 @@ final class InMemoryChatbotConversationRepository implements ChatbotConversation
             $this->messages,
             static fn (ChatbotMessage $message): bool => $message->sessionId === $sessionId,
         ));
+    }
+
+    public function paginateSessions(ChatbotConversationListQuery $query): PaginatedResult
+    {
+        return new PaginatedResult([], 0, $query->pagination->clampToTotal(0));
+    }
+
+    public function purgeSnapshot(ChatbotConversationListQuery $query, DateTimeImmutable $now): ChatbotConversationPurgeSnapshot
+    {
+        return new ChatbotConversationPurgeSnapshot($query, 0, null, $this->format($now));
+    }
+
+    public function purgeSnapshotBatch(ChatbotConversationPurgeSnapshot $snapshot, DateTimeImmutable $now, int $limit): int
+    {
+        return 0;
     }
 
     private function requireSession(int $id): ChatbotSession

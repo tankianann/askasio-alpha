@@ -46,6 +46,10 @@
                     <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-chatbot"></use></svg>
                     <span>Chatbots</span>
                 </a>
+                <a href="/admin/conversations" <?= $currentSection === 'conversations' ? 'aria-current="page"' : '' ?>>
+                    <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-activity"></use></svg>
+                    <span>Conversations</span>
+                </a>
                 <a href="/admin/jobs" <?= $currentSection === 'jobs' ? 'aria-current="page"' : '' ?>>
                     <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-processing"></use></svg>
                     <span>Processing</span>
@@ -53,6 +57,10 @@
                 <a href="/admin/api-keys" <?= $currentSection === 'api_keys' ? 'aria-current="page"' : '' ?>>
                     <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-access"></use></svg>
                     <span>API Access</span>
+                </a>
+                <a href="/admin/integration-credentials" <?= $currentSection === 'integration_credentials' ? 'aria-current="page"' : '' ?>>
+                    <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-access"></use></svg>
+                    <span>Chatbot Integrations</span>
                 </a>
                 <a href="/admin/api-requests" <?= $currentSection === 'api_requests' ? 'aria-current="page"' : '' ?>>
                     <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#icon-activity"></use></svg>

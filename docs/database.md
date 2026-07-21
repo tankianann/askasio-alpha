@@ -189,6 +189,7 @@ Current migration history:
 | `20260720000016` | Mutually exclusive immutable draft-preview execution snapshots on test sessions; publication binding becomes nullable only for those rows. |
 | `20260721000017` | Add the public-chatbot scope to atomic fixed-window request counters. |
 | `20260721000018` | Add the public-session scope used by independent message request limits. |
+| `20260721000019` | Separate chatbot integration credentials/scopes and dedicated integration rate-counter scope. |
 
 ## Index and query guidance
 
@@ -214,7 +215,7 @@ Run `ANALYZE TABLE` after large imports and use `EXPLAIN ANALYZE` with productio
 - Sources, versions, chunks, files, and their jobs: retained through soft deletion and erased only by permanent source deletion.
 - Ingestion jobs not tied to permanently deleted sources: no age-based retention yet.
 - Chatbot drafts/publications: retained until confirmed permanent chatbot deletion.
-- Chatbot conversations: content persists while active; copied `0|7|30|90` retention begins at terminal state and is measured from last activity. Eligible hard deletion cascades messages. Maintenance/UI wiring is not implemented yet.
+- Chatbot conversations: content persists while active; copied `0|7|30|90` retention begins at terminal state and is measured from last activity. Scheduled/manual eligible hard deletion is bounded, advisory-locked, audited, and cascades messages.
 - Backups have an independent lifecycle.
 
 ## Scaling limits and future changes

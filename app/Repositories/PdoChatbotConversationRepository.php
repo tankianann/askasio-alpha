@@ -19,6 +19,11 @@ use App\Domain\Chatbots\ChatbotSession;
 use App\Domain\Chatbots\ChatbotSessionChannel;
 use App\Domain\Chatbots\ChatbotSessionCredentials;
 use App\Domain\Chatbots\ChatbotSessionStatus;
+use App\Domain\Chatbots\ChatbotConversationListItem;
+use App\Domain\Chatbots\ChatbotConversationListQuery;
+use App\Domain\Chatbots\ChatbotConversationPurgeSnapshot;
+use App\Support\Pagination\PaginatedResult;
+use App\Support\SortDirection;
 use App\Exceptions\ChatbotIdempotencyConflictException;
 use App\Exceptions\ChatbotMessageLimitException;
 use App\Exceptions\ChatbotSessionUnavailableException;
@@ -618,6 +623,97 @@ final class PdoChatbotConversationRepository implements ChatbotConversationRepos
     {
         $statement = $this->connection->pdo()->prepare('DELETE FROM chatbot_sessions WHERE id = :id');
         $statement->execute(['id' => $sessionId]);
+    }
+
+    public function paginateSessions(ChatbotConversationListQuery $query): PaginatedResult
+    {
+        $pdo = $this->connection->pdo();
+        $where = $this->sessionListWhere($query);
+        $count = $pdo->prepare('SELECT COUNT(*) FROM chatbot_sessions cs INNER JOIN chatbots c ON c.id = cs.chatbot_id' . $where['sql']);
+        $count->execute($where['parameters']);
+        $total = (int) $count->fetchColumn();
+        $page = $query->pagination->clampToTotal($total);
+        $column = match ($query->sort) {
+            'started' => 'cs.started_at',
+            'messages' => 'cs.message_count',
+            'usage' => 'cs.provider_tokens',
+            default => 'cs.last_activity_at',
+        };
+        $direction = $query->direction === SortDirection::Ascending ? 'ASC' : 'DESC';
+        $statement = $pdo->prepare(
+            'SELECT cs.id, cs.public_id, cs.chatbot_id, c.name AS chatbot_name, cs.channel,
+                    cs.normalized_origin, cs.is_test, cs.status, cs.message_count, cs.provider_tokens,
+                    cs.started_at, cs.last_activity_at, cs.purge_eligible_at
+             FROM chatbot_sessions cs INNER JOIN chatbots c ON c.id = cs.chatbot_id'
+            . $where['sql'] . " ORDER BY {$column} {$direction}, cs.id {$direction} LIMIT {$page->perPage} OFFSET {$page->offset()}",
+        );
+        $statement->execute($where['parameters']);
+        $items = array_map(static fn (array $row): ChatbotConversationListItem => new ChatbotConversationListItem(
+            (int) $row['id'], (string) $row['public_id'], (int) $row['chatbot_id'], (string) $row['chatbot_name'],
+            ChatbotSessionChannel::from((string) $row['channel']), isset($row['normalized_origin']) ? (string) $row['normalized_origin'] : null,
+            (bool) $row['is_test'], ChatbotSessionStatus::from((string) $row['status']), (int) $row['message_count'],
+            (int) $row['provider_tokens'], (string) $row['started_at'], (string) $row['last_activity_at'],
+            isset($row['purge_eligible_at']) ? (string) $row['purge_eligible_at'] : null,
+        ), $statement->fetchAll());
+
+        return new PaginatedResult($items, $total, $page);
+    }
+
+    public function purgeSnapshot(ChatbotConversationListQuery $query, DateTimeImmutable $now): ChatbotConversationPurgeSnapshot
+    {
+        $where = $this->sessionListWhere($query, true);
+        $statement = $this->connection->pdo()->prepare(
+            'SELECT COUNT(*) AS aggregate_count, MAX(cs.id) AS maximum_id
+             FROM chatbot_sessions cs INNER JOIN chatbots c ON c.id = cs.chatbot_id' . $where['sql'],
+        );
+        $parameters = [...$where['parameters'], 'purge_now' => $this->format($now)];
+        $statement->execute($parameters);
+        $row = $statement->fetch();
+
+        return new ChatbotConversationPurgeSnapshot(
+            $query,
+            is_array($row) ? (int) $row['aggregate_count'] : 0,
+            is_array($row) && $row['maximum_id'] !== null ? (int) $row['maximum_id'] : null,
+            $this->format($now),
+        );
+    }
+
+    public function purgeSnapshotBatch(ChatbotConversationPurgeSnapshot $snapshot, DateTimeImmutable $now, int $limit): int
+    {
+        if ($snapshot->maximumId === null || $limit < 1 || $limit > 10_000) {
+            return 0;
+        }
+        $where = $this->sessionListWhere($snapshot->query, true);
+        $statement = $this->connection->pdo()->prepare(
+            'DELETE FROM chatbot_sessions WHERE id IN (
+                SELECT id FROM (
+                    SELECT cs.id FROM chatbot_sessions cs INNER JOIN chatbots c ON c.id = cs.chatbot_id'
+            . $where['sql'] . ' AND cs.id <= :maximum_id ORDER BY cs.id LIMIT ' . $limit
+            . ') purge_candidates)',
+        );
+        $statement->execute([
+            ...$where['parameters'],
+            'purge_now' => $snapshot->eligibleBefore,
+            'maximum_id' => $snapshot->maximumId,
+        ]);
+
+        return $statement->rowCount();
+    }
+
+    /** @return array{sql: string, parameters: array<string, int|string>} */
+    private function sessionListWhere(ChatbotConversationListQuery $query, bool $eligibleOnly = false): array
+    {
+        $clauses = [];
+        $parameters = [];
+        if ($query->search !== null) { $clauses[] = 'LOCATE(:session_search, cs.public_id) > 0'; $parameters['session_search'] = $query->search; }
+        if ($query->chatbotId !== null) { $clauses[] = 'cs.chatbot_id = :chatbot_id'; $parameters['chatbot_id'] = $query->chatbotId; }
+        if ($query->status !== null) { $clauses[] = 'cs.status = :session_status'; $parameters['session_status'] = $query->status->value; }
+        if ($query->isTest !== null) { $clauses[] = 'cs.is_test = :is_test'; $parameters['is_test'] = $query->isTest ? 1 : 0; }
+        if ($query->dateFromUtc !== null) { $clauses[] = 'cs.last_activity_at >= :date_from'; $parameters['date_from'] = $query->dateFromUtc; }
+        if ($query->dateBeforeUtc !== null) { $clauses[] = 'cs.last_activity_at < :date_before'; $parameters['date_before'] = $query->dateBeforeUtc; }
+        if ($eligibleOnly) { $clauses[] = 'cs.purge_eligible_at IS NOT NULL AND cs.purge_eligible_at <= :purge_now'; }
+
+        return ['sql' => $clauses === [] ? '' : ' WHERE ' . implode(' AND ', $clauses), 'parameters' => $parameters];
     }
 
     public function messagesForSession(int $sessionId): array

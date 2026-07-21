@@ -2,6 +2,13 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Customer-facing chatbot conversation operations and integrations — 2026-07-21
+
+- Added bounded conversation list/detail views with explicit production/test classification, filtered pagination, safe transcript rendering, and content-free diagnostics.
+- Added scheduled expiry/retention, confirmed eligible manual purge snapshots, bounded cascades, one shared advisory lock, and content-free audit logging.
+- Added separate one-time `chatint_live_` server credentials with hash-only persistence, exact chatbot scopes, expiry/revocation/deletion UI, dedicated authentication and request limits.
+- Added integration session/message routes with a second session credential layer, shared grounded execution, usage accounting, migration `20260721000019`, examples, and tests. The WordPress plugin remains deferred.
+
 ## Customer-facing chatbot public messages and widget — 2026-07-21
 
 - Added bearer-authenticated non-streaming message and completion routes with exact chatbot/session/origin binding, strict DTOs, source-scoped shared execution, persistence, public-safe citations, and usage/quota reconciliation.

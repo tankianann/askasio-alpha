@@ -66,7 +66,7 @@ The application is suitable for a controlled single-administrator deployment aft
 
 ### Customer-facing chatbot implementation
 
-The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–10 add migrations `20260720000013`–`20260721000018`, chatbot identity/drafts, immutable scoped publications, authenticated administration/preview, publication/draft-bound persistence, shared grounding, public sessions/messages, and the widget foundation. The next reviewable milestone is bounded conversation administration and retention.
+The source brief and ADRs remain under [Customer-facing chatbot](customer-facing-chatbot/README.md). Milestones 2–12 add migrations `20260720000013`–`20260721000019`, chatbot identity/drafts, immutable scoped publications, shared grounding, public/widget messaging, bounded conversation retention, and separate scoped server credentials. The next reviewable milestone is analytics and operational readiness.
 
 Trusted reverse-proxy support remains a production security dependency for reliable client-IP rate limiting when deployed behind a TLS terminator.
 

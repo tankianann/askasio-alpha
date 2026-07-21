@@ -6,6 +6,7 @@ use App\Controllers\Api\HealthController;
 use App\Controllers\Api\ChatController;
 use App\Controllers\Api\RetrieveController;
 use App\Controllers\Api\PublicChatbotController;
+use App\Controllers\Api\ChatbotIntegrationController;
 use App\Auth\AuthenticationService;
 use App\Auth\LoginRateLimiter;
 use App\Auth\NativeSessionStore;
@@ -15,6 +16,8 @@ use App\Controllers\Admin\ApiKeyController;
 use App\Controllers\Admin\ApiRequestLogController;
 use App\Controllers\Admin\DashboardController;
 use App\Controllers\Admin\ChatbotController;
+use App\Controllers\Admin\ChatbotConversationController;
+use App\Controllers\Admin\ChatbotIntegrationCredentialController;
 use App\Controllers\Admin\SourceController;
 use App\Controllers\Admin\JobController;
 use App\Database\Connection;
@@ -31,10 +34,13 @@ use App\Http\Middleware\SessionStartMiddleware;
 use App\Http\Middleware\PublicChatbotCorsMiddleware;
 use App\Http\Middleware\PublicChatbotRateLimitMiddleware;
 use App\Http\Middleware\PublicChatbotSessionAuthenticationMiddleware;
+use App\Http\Middleware\ChatbotIntegrationAuthenticationMiddleware;
+use App\Http\Middleware\ChatbotIntegrationRateLimitMiddleware;
 use App\Http\Router;
 use App\Logging\LoggerFactory;
 use App\Maintenance\ApiRequestLogMaintenanceLock;
 use App\Maintenance\PdoAdvisoryLock;
+use App\Maintenance\ChatbotConversationMaintenanceLock;
 use App\Repositories\PdoAdminRepository;
 use App\Repositories\PdoApiKeyRepository;
 use App\Repositories\PdoApiRateLimitRepository;
@@ -64,6 +70,7 @@ use App\Services\Sources\SourceFileStorage;
 use App\Services\Sources\SourcePermanentDeletionService;
 use App\Repositories\PdoChatbotRepository;
 use App\Repositories\PdoChatbotConversationRepository;
+use App\Repositories\PdoChatbotIntegrationCredentialRepository;
 use App\Services\Sources\SourceUpdateService;
 use App\Services\Sources\SourceListQueryParser;
 use App\Services\Sources\SourceHistoryQueryParser;
@@ -86,6 +93,9 @@ use App\Services\Chatbots\ChatbotListQueryParser;
 use App\Services\Chatbots\ChatbotOriginNormalizer;
 use App\Services\Chatbots\ChatbotService;
 use App\Services\Chatbots\ChatbotConversationService;
+use App\Services\Chatbots\ChatbotConversationListQueryParser;
+use App\Services\Chatbots\ChatbotConversationRetentionService;
+use App\Services\Chatbots\ChatbotIntegrationCredentialService;
 use App\Services\Chatbots\ChatbotHistorySelector;
 use App\Services\Chatbots\ChatbotPreviewService;
 use App\Services\Chatbots\PublicChatbotAccessService;
@@ -219,6 +229,8 @@ $chatbotService = new ChatbotService(
     $chatbotProviderConfigured,
 );
 $conversationRepository = new PdoChatbotConversationRepository($connection);
+$integrationCredentials = new PdoChatbotIntegrationCredentialRepository($connection);
+$integrationCredentialService = new ChatbotIntegrationCredentialService($integrationCredentials);
 $conversationService = new ChatbotConversationService(
     $conversationRepository,
     new RandomChatbotSessionCredentialGenerator(),
@@ -337,6 +349,13 @@ $publicChatbotController = new PublicChatbotController(
     executor: $sharedChatExecutionService,
     applicationSecret: $appSecret,
 );
+$chatbotIntegrationController = new ChatbotIntegrationController(
+    $conversationService,
+    new JsonRequestParser($config->requireInt('rag.api_maximum_body_bytes')),
+    $sharedChatExecutionService,
+    $integrationCredentials,
+    $appSecret,
+);
 $jobController = new JobController(
     $queue,
     $views,
@@ -374,6 +393,34 @@ $apiRequestLogController = new ApiRequestLogController(
     ),
     new ApiRequestLogPurgeIntentStore($session),
     $config->requireString('app.env'),
+);
+$conversationRetention = new ChatbotConversationRetentionService(
+    $conversationRepository,
+    new PdoAdvisoryLock($connection),
+    $logger,
+    $config->requireInt('api.chatbot_conversation_purge_batch_size'),
+    ChatbotConversationMaintenanceLock::name($config->requireString('database.database')),
+);
+$chatbotConversationController = new ChatbotConversationController(
+    $conversationRepository,
+    $chatbots,
+    new ChatbotConversationListQueryParser($timezone),
+    $conversationRetention,
+    $views,
+    $csrf,
+    $session,
+    $config->requireString('app.env'),
+);
+$chatbotIntegrationCredentialController = new ChatbotIntegrationCredentialController(
+    $integrationCredentials,
+    $integrationCredentialService,
+    $chatbots,
+    $views,
+    $csrf,
+    $session,
+    $config->requireString('app.env'),
+    $timezone,
+    $logger,
 );
 $apiRequestContext = new ApiRequestContext();
 $apiRequestLoggingMiddleware = new ApiRequestLoggingMiddleware(
@@ -455,6 +502,18 @@ $publicChatbotMessageRateLimitMiddleware = new PublicChatbotRateLimitMiddleware(
         'public_message',
         $config->requireInt('api.public_chatbot_message_rate_limit_per_session'),
     ),
+);
+$chatbotIntegrationAuthenticationMiddleware = new ChatbotIntegrationAuthenticationMiddleware(
+    $integrationCredentialService,
+    $chatbots,
+    $integrationCredentials,
+);
+$chatbotIntegrationRateLimitMiddleware = new ChatbotIntegrationRateLimitMiddleware(
+    new PdoApiRateLimitRepository($connection),
+    $appSecret,
+    $config->requireInt('api.public_chatbot_rate_limit_window_seconds'),
+    $config->requireInt('api.chatbot_integration_rate_limit_per_credential'),
+    $config->requireInt('api.chatbot_integration_rate_limit_per_ip'),
 );
 $sessionMiddleware = new SessionStartMiddleware($session);
 $adminAuthenticationMiddleware = new AdminAuthenticationMiddleware($session, $admins);
@@ -538,6 +597,7 @@ $registerRoutes(
     $jobController,
     $apiKeyController,
     $apiRequestLogController,
+    $chatbotConversationController,
     $retrieveHandler,
     $chatHandler,
     $apiRequestLoggingMiddleware,
@@ -553,6 +613,10 @@ $registerRoutes(
     $publicChatbotMessageCorsMiddleware,
     $publicChatbotSessionAuthenticationMiddleware,
     $publicChatbotMessageRateLimitMiddleware,
+    $chatbotIntegrationController,
+    $chatbotIntegrationAuthenticationMiddleware,
+    $chatbotIntegrationRateLimitMiddleware,
+    $chatbotIntegrationCredentialController,
 );
 
 return [

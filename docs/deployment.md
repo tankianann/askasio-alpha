@@ -189,6 +189,9 @@ php bin/embed-chunks.php --rebuild
 | `CHATBOT_PUBLIC_MESSAGE_RATE_LIMIT_PER_CHATBOT` | `300` |
 | `CHATBOT_PUBLIC_MESSAGE_RATE_LIMIT_PER_SESSION` | `20` |
 | `CHATBOT_PUBLIC_PENDING_TIMEOUT_SECONDS` | `120` (allowed 30–3600) |
+| `CHATBOT_CONVERSATION_PURGE_BATCH_SIZE` | `500` |
+| `CHATBOT_INTEGRATION_RATE_LIMIT_PER_CREDENTIAL` | `120` |
+| `CHATBOT_INTEGRATION_RATE_LIMIT_PER_IP` | `240` |
 | `PROVIDER_GLOBAL_DAILY_TOKEN_LIMIT` | `1000000` |
 | `PROVIDER_GLOBAL_MONTHLY_TOKEN_LIMIT` | `10000000` |
 | `PROVIDER_API_KEY_DAILY_TOKEN_LIMIT` | `100000` |
@@ -298,9 +301,10 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 */10 * * * * www-data cd /var/www/ragserver && /usr/bin/php bin/recover-jobs.php >/dev/null
 15 2 * * * www-data cd /var/www/ragserver && /usr/bin/php bin/prune-api-requests.php >/dev/null
+30 2 * * * * www-data cd /var/www/ragserver && /usr/bin/php bin/prune-chatbot-conversations.php >/dev/null
 ```
 
-Both commands are idempotent. API Activity retention also uses a database advisory lock. Preserve stderr or alert on non-zero exit. No ingestion-job retention command exists yet.
+The commands are idempotent. API Activity and chatbot conversation retention use separate database advisory locks. Preserve stderr or alert on non-zero exit. No ingestion-job retention command exists yet.
 
 ## Backups and restoration
 

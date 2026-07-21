@@ -46,6 +46,7 @@
         "embed-chunks": "@php bin/embed-chunks.php",
         "process-jobs": "@php bin/process-jobs.php --once",
         "prune-api-requests": "@php bin/prune-api-requests.php",
+        "prune-chatbot-conversations": "@php bin/prune-chatbot-conversations.php",
         "recover-jobs": "@php bin/recover-jobs.php",
         "retrieve": "@php bin/retrieve.php",
         "test": "phpunit",
