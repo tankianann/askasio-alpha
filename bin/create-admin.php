@@ -66,8 +66,8 @@ try {
         throw new RuntimeException('Password confirmation does not match.');
     }
 
-    if (strlen($password) < 12) {
-        throw new RuntimeException('Password must contain at least 12 characters.');
+    if (strlen($password) < 10) {
+        throw new RuntimeException('Password must contain at least 10 characters.');
     }
 
     if (strlen($password) > 4096) {
