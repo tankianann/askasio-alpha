@@ -4,6 +4,8 @@
 
 Ask Asio's original nine milestones, dashboard data-lifecycle audit, CI/real-database quality gate, worker/document safety hardening, and authenticated provider quota enforcement are complete. Customer-facing chatbot milestones 1–14 now include public/widget messaging, conversation administration, scoped server integrations, bounded analytics, operational runbooks, and a conditional release gate.
 
+Chatbot publications now select either the existing floating launcher or an inline full-width search prompt that expands into a fullscreen, 800-pixel-bounded conversation. Existing publications remain floating by default.
+
 The application is suitable for a controlled single-administrator deployment after the operator completes the production checklist. The largest remaining architecture limit is full-corpus vector scoring in PHP. The most immediate deployment-security gap is trusted reverse-proxy handling.
 
 ## Completed

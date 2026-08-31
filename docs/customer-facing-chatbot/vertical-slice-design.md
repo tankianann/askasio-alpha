@@ -71,7 +71,7 @@ The exact numeric defaults/bounds become authoritative in typed config and valid
 
 ### Schema-versioned JSON
 
-`presentation_json` initially allows only display name, welcome message, input placeholder, and a bounded ordered list of starter questions. `appearance_json` initially allows only accent color, `light|dark` theme, `left|right` position, approved launcher icon/label, panel title, and `compact|standard` size.
+`presentation_json` initially allows only display name, welcome message, input placeholder, and a bounded ordered list of starter questions. `appearance_json` initially allows only the `floating|inline_fullscreen` layout, accent color, `light|dark` theme, `left|right` floating position, approved launcher icon/label, panel title, and `compact|standard` floating size.
 
 Unknown keys, arbitrary HTML/CSS/JavaScript, invalid enums/colors, excess array items, and overlong strings are rejected. Public configuration is produced by an explicit DTO allowlist, never by returning these JSON documents directly.
 

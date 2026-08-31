@@ -37,6 +37,7 @@ final class ChatbotFixtures
                 'suggested_questions' => ['What is the refund policy?'],
             ],
             [
+                'layout' => 'floating',
                 'accent' => '#2457d6',
                 'theme' => 'light',
                 'position' => 'right',

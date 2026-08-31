@@ -83,8 +83,9 @@ final class PublicChatbotApiTest extends TestCase
         self::assertSame(self::PUBLIC_ID, $payload['chatbot']['id']);
         self::assertSame('Support assistant', $payload['chatbot']['display_name']);
         self::assertSame([
-            'accent', 'theme', 'position', 'launcher_label', 'launcher_icon', 'panel_title', 'size',
+            'layout', 'accent', 'theme', 'position', 'launcher_label', 'launcher_icon', 'panel_title', 'size',
         ], array_keys($payload['chatbot']['appearance']));
+        self::assertSame('floating', $payload['chatbot']['appearance']['layout']);
         self::assertSame('Support', $payload['chatbot']['appearance']['panel_title']);
         self::assertFalse($payload['chatbot']['capabilities']['streaming']);
         self::assertStringNotContainsString('system_instructions', $response->body());

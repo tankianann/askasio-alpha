@@ -343,6 +343,7 @@ $chatbotController = new ChatbotController(
     $config->requireInt('rag.chat_maximum_question_characters'),
     $chatbotPreviewService,
     $appSecret,
+    $config->requireString('app.url'),
 );
 $publicChatbotAccess = new PublicChatbotAccessService(
     $chatbots,

@@ -11,7 +11,7 @@ final readonly class ChatbotDraftValidator
 {
     private const RETENTION_DAYS = [0, 7, 30, 90];
     private const PRESENTATION_KEYS = ['display_name', 'welcome_message', 'input_placeholder', 'suggested_questions'];
-    private const APPEARANCE_KEYS = ['accent', 'theme', 'position', 'launcher_label', 'launcher_icon', 'panel_title', 'size'];
+    private const APPEARANCE_KEYS = ['layout', 'accent', 'theme', 'position', 'launcher_label', 'launcher_icon', 'panel_title', 'size'];
 
     public function __construct(
         private int $maximumTopK,
@@ -123,6 +123,10 @@ final readonly class ChatbotDraftValidator
     /** @param array<string, mixed> $values @return array<string, mixed> */
     private function appearance(array $values): array
     {
+        if (!array_key_exists('layout', $values)) {
+            $values['layout'] = 'floating';
+        }
+
         $this->exactKeys($values, self::APPEARANCE_KEYS, 'appearance');
         $accent = $this->plainString($values, 'accent', 'Accent', 7, 7);
 
@@ -131,6 +135,7 @@ final readonly class ChatbotDraftValidator
         }
 
         return [
+            'layout' => $this->enumString($values, 'layout', ['floating', 'inline_fullscreen']),
             'accent' => strtoupper($accent),
             'theme' => $this->enumString($values, 'theme', ['light', 'dark']),
             'position' => $this->enumString($values, 'position', ['left', 'right']),
@@ -218,4 +223,3 @@ final readonly class ChatbotDraftValidator
         return $value;
     }
 }
-

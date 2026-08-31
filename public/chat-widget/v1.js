@@ -10,6 +10,7 @@
     script.dataset.askasioLoaded = 'true';
 
     var chatbotId = (script.dataset.chatbotId || '').trim();
+    var containerId = (script.dataset.containerId || '').trim();
     var apiOrigin;
 
     try {
@@ -36,6 +37,9 @@
     var pendingSubmission = null;
     var busy = false;
     var opened = false;
+    var layout = 'floating';
+    var pageOverflow = null;
+    var inlineMountMarker = null;
 
     var host = document.createElement('div');
     host.setAttribute('data-askasio-chat-widget', 'v1');
@@ -46,6 +50,30 @@
     shadow.appendChild(stylesheet);
 
     var root = element('div', 'askasio-widget');
+    var inline = element('section', 'askasio-inline');
+    inline.hidden = true;
+    inline.setAttribute('role', 'search');
+    inline.setAttribute('aria-label', 'Ask a question');
+    var inlineForm = element('form', 'askasio-inline-form');
+    var inlineLabel = element('label', 'askasio-visually-hidden');
+    var inlineInputId = uniqueId('inline-message');
+    inlineLabel.htmlFor = inlineInputId;
+    inlineLabel.textContent = 'Ask a question';
+    var inlineInput = document.createElement('input');
+    inlineInput.id = inlineInputId;
+    inlineInput.type = 'search';
+    inlineInput.required = true;
+    inlineInput.placeholder = 'Ask a question';
+    var inlineSend = element('button', 'askasio-inline-send');
+    inlineSend.type = 'submit';
+    inlineSend.setAttribute('aria-label', 'Start conversation');
+    inlineSend.textContent = '\u2192';
+    inlineForm.append(inlineLabel, inlineInput, inlineSend);
+    var inlineStatus = element('p', 'askasio-visually-hidden askasio-inline-status');
+    inlineStatus.setAttribute('role', 'status');
+    inlineStatus.setAttribute('aria-live', 'polite');
+    inline.append(inlineForm, inlineStatus);
+
     var launcher = element('button', 'askasio-launcher');
     launcher.type = 'button';
     launcher.setAttribute('aria-expanded', 'false');
@@ -110,9 +138,10 @@
     privacy.hidden = true;
 
     panel.append(header, transcript, suggestions, status, form, disclosure, privacy);
-    root.append(panel, launcher);
+    root.append(inline, panel, launcher);
     shadow.appendChild(root);
-    (document.body || document.documentElement).appendChild(host);
+    var mount = containerId ? document.getElementById(containerId) : null;
+    (mount || document.body || document.documentElement).appendChild(host);
     instances[instanceKey] = host;
 
     launcher.addEventListener('click', function () {
@@ -123,6 +152,17 @@
     });
     restart.addEventListener('click', restartConversation);
     form.addEventListener('submit', submitMessage);
+    inlineForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var message = inlineInput.value.trim();
+        if (busy || !configuration || !message) {
+            return;
+        }
+        input.value = message;
+        inlineInput.value = '';
+        setOpen(true);
+        form.requestSubmit();
+    });
     input.addEventListener('keydown', function (event) {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -133,6 +173,8 @@
         if (event.key === 'Escape' && opened) {
             event.preventDefault();
             setOpen(false);
+        } else if (event.key === 'Tab' && opened && layout === 'inline_fullscreen') {
+            containModalFocus(event);
         }
     });
 
@@ -147,6 +189,8 @@
             setBusy(false, 'Chat is unavailable right now. Please try again later.', true);
             input.disabled = true;
             send.disabled = true;
+            inlineInput.disabled = true;
+            inlineSend.disabled = true;
         });
 
     function applyConfiguration(config) {
@@ -163,19 +207,29 @@
         launcherText.textContent = launcherLabel;
         launcher.replaceChildren(launcherIcon, launcherText);
         launcher.setAttribute('aria-label', launcherLabel);
-        input.placeholder = stringValue(config.input_placeholder, 'Type your question');
-        input.maxLength = positiveInteger(config.maximum_message_characters, 4000);
+        var inputPlaceholder = stringValue(config.input_placeholder, 'Type your question');
+        var maximumMessageCharacters = positiveInteger(config.maximum_message_characters, 4000);
+        input.placeholder = inputPlaceholder;
+        input.maxLength = maximumMessageCharacters;
+        inlineInput.placeholder = inputPlaceholder;
+        inlineInput.maxLength = maximumMessageCharacters;
         disclosure.textContent = stringValue(config.disclosure_text, 'Automated assistant. Check important information.');
 
         var appearance = config.appearance || {};
+        layout = appearance.layout === 'inline_fullscreen' ? 'inline_fullscreen' : 'floating';
+        host.dataset.layout = layout;
         host.dataset.position = appearance.position === 'left' ? 'left' : 'right';
         host.dataset.size = appearance.size === 'compact' ? 'compact' : 'standard';
         host.dataset.theme = appearance.theme === 'dark' ? 'dark' : 'light';
+        inline.hidden = layout !== 'inline_fullscreen';
+        launcher.hidden = layout === 'inline_fullscreen';
+        panel.setAttribute('aria-modal', layout === 'inline_fullscreen' ? 'true' : 'false');
         if (/^#[0-9a-fA-F]{6}$/.test(appearance.accent || '')) {
             host.style.setProperty('--askasio-accent', appearance.accent);
         }
 
-        addMessage('assistant', stringValue(config.welcome_message, 'How can I help?'));
+        var welcomeMessage = stringValue(config.welcome_message, 'How can I help?');
+        addMessage('assistant', welcomeMessage);
         renderSuggestions(Array.isArray(config.suggested_questions) ? config.suggested_questions : []);
 
         var privacyUrl = safeHttpUrl(config.privacy_notice_url);
@@ -285,7 +339,8 @@
             pendingSubmission = null;
             transcript.replaceChildren();
             if (configuration) {
-                addMessage('assistant', stringValue(configuration.welcome_message, 'How can I help?'));
+                var welcomeMessage = stringValue(configuration.welcome_message, 'How can I help?');
+                addMessage('assistant', welcomeMessage);
                 renderSuggestions(Array.isArray(configuration.suggested_questions) ? configuration.suggested_questions : []);
             }
             setBusy(false, 'Conversation restarted.');
@@ -366,12 +421,55 @@
     function setOpen(next) {
         opened = next;
         panel.hidden = !opened;
+        host.dataset.open = opened ? 'true' : 'false';
         launcher.setAttribute('aria-expanded', opened ? 'true' : 'false');
+        inline.setAttribute('aria-hidden', opened ? 'true' : 'false');
+        if (layout === 'inline_fullscreen') {
+            if (opened) {
+                moveInlineHostToPageOverlay();
+                inline.hidden = true;
+                lockPageScroll();
+            } else {
+                unlockPageScroll();
+                restoreInlineHost();
+                inline.hidden = false;
+            }
+        }
         if (opened) {
             input.focus();
         } else {
-            launcher.focus();
+            (layout === 'inline_fullscreen' ? inlineInput : launcher).focus();
         }
+    }
+
+    function moveInlineHostToPageOverlay() {
+        if (inlineMountMarker !== null || !host.parentNode || !document.body) {
+            return;
+        }
+        inlineMountMarker = document.createComment('Ask Asio inline widget mount');
+        host.parentNode.insertBefore(inlineMountMarker, host);
+        document.body.appendChild(host);
+        host.style.setProperty('position', 'fixed', 'important');
+        host.style.setProperty('z-index', '2147483647', 'important');
+        host.style.setProperty('inset', '0', 'important');
+        host.style.setProperty('width', '100vw', 'important');
+        host.style.setProperty('height', '100vh', 'important');
+        host.style.setProperty('margin', '0', 'important');
+        host.style.setProperty('transform', 'none', 'important');
+        host.style.setProperty('isolation', 'isolate', 'important');
+    }
+
+    function restoreInlineHost() {
+        if (inlineMountMarker === null) {
+            return;
+        }
+        if (inlineMountMarker.parentNode) {
+            inlineMountMarker.parentNode.replaceChild(host, inlineMountMarker);
+        }
+        inlineMountMarker = null;
+        ['position', 'z-index', 'inset', 'width', 'height', 'margin', 'transform', 'isolation'].forEach(function (property) {
+            host.style.removeProperty(property);
+        });
     }
 
     function setBusy(next, message, isError) {
@@ -379,6 +477,8 @@
         panel.setAttribute('aria-busy', next ? 'true' : 'false');
         input.disabled = next;
         send.disabled = next;
+        inlineInput.disabled = next;
+        inlineSend.disabled = next;
         restart.disabled = next;
         setStatus(message, isError);
     }
@@ -386,6 +486,52 @@
     function setStatus(message, isError) {
         status.textContent = message || '';
         status.dataset.error = isError ? 'true' : 'false';
+        inlineStatus.textContent = message || '';
+        inlineStatus.dataset.error = isError ? 'true' : 'false';
+    }
+
+    function containModalFocus(event) {
+        var focusable = Array.prototype.filter.call(
+            panel.querySelectorAll('button, textarea, a[href]'),
+            function (node) { return !node.disabled && !node.hidden; }
+        );
+        if (!focusable.length) {
+            return;
+        }
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (event.shiftKey && shadow.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && shadow.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+
+    function lockPageScroll() {
+        if (pageOverflow !== null) {
+            return;
+        }
+        pageOverflow = {
+            html: document.documentElement.style.overflow,
+            body: document.body ? document.body.style.overflow : ''
+        };
+        document.documentElement.style.overflow = 'hidden';
+        if (document.body) {
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function unlockPageScroll() {
+        if (pageOverflow === null) {
+            return;
+        }
+        document.documentElement.style.overflow = pageOverflow.html;
+        if (document.body) {
+            document.body.style.overflow = pageOverflow.body;
+        }
+        pageOverflow = null;
     }
 
     function readSession() {

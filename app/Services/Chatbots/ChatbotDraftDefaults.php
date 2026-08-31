@@ -45,6 +45,7 @@ final readonly class ChatbotDraftDefaults
                 'suggested_questions' => [],
             ],
             [
+                'layout' => 'floating',
                 'accent' => '#0B7BDD',
                 'theme' => 'light',
                 'position' => 'right',

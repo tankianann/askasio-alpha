@@ -8,7 +8,7 @@ final readonly class PublicChatbotConfiguration
 {
     /**
      * @param list<string> $suggestedQuestions
-     * @param array{accent: string, theme: string, position: string, launcher_label: string, launcher_icon: string, panel_title: string, size: string} $appearance
+     * @param array{layout: string, accent: string, theme: string, position: string, launcher_label: string, launcher_icon: string, panel_title: string, size: string} $appearance
      */
     public function __construct(
         public string $id,
@@ -42,6 +42,7 @@ final readonly class PublicChatbotConfiguration
                 : [],
             is_string($presentation['input_placeholder'] ?? null) ? $presentation['input_placeholder'] : '',
             [
+                'layout' => ($appearance['layout'] ?? null) === 'inline_fullscreen' ? 'inline_fullscreen' : 'floating',
                 'accent' => is_string($appearance['accent'] ?? null) ? $appearance['accent'] : '#2457d6',
                 'theme' => is_string($appearance['theme'] ?? null) ? $appearance['theme'] : 'light',
                 'position' => is_string($appearance['position'] ?? null) ? $appearance['position'] : 'right',

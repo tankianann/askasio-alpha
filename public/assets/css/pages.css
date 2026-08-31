@@ -446,6 +446,19 @@
     margin-bottom: 2rem;
 }
 
+.widget-installation .embed-code {
+    min-height: 5.5rem;
+    color: #d7e5f1;
+    background: #142331;
+    font-family: var(--font-mono);
+    font-size: 0.84rem;
+    white-space: pre;
+}
+
+.widget-installation [hidden] {
+    display: none;
+}
+
 .resource-tabs {
     display: flex;
     gap: 0.35rem;

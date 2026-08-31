@@ -15,13 +15,28 @@ For local development, Ask Asio is served by Laravel Herd at `https://askasio.te
 
 Add the embedding page's exact origin to the chatbot draft and publish it before loading the widget. The loader derives the API origin from its own `src`; it does not accept a caller-supplied API URL or credential. Duplicate loaders for the same API origin/public ID collapse to one instance.
 
+Each chatbot publication selects one allowlisted widget layout. `floating` preserves the fixed left/right launcher and compact/standard panel. `inline_fullscreen` renders only a full-width question field and submit button at the element named by `data-container-id`; submitting the first question moves the widget to a maximum-priority body layer and opens a modal conversation that covers the viewport while centring transcript and input content within 800 pixels. Closing it restores the widget to its original embed location.
+
+An inline embed provides its mount element before loading the script:
+
+```html
+<section id="ask-asio-search"></section>
+<script
+  src="https://askasio.example.com/chat-widget/v1.js"
+  data-chatbot-id="cb_replace_with_public_id"
+  data-container-id="ask-asio-search"
+  async></script>
+```
+
+If the configured container is absent, the loader falls back to the document body. Floating chatbots ignore container placement visually because their host remains fixed. The layout is publication-owned, so installations that require both styles should configure and publish separate chatbots.
+
 For a strict Content Security Policy, allow the Ask Asio origin in `script-src`, `style-src`, and `connect-src`. The embedding page must provide modern browser primitives: Shadow DOM, Fetch, Promises, Web Crypto, `sessionStorage`, and standard DOM APIs. The supported baseline is current evergreen Chrome, Edge, Firefox, and Safari; Internet Explorer is not supported.
 
 ## Isolation and accessibility
 
 The loader creates an isolated Shadow DOM rather than an iframe. This preserves the embedding page's browser `Origin` for API authorization while containing widget styles. The external versioned stylesheet provides desktop/mobile sizing, high-contrast behavior, visible keyboard focus, and reduced-motion handling.
 
-The launcher exposes expanded/control state; the panel is a labelled non-modal dialog with busy state; the transcript is a named polite live log; suggestion controls form a named group; messages are labelled by speaker; controls have accessible names; Enter submits, Shift+Enter inserts a line, Escape closes, opening focuses the message input, and closing restores launcher focus. The interface does not trap focus. Mobile sizing uses dynamic viewport units with a `vh` fallback so the panel responds to supported on-screen keyboards.
+The floating launcher exposes expanded/control state and opens a labelled non-modal dialog. The inline prompt is a labelled search region; its fullscreen panel is modal, contains keyboard focus, locks background scrolling, closes with Escape, and restores focus to the inline search input. Both layouts expose a named polite transcript log, labelled messages and controls, Enter submission, Shift+Enter line insertion in the conversation input, restart, busy state, and dynamic-viewport mobile sizing.
 
 ## Session and message behavior
 
@@ -37,4 +52,4 @@ Cross-origin embeds send `Origin` and receive the exact allowlisted CORS respons
 
 ## Compatibility verification
 
-Asset contract tests protect the versioned loader, Shadow DOM boundary, session-only storage, API paths, bearer/idempotency behavior, safe DOM rendering, URL scheme restriction, accessible names/groups/busy state, keyboard hooks, focus states, dynamic-viewport responsive layout, forced colors, and reduced motion. HTTP tests separately cover the widget-facing API and same-origin exception. Browser release checks must load the real asset, inspect its rendered/accessibility-tree state, exercise launcher/close/keyboard behavior, and test a narrow viewport without making a paid provider call. The required matrix and release threshold are in [Security, accessibility, and end-to-end release gate](security-accessibility-release-gate.md#widget-browser-and-accessibility-matrix).
+Asset contract tests protect the versioned loader, Shadow DOM boundary, both layout modes, session-only storage, API paths, bearer/idempotency behavior, safe DOM rendering, URL scheme restriction, accessible names/groups/busy state, modal focus/scroll behavior, keyboard hooks, dynamic-viewport responsive layout, forced colors, and reduced motion. HTTP tests separately cover the widget-facing API and same-origin exception. Browser release checks must load both layouts, inspect their rendered/accessibility-tree state, exercise launcher/search/fullscreen/close/keyboard behavior, and test a narrow viewport without making a paid provider call. The required matrix and release threshold are in [Security, accessibility, and end-to-end release gate](security-accessibility-release-gate.md#widget-browser-and-accessibility-matrix).

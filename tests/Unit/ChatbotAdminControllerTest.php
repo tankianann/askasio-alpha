@@ -178,6 +178,24 @@ final class ChatbotAdminControllerTest extends TestCase
         self::assertStringContainsString('Configure the installation chat and embedding models', $followed->body());
     }
 
+    public function testEditShowsCopyableInstallationCodeForBothWidgetLayouts(): void
+    {
+        [$controller, $chatbots] = $this->controller(applicationUrl: 'https://askasio.example.com/');
+        $chatbot = $chatbots->create('cb_embed', 'Support', null, ChatbotFixtures::draft());
+
+        $response = $controller->edit($this->request(
+            'GET',
+            '/admin/chatbots/1/edit',
+            routes: ['chatbotId' => (string) $chatbot->id],
+        ));
+
+        self::assertStringContainsString('Installation code', $response->body());
+        self::assertStringContainsString('https://askasio.example.com/chat-widget/v1.js', $response->body());
+        self::assertStringContainsString('data-chatbot-id=&quot;cb_embed&quot;', $response->body());
+        self::assertStringContainsString('data-container-id=&quot;ask-asio-search&quot;', $response->body());
+        self::assertStringContainsString('data-copy-target="floating-embed-code"', $response->body());
+    }
+
     public function testEditUsesServerRoutedTaskTabs(): void
     {
         [$controller, $chatbots, $sources] = $this->controller();
@@ -309,6 +327,7 @@ final class ChatbotAdminControllerTest extends TestCase
     private function controller(
         array $publicIds = ['cb_default'],
         bool $providerConfigured = true,
+        string $applicationUrl = 'http://localhost:8080',
     ): array {
         $chatbots = new InMemoryChatbotRepository();
         $sources = new InMemorySourceRepository();
@@ -353,6 +372,7 @@ final class ChatbotAdminControllerTest extends TestCase
             $providerConfigured,
             8,
             4_000,
+            applicationUrl: $applicationUrl,
         );
 
         return [$controller, $chatbots, $sources];
@@ -381,6 +401,7 @@ final class ChatbotAdminControllerTest extends TestCase
             'welcome_message' => 'How can I help?',
             'input_placeholder' => 'Ask a question',
             'suggested_questions' => "Refunds?\nShipping?",
+            'layout' => 'floating',
             'accent' => '#0B7BDD',
             'theme' => 'light',
             'position' => 'right',

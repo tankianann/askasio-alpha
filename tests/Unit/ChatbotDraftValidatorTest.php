@@ -19,9 +19,21 @@ final class ChatbotDraftValidatorTest extends TestCase
         $normalized = $this->validator()->validateAndNormalize($draft);
 
         self::assertSame('Support assistant', $normalized->presentation['display_name']);
+        self::assertSame('floating', $normalized->appearance['layout']);
         self::assertSame('#2457D6', $normalized->appearance['accent']);
         self::assertSame(30, $normalized->retentionDays);
         self::assertSame('https://example.com/privacy', $normalized->privacyNoticeUrl);
+    }
+
+    public function testItDefaultsLegacyAppearanceToFloatingLayout(): void
+    {
+        $draft = ChatbotFixtures::draft();
+        $appearance = $draft->appearance;
+        unset($appearance['layout']);
+
+        $normalized = $this->validator()->validateAndNormalize(self::copy($draft, appearance: $appearance));
+
+        self::assertSame('floating', $normalized->appearance['layout']);
     }
 
     #[DataProvider('invalidDrafts')]
@@ -49,6 +61,10 @@ final class ChatbotDraftValidatorTest extends TestCase
             ...$valid->presentation,
             'custom_javascript' => 'alert(1)',
         ])];
+        yield 'unknown widget layout' => [self::copy($valid, appearance: [
+            ...$valid->appearance,
+            'layout' => 'custom_html',
+        ])];
     }
 
     private function validator(): ChatbotDraftValidator
@@ -56,7 +72,7 @@ final class ChatbotDraftValidatorTest extends TestCase
         return new ChatbotDraftValidator(8, 4_000);
     }
 
-    /** @param array<string, mixed>|null $presentation */
+    /** @param array<string, mixed>|null $presentation @param array<string, mixed>|null $appearance */
     private static function copy(
         ChatbotDraft $draft,
         ?int $retrievalTopK = null,
@@ -66,6 +82,7 @@ final class ChatbotDraftValidatorTest extends TestCase
         ?int $absoluteExpiryMinutes = null,
         ?string $privacyNoticeUrl = null,
         ?array $presentation = null,
+        ?array $appearance = null,
     ): ChatbotDraft {
         return new ChatbotDraft(
             $draft->schemaVersion,
@@ -83,8 +100,7 @@ final class ChatbotDraftValidatorTest extends TestCase
             $privacyNoticeUrl ?? $draft->privacyNoticeUrl,
             $draft->disclosureText,
             $presentation ?? $draft->presentation,
-            $draft->appearance,
+            $appearance ?? $draft->appearance,
         );
     }
 }
-

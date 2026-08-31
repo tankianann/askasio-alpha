@@ -40,6 +40,7 @@ The current `/api/v1/chat` and `/api/v1/retrieve` remain authenticated server-to
     "suggested_questions": ["What is your refund policy?"],
     "input_placeholder": "Ask a question",
     "appearance": {
+      "layout": "floating",
       "accent": "#2457d6",
       "theme": "light",
       "position": "right",

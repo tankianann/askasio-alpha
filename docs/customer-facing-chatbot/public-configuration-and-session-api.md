@@ -23,7 +23,7 @@ CORS is browser policy, not authentication. A non-browser client can forge `Orig
 
 ## Public configuration contract
 
-The response contains `chatbot`, `api_version`, and `request_id`. The allowlisted chatbot DTO contains only public ID, publication number, display/welcome/starter/placeholder presentation, accent/theme/position/launcher/panel-title/size appearance, citation/restart/streaming capabilities, maximum message characters, privacy URL, and disclosure text.
+The response contains `chatbot`, `api_version`, and `request_id`. The allowlisted chatbot DTO contains only public ID, publication number, display/welcome/starter/placeholder presentation, `floating|inline_fullscreen` layout, accent/theme/position/launcher/panel-title/size appearance, citation/restart/streaming capabilities, maximum message characters, privacy URL, and disclosure text. Publications created before the layout field existed project safely as `floating`.
 
 It never serializes domain/PDO records, internal/source IDs, assignments, origins, instructions, provider/model metadata, credentials, quota state, diagnostics, or arbitrary JSON keys. Disabled, archived, unpublished, malformed, and unknown IDs use `404 chatbot_not_found`. A stale/unconfigured installation provider returns safe `503 knowledge_unavailable` after origin authorization.
 

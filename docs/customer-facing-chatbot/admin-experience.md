@@ -77,7 +77,9 @@ General-knowledge answers outside assigned sources are deferred. Enabling them w
 
 ### Appearance
 
-Initial settings should remain intentionally small: display name, launcher label/approved icon, primary accent, light/dark mode where supported, left/right position, panel title, and compact/standard size. Store validated values, expose them as CSS custom properties or safe enums, and reject arbitrary CSS/HTML/JavaScript.
+Appearance settings remain intentionally bounded: display name, `floating|inline_fullscreen` widget layout, launcher label/approved icon, primary accent, light/dark mode, left/right floating position, panel title, and compact/standard floating size. The inline layout occupies its embed container and expands into a fullscreen modal after the first submission. Store validated values, expose them as CSS custom properties or safe enums, and reject arbitrary CSS/HTML/JavaScript.
+
+The editor shows copy-ready installation code derived from the configured `APP_URL` and the chatbot public ID. Changing the layout selector immediately switches the displayed snippet: floating uses the loader script alone, while inline includes both the mount container and its linked loader attributes. Administrators must save and publish the selected layout before deploying the snippet.
 
 ### Security and access
 

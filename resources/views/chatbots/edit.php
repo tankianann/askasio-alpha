@@ -3,6 +3,18 @@ $draft = $chatbot->draft;
 $presentation = $draft->presentation;
 $appearance = $draft->appearance;
 $field = static fn (string $key, mixed $default): mixed => array_key_exists($key, $old) ? $old[$key] : $default;
+$selectedLayout = $field('layout', $appearance['layout'] ?? 'floating') === 'inline_fullscreen' ? 'inline_fullscreen' : 'floating';
+$widgetScriptUrl = $applicationUrl . '/chat-widget/v1.js';
+$floatingEmbedCode = sprintf(
+    '<script src="%s" data-chatbot-id="%s" async></script>',
+    $widgetScriptUrl,
+    $chatbot->publicId,
+);
+$inlineEmbedCode = sprintf(
+    "<div id=\"ask-asio-search\"></div>\n<script src=\"%s\" data-chatbot-id=\"%s\" data-container-id=\"ask-asio-search\" async></script>",
+    $widgetScriptUrl,
+    $chatbot->publicId,
+);
 $questions = implode("\n", $presentation['suggested_questions']);
 $originText = implode("\n", $chatbot->assignments->origins);
 $assignedIds = $chatbot->assignments->sourceIds;
@@ -86,12 +98,30 @@ if ($chatbot->assignments->origins === []) {
         <div class="form-group"><label for="disclosure">Automated-assistant disclosure</label><textarea id="disclosure" name="disclosure_text" maxlength="500" rows="3" required><?= $escape($field('disclosure_text', $draft->disclosureText)) ?></textarea></div>
 
         <h3>Appearance</h3>
+        <div class="form-group"><label for="layout">Widget layout</label><select id="layout" name="layout"><?php foreach (['floating' => 'Floating launcher', 'inline_fullscreen' => 'Inline search, then fullscreen chat'] as $value => $label): ?><option value="<?= $value ?>" <?= $field('layout', $appearance['layout'] ?? 'floating') === $value ? 'selected' : '' ?>><?= $escape($label) ?></option><?php endforeach; ?></select><p class="field-help">The floating layout uses the position and panel-size settings below. The inline layout renders in its embed container and expands after the visitor submits a question.</p></div>
         <div class="form-grid form-grid-three"><div class="form-group"><label for="accent">Accent color</label><input id="accent" name="accent" type="text" pattern="#[0-9A-Fa-f]{6}" maxlength="7" required value="<?= $escape($field('accent', $appearance['accent'])) ?>"></div><div class="form-group"><label for="theme">Theme</label><select id="theme" name="theme"><?php foreach (['light', 'dark'] as $value): ?><option value="<?= $value ?>" <?= $field('theme', $appearance['theme']) === $value ? 'selected' : '' ?>><?= ucfirst($value) ?></option><?php endforeach; ?></select></div><div class="form-group"><label for="position">Position</label><select id="position" name="position"><?php foreach (['left', 'right'] as $value): ?><option value="<?= $value ?>" <?= $field('position', $appearance['position']) === $value ? 'selected' : '' ?>><?= ucfirst($value) ?></option><?php endforeach; ?></select></div></div>
         <div class="form-grid"><div class="form-group"><label for="launcher-label">Launcher label</label><input id="launcher-label" name="launcher_label" type="text" maxlength="50" required value="<?= $escape($field('launcher_label', $appearance['launcher_label'])) ?>"></div><div class="form-group"><label for="launcher-icon">Launcher icon</label><select id="launcher-icon" name="launcher_icon"><?php foreach (['chat', 'bubble', 'help'] as $value): ?><option value="<?= $value ?>" <?= $field('launcher_icon', $appearance['launcher_icon']) === $value ? 'selected' : '' ?>><?= ucfirst($value) ?></option><?php endforeach; ?></select></div></div>
         <div class="form-grid"><div class="form-group"><label for="panel-title">Panel title</label><input id="panel-title" name="panel_title" type="text" maxlength="100" required value="<?= $escape($field('panel_title', $appearance['panel_title'])) ?>"></div><div class="form-group"><label for="size">Panel size</label><select id="size" name="size"><?php foreach (['compact', 'standard'] as $value): ?><option value="<?= $value ?>" <?= $field('size', $appearance['size']) === $value ? 'selected' : '' ?>><?= ucfirst($value) ?></option><?php endforeach; ?></select></div></div>
         <div class="form-actions"><button class="button button-primary" type="submit">Save draft settings</button></div>
     </fieldset>
 </form>
+
+<div class="section-heading"><h2>Installation code</h2><p>Save and publish this chatbot, then paste the code into the page where it should appear.</p></div>
+<section class="panel form-panel widget-installation" data-widget-installation data-layout-select="layout">
+    <div class="form-group" data-widget-snippet="floating" <?= $selectedLayout === 'floating' ? '' : 'hidden' ?>>
+        <label for="floating-embed-code">Floating launcher</label>
+        <textarea id="floating-embed-code" class="embed-code" rows="3" readonly spellcheck="false"><?= $escape($floatingEmbedCode) ?></textarea>
+        <p class="field-help">Paste this before the closing <code>&lt;/body&gt;</code> tag. The launcher floats over the page.</p>
+    </div>
+    <div class="form-group" data-widget-snippet="inline_fullscreen" <?= $selectedLayout === 'inline_fullscreen' ? '' : 'hidden' ?>>
+        <label for="inline-embed-code">Inline search and fullscreen chat</label>
+        <textarea id="inline-embed-code" class="embed-code" rows="5" readonly spellcheck="false"><?= $escape($inlineEmbedCode) ?></textarea>
+        <p class="field-help">Place this where the full-width search box should appear. You may rename the container ID, provided both occurrences match.</p>
+    </div>
+    <div class="form-actions">
+        <button class="button button-primary" type="button" data-widget-copy-button data-copy-target="<?= $selectedLayout === 'inline_fullscreen' ? 'inline-embed-code' : 'floating-embed-code' ?>">Copy embed code</button>
+    </div>
+</section>
 <?php endif; ?>
 
 <?php if ($activeTab === 'knowledge'): ?>

@@ -2,6 +2,15 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Chatbot inline/fullscreen presentation — 2026-08-31
+
+- Added a validated chatbot publication setting for the existing floating launcher or a full-width inline search prompt.
+- Expanded inline submissions into a viewport-covering modal with an 800-pixel conversation column, background scroll locking, focus containment, Escape close, and search-focus restoration.
+- Preserved floating behavior and backward compatibility by projecting publications without the new field as `floating`.
+- Added container-targeted embed support, desktop/mobile rendered verification, configuration/widget contracts, and living documentation.
+- Added copy-ready installation code to the chatbot editor, switching automatically between floating and inline snippets and using the configured `APP_URL` and chatbot public ID.
+- Reduced the inline entry state to its full-width question field and submit button, and portal the open conversation to a maximum-priority body layer so site headers cannot cover it.
+
 ## Administrator terminology alignment — 2026-07-21
 
 - Renamed **API Access** to **General API Keys** and moved installation-wide consumption into a dedicated **AI Usage** report, leaving per-key usage with each key.

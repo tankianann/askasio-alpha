@@ -73,6 +73,33 @@ final class PublicChatbotWidgetAssetTest extends TestCase
         self::assertStringContainsString(':focus-visible', $this->css);
     }
 
+    public function testInlineLayoutExpandsIntoABoundedFullscreenConversation(): void
+    {
+        foreach ([
+            "appearance.layout === 'inline_fullscreen'",
+            "script.dataset.containerId",
+            "inline.setAttribute('role', 'search')",
+            "panel.setAttribute('aria-modal', layout === 'inline_fullscreen' ? 'true' : 'false')",
+            "event.key === 'Tab' && opened && layout === 'inline_fullscreen'",
+            'lockPageScroll()',
+            'moveInlineHostToPageOverlay()',
+            'document.body.appendChild(host)',
+            "host.style.setProperty('z-index', '2147483647', 'important')",
+            'restoreInlineHost()',
+        ] as $contract) {
+            self::assertStringContainsString($contract, $this->javascript);
+        }
+
+        self::assertStringNotContainsString('Powered by Ask Asio', $this->javascript);
+        self::assertStringNotContainsString('askasio-inline-title', $this->javascript);
+
+        self::assertStringContainsString(':host([data-layout="inline_fullscreen"])', $this->css);
+        self::assertStringContainsString('position: fixed;', $this->css);
+        self::assertStringContainsString('height: 100dvh;', $this->css);
+        self::assertStringContainsString('width: min(100%, 800px);', $this->css);
+        self::assertStringContainsString('background: transparent;', $this->css);
+    }
+
     private function asset(string $relativePath): string
     {
         $contents = file_get_contents(dirname(__DIR__, 2) . '/' . $relativePath);

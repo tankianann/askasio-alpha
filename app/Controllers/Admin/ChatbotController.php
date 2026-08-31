@@ -57,6 +57,7 @@ final class ChatbotController
         private readonly int $maximumMessageCharacters = 4_000,
         private readonly ?ChatbotPreviewService $previewService = null,
         private readonly string $applicationSecret = '',
+        private readonly string $applicationUrl = 'http://localhost:8080',
     ) {
     }
 
@@ -523,6 +524,7 @@ final class ChatbotController
             'providerConfigured' => $this->providerConfigured,
             'maximumTopK' => $this->maximumTopK,
             'maximumMessageCharacters' => $this->maximumMessageCharacters,
+            'applicationUrl' => rtrim($this->applicationUrl, '/'),
             'activeTab' => $activeTab,
             'assignedSources' => $assignedSources,
             'sourcePage' => $sourcePage,

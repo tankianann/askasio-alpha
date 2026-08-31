@@ -360,12 +360,36 @@ if (bulkMarkdownForm instanceof HTMLFormElement) {
     });
 }
 
+document.querySelectorAll('[data-widget-installation]').forEach((installation) => {
+    const selectId = installation.getAttribute('data-layout-select');
+    const layoutSelect = selectId ? document.getElementById(selectId) : null;
+    const copyButton = installation.querySelector('[data-widget-copy-button]');
+    const snippets = installation.querySelectorAll('[data-widget-snippet]');
+
+    if (!(layoutSelect instanceof HTMLSelectElement) || !(copyButton instanceof HTMLButtonElement)) {
+        return;
+    }
+
+    const updateSnippet = () => {
+        const layout = layoutSelect.value === 'inline_fullscreen' ? 'inline_fullscreen' : 'floating';
+
+        snippets.forEach((snippet) => {
+            snippet.hidden = snippet.getAttribute('data-widget-snippet') !== layout;
+        });
+        copyButton.setAttribute('data-copy-target', layout === 'inline_fullscreen' ? 'inline-embed-code' : 'floating-embed-code');
+        copyButton.textContent = 'Copy embed code';
+    };
+
+    layoutSelect.addEventListener('change', updateSnippet);
+    updateSnippet();
+});
+
 document.querySelectorAll('[data-copy-target]').forEach((button) => {
     button.addEventListener('click', async () => {
         const targetId = button.getAttribute('data-copy-target');
         const target = targetId ? document.getElementById(targetId) : null;
 
-        if (!(target instanceof HTMLInputElement)) {
+        if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) {
             return;
         }
 

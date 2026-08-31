@@ -34,6 +34,7 @@ final class ChatbotAdminFormParser
                 'suggested_questions' => $this->lines($request, 'suggested_questions'),
             ],
             [
+                'layout' => $this->string($request, 'layout'),
                 'accent' => $this->string($request, 'accent'),
                 'theme' => $this->string($request, 'theme'),
                 'position' => $this->string($request, 'position'),
@@ -65,7 +66,7 @@ final class ChatbotAdminFormParser
             'maximum_messages_per_session', 'idle_expiry_minutes', 'absolute_expiry_minutes',
             'retention_days', 'privacy_notice_url', 'disclosure_text', 'display_name',
             'welcome_message', 'input_placeholder', 'suggested_questions', 'accent', 'theme',
-            'position', 'launcher_label', 'launcher_icon', 'panel_title', 'size', 'origins',
+            'layout', 'position', 'launcher_label', 'launcher_icon', 'panel_title', 'size', 'origins',
         ];
         $old = [];
 
