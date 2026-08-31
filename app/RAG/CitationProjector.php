@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace App\RAG;
 
 use App\Domain\RAG\RetrievedChunk;
+use App\Exceptions\ValidationException;
+use App\Security\UrlSourceValidator;
 
 final class CitationProjector
 {
+    public function __construct(private readonly UrlSourceValidator $urls = new UrlSourceValidator())
+    {
+    }
+
     /** @return array<string, mixed> */
     public function legacy(RetrievedChunk $chunk, int $index): array
     {
@@ -33,8 +39,27 @@ final class CitationProjector
             'title' => $chunk->sourceName,
             'heading' => $chunk->heading(),
             'page' => $chunk->page(),
-            'url' => $chunk->sourceType === 'url' ? $chunk->sourceUrl : null,
+            'url' => $this->publicUrl($chunk),
         ];
+    }
+
+    private function publicUrl(RetrievedChunk $chunk): ?string
+    {
+        $candidate = match ($chunk->sourceType) {
+            'url' => $chunk->sourceUrl,
+            'markdown' => $chunk->metadata['canonical_url'] ?? null,
+            default => null,
+        };
+
+        if (!is_string($candidate) || trim($candidate) === '') {
+            return null;
+        }
+
+        try {
+            return $this->urls->validate($candidate);
+        } catch (ValidationException) {
+            return null;
+        }
     }
 
     /** @return array<string, mixed> */

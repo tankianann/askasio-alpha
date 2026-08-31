@@ -85,7 +85,10 @@ final class SharedChatExecutionServiceTest extends TestCase
 
     public function testItIncludesOnlyRecentCompletedHistoryAndKeepsPublicDiagnosticsPrivate(): void
     {
-        $chunk = new RetrievedChunk(1, 1, 1, 1, 'Policy context.', 0.9, 'Policy', 'markdown', null, []);
+        $chunk = new RetrievedChunk(
+            1, 1, 1, 1, 'Policy context.', 0.9, 'Policy', 'markdown', null,
+            ['canonical_url' => 'https://example.com/policy'],
+        );
         $fixture = $this->fixture([$chunk]);
         $first = $this->reserve($fixture, 'First question', 'turn-1', '018f9f3a-7420-7cc1-8a12-8ac550005555');
         $fixture['executor']->execute(
@@ -106,6 +109,7 @@ final class SharedChatExecutionServiceTest extends TestCase
         ], $input['conversation_history']);
         self::assertSame('Follow-up question', $input['question']);
         self::assertStringContainsString('Additional administrator-authored behavior instructions', $request['instructions']);
+        self::assertSame('https://example.com/policy', $result->citations[0]['url']);
         self::assertSame([], $result->diagnostics);
     }
 

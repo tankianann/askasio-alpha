@@ -200,6 +200,17 @@ Raise PHP-FPM/web `upload_max_filesize` and `post_max_size` above `MAX_UPLOAD_SI
 
 The bulk Markdown page uploads files sequentially, one multipart request per file. `max_file_uploads` therefore does not limit the selected batch, while `upload_max_filesize`, `post_max_size`, and `MAX_UPLOAD_SIZE_MB` still apply to every individual file.
 
+To make a Markdown source citation link to its published page, include a public HTTP(S) canonical URL in its YAML frontmatter. `canonical_url` is preferred; `canonical` is accepted as an alias:
+
+```yaml
+---
+title: Refund policy
+canonical_url: https://example.com/refunds
+---
+```
+
+After adding or changing this field on an existing source, upload/reprocess that Markdown version so the worker can copy the validated URL into its chunk metadata.
+
 ### Jobs remain pending
 
 Run `php bin/process-jobs.php --once`, inspect exit code/log, verify OpenAI/OCR/storage configuration, and ensure the worker service is active. The worker refuses invalid timeout relationships.

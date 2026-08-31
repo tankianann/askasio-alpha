@@ -2,6 +2,11 @@
 
 Ask Asio has not adopted semantic release numbers. This history is organized by implementation milestone and Git commit. Dates reflect the July 2026 development sequence; commit IDs are the definitive source history.
 
+## Linked Markdown canonical citations — 2026-08-31
+
+- Retained a validated public HTTP(S) `canonical_url` or `canonical` value from Markdown YAML frontmatter in chunk metadata while continuing to exclude frontmatter from indexed content.
+- Linked public Markdown citations to that canonical URL, kept ordinary URL-source citations linked to their source URL, and continued to suppress unsafe, private, uploaded-PDF, and arbitrary metadata URLs.
+
 ## Chatbot inline/fullscreen presentation — 2026-08-31
 
 - Added a validated chatbot publication setting for the existing floating launcher or a full-width inline search prompt.

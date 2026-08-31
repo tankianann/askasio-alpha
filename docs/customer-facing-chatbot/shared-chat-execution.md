@@ -67,7 +67,7 @@ Generated answers retain strict `[S#]` range validation. Public-safe citations c
 - stable reference;
 - source display title;
 - approved heading/page;
-- URL only for URL sources.
+- validated source URL for URL sources, or a validated public HTTP(S) `canonical_url`/`canonical` frontmatter URL for Markdown sources.
 
 They exclude source, version, and chunk IDs, similarity, excerpts, private paths, and arbitrary metadata. Administrator preview may receive a separate bounded diagnostic projection with internal IDs, rounded similarity, and a 280-character excerpt. Public execution results contain no diagnostic projection. When published citation display is disabled, citation markers are removed from the displayed/persisted answer and the citation list is empty; grounding and citation validation still occur before that display projection.
 
