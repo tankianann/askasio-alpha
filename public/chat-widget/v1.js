@@ -40,13 +40,18 @@
     var layout = 'floating';
     var pageOverflow = null;
     var inlineMountMarker = null;
+    var inlineSuggestions = [];
+    var inlineSuggestionIndex = 0;
+    var inlineSuggestionTimer = null;
 
     var host = document.createElement('div');
     host.setAttribute('data-askasio-chat-widget', 'v1');
     var shadow = host.attachShadow({ mode: 'open' });
+    var stylesheetUrl = new URL('./v1.css', script.src);
+    stylesheetUrl.search = new URL(script.src, document.baseURI).search;
     var stylesheet = document.createElement('link');
     stylesheet.rel = 'stylesheet';
-    stylesheet.href = new URL('./v1.css', script.src).href;
+    stylesheet.href = stylesheetUrl.href;
     shadow.appendChild(stylesheet);
 
     var root = element('div', 'askasio-widget');
@@ -69,10 +74,17 @@
     inlineSend.setAttribute('aria-label', 'Start conversation');
     inlineSend.textContent = '\u2192';
     inlineForm.append(inlineLabel, inlineInput, inlineSend);
+    var inlinePrompt = element('button', 'askasio-inline-prompt');
+    inlinePrompt.type = 'button';
+    inlinePrompt.hidden = true;
+    var inlinePromptPrefix = element('span', 'askasio-inline-prompt-prefix');
+    inlinePromptPrefix.textContent = 'Try asking:';
+    var inlinePromptQuestion = element('span', 'askasio-inline-prompt-question');
+    inlinePrompt.append(inlinePromptPrefix, inlinePromptQuestion);
     var inlineStatus = element('p', 'askasio-visually-hidden askasio-inline-status');
     inlineStatus.setAttribute('role', 'status');
     inlineStatus.setAttribute('aria-live', 'polite');
-    inline.append(inlineForm, inlineStatus);
+    inline.append(inlineForm, inlinePrompt, inlineStatus);
 
     var launcher = element('button', 'askasio-launcher');
     launcher.type = 'button';
@@ -163,6 +175,20 @@
         setOpen(true);
         form.requestSubmit();
     });
+    inlinePrompt.addEventListener('click', function () {
+        var question = inlineSuggestions[inlineSuggestionIndex];
+        if (!question) {
+            return;
+        }
+        inlineInput.value = question;
+        refreshInlinePrompt();
+        inlineInput.focus();
+    });
+    inlineInput.addEventListener('focus', pauseInlinePrompt);
+    inlineInput.addEventListener('blur', refreshInlinePrompt);
+    inlineInput.addEventListener('input', refreshInlinePrompt);
+    inlinePrompt.addEventListener('focus', pauseInlinePrompt);
+    inlinePrompt.addEventListener('blur', refreshInlinePrompt);
     input.addEventListener('keydown', function (event) {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -241,10 +267,15 @@
 
     function renderSuggestions(items) {
         suggestions.replaceChildren();
-        items.slice(0, 6).forEach(function (question) {
-            if (typeof question !== 'string' || !question.trim()) {
-                return;
-            }
+        var normalizedQuestions = items.slice(0, 6).filter(function (question) {
+            return typeof question === 'string' && question.trim();
+        }).map(function (question) {
+            return question.trim();
+        });
+        inlineSuggestions = shuffleQuestions(normalizedQuestions);
+        inlineSuggestionIndex = 0;
+        refreshInlinePrompt();
+        normalizedQuestions.forEach(function (question) {
             var button = element('button', 'askasio-suggestion');
             button.type = 'button';
             button.textContent = question;
@@ -254,6 +285,56 @@
             });
             suggestions.appendChild(button);
         });
+    }
+
+    function shuffleQuestions(items) {
+        var shuffled = items.slice();
+        for (var index = shuffled.length - 1; index > 0; index -= 1) {
+            var randomIndex = Math.floor(Math.random() * (index + 1));
+            var current = shuffled[index];
+            shuffled[index] = shuffled[randomIndex];
+            shuffled[randomIndex] = current;
+        }
+
+        return shuffled;
+    }
+
+    function refreshInlinePrompt() {
+        pauseInlinePrompt();
+        var shouldShow = layout === 'inline_fullscreen'
+            && !opened
+            && inlineSuggestions.length > 0
+            && inlineInput.value.trim() === '';
+        inlinePrompt.hidden = !shouldShow;
+
+        if (!shouldShow) {
+            return;
+        }
+
+        inlinePromptQuestion.textContent = inlineSuggestions[inlineSuggestionIndex];
+        if (shadow.activeElement === inlineInput
+            || shadow.activeElement === inlinePrompt
+            || inlineSuggestions.length < 2
+            || prefersReducedMotion()) {
+            return;
+        }
+
+        inlineSuggestionTimer = window.setTimeout(function () {
+            inlineSuggestionIndex = (inlineSuggestionIndex + 1) % inlineSuggestions.length;
+            refreshInlinePrompt();
+        }, 5000);
+    }
+
+    function pauseInlinePrompt() {
+        if (inlineSuggestionTimer !== null) {
+            window.clearTimeout(inlineSuggestionTimer);
+            inlineSuggestionTimer = null;
+        }
+    }
+
+    function prefersReducedMotion() {
+        return typeof window.matchMedia === 'function'
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
     function submitMessage(event) {
@@ -434,6 +515,7 @@
                 restoreInlineHost();
                 inline.hidden = false;
             }
+            refreshInlinePrompt();
         }
         if (opened) {
             input.focus();

@@ -86,6 +86,14 @@ final class PublicChatbotWidgetAssetTest extends TestCase
             'document.body.appendChild(host)',
             "host.style.setProperty('z-index', '2147483647', 'important')",
             'restoreInlineHost()',
+            "inlinePromptPrefix.textContent = 'Try asking:'",
+            'inlineInput.value = question',
+            'inlineSuggestions = shuffleQuestions(normalizedQuestions)',
+            'Math.floor(Math.random() * (index + 1))',
+            'refreshInlinePrompt()',
+            'inlineInput.addEventListener(\'focus\', pauseInlinePrompt)',
+            "window.matchMedia('(prefers-reduced-motion: reduce)').matches",
+            '}, 5000)',
         ] as $contract) {
             self::assertStringContainsString($contract, $this->javascript);
         }
@@ -98,6 +106,14 @@ final class PublicChatbotWidgetAssetTest extends TestCase
         self::assertStringContainsString('height: 100dvh;', $this->css);
         self::assertStringContainsString('width: min(100%, 800px);', $this->css);
         self::assertStringContainsString('background: transparent;', $this->css);
+        self::assertStringContainsString('.askasio-inline-prompt[hidden]', $this->css);
+        self::assertStringContainsString("stylesheetUrl.search = new URL(script.src, document.baseURI).search", $this->javascript);
+        self::assertStringContainsString('text-decoration: underline;', $this->css);
+        self::assertStringContainsString('justify-content: center;', $this->css);
+        self::assertStringContainsString('margin-right: 5px;', $this->css);
+        self::assertStringContainsString('font-size: 15px;', $this->css);
+        self::assertStringContainsString('font-family: inherit;', $this->css);
+        self::assertStringNotContainsString('ui-sans-serif', $this->css);
     }
 
     private function asset(string $relativePath): string

@@ -15,6 +15,7 @@ Ask Asio has not adopted semantic release numbers. This history is organized by 
 - Added container-targeted embed support, desktop/mobile rendered verification, configuration/widget contracts, and living documentation.
 - Added copy-ready installation code to the chatbot editor, switching automatically between floating and inline snippets and using the configured `APP_URL` and chatbot public ID.
 - Reduced the inline entry state to its full-width question field and submit button, and portal the open conversation to a maximum-priority body layer so site headers cannot cover it.
+- Reused configured suggested questions as a rotating, reduced-motion-aware “Try asking” prompt that fills the inline field for review without automatically submitting.
 
 ## Administrator terminology alignment — 2026-07-21
 
